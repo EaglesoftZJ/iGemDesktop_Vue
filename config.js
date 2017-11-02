@@ -5,14 +5,14 @@ const path = require('path')
 let config = {
   // Name of electron app
   // Will be used in production builds
-  name: 'igemdesk',
+  name: 'FlyChat',
 
   // webpack-dev-server port
   port: 8080,
 
   // electron-packager options
   building: {
-    arch: 'x64',
+    arch: 'all',
     asar: true,
     dir: path.join(__dirname, 'app'),
     icon: path.join(__dirname, 'app/icons/icon'),
@@ -20,7 +20,7 @@ let config = {
     prune: false,
     overwrite: true,
     win32metadata: {
-      FileDescription: 'igemdesk',
+      FileDescription: 'FlyChat',
     },
     platform: require('os').platform(),
     out: path.join(__dirname, 'packages'),

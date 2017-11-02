@@ -38,12 +38,13 @@ UninstallDisplayIcon={app}\\${issConfig.AppName}.exe
 ${fs.existsSync(setupIco) ? `SetupIconFile=..\\..\\` + setupIco : ``}
 ${fs.existsSync(setupImg) ? `WizardSmallImageFile=..\\..\\` + setupImg : ``}
 DisableProgramGroupPage=yes
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x86
+
 
 [Tasks]
 Name: desktopicon; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
 Name: startmenuicon; Description: "Create a &startmenu icon"; GroupDescription: "Additional icons:"
+Name: startupicon; Description: "Create a &startupicon icon"; GroupDescription: "Additional icons:"
 Name: runapp; Description: "no"; GroupDescription: "no"; Check: WizardSilent
 
 [Files]
@@ -52,6 +53,7 @@ Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubd
 [Icons]
 Name: "{commondesktop}\\${issConfig.AppName}"; Filename: "{app}\\${issConfig.AppName}.exe"; Tasks: desktopicon
 Name: "{commonstartmenu}\\${issConfig.AppName}"; Filename: "{app}\\${issConfig.AppName}.exe"; Tasks: startmenuicon
+Name: "{userstartup}\\${issConfig.AppName}"; Filename: "{app}\\${issConfig.AppName}.exe"; Tasks: startupicon
 
 [Run]
 Filename: "{app}\\${issConfig.AppName}.exe"; Description: "Launch ${issConfig.AppName}"; Tasks: runapp; Flags: nowait postinstall; Check: WizardSilent

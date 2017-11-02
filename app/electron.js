@@ -27,11 +27,12 @@ else {
   process.env.NODE_ENV = 'production';
 }
 
-if (process.env.NODE_ENV === 'developmentHot') {
-  config = require('../config');
-  config.url = `http://localhost:3000`;
-}
-else {
+// if (process.env.NODE_ENV === 'developmentHot') {
+//   config = require('../config');
+//   config.url = `http://localhost:3000`;
+// }
+// else 
+{
   config.devtron = false;
   config.url = `http://61.175.100.14:5433/`;
 }
@@ -58,11 +59,12 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  //if (process.env.NODE_ENV === 'production') 
+  {
     const UpdateObj = require('./update');
     let update = new UpdateObj();
-    update.setFeedURL('http://localhost');
-    update.checkLocalUpdates();
+    update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
+    update.checkServerUpdates(mainWindow);
     if (process.argv[1] === 'debug') {
       process.env.DEBUG = true;
     }
@@ -129,14 +131,14 @@ app.on('activate', function() {
 
 // focus blur 适配hidden 和visible事件
 app.on('browser-window-blur', (event, window) => {
-  if (window == BrowserWindow) {
+  if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppHidden()');
   }
 })
 
 app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
-  if (window == BrowserWindow) {
+  if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
   }
 })

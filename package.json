@@ -1,8 +1,8 @@
 {
-  "name": "igemdesk",
-  "description": "An electron-webpack project",
-  "version": "0.0.0",
-  "author": "llwslc <llwslc@gmail.com>",
+  "name": "FlyChat",
+  "description": "易舸即时通讯软件",
+  "version": "1.0.1",
+  "author": "eaglesoft.cn",
   "scripts": {
     "postinstall": "cd app && npm i",
     "dev": "node tasks/runner.js dev",
@@ -12,6 +12,9 @@
     "pack:just": "node tasks/package.js pack:just",
     "installer:just": "node tasks/package.js installer:just",
     "package:just": "node tasks/package.js package:just"
+  },
+  "dependencies": {
+    "soap": "latest"
   },
   "devDependencies": {
     "async": "^2.1.4",

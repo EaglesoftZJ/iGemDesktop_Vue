@@ -1,9 +1,9 @@
 
 {
   "AppId": "00000000-0000-0000-0000-000000000000",
-  "AppPublisher": "Github",
+  "AppPublisher": "Eaglesoft",
   "AppSupportPhone": "010-88888888",
-  "AppPublisherURL": "http://localhost",
-  "AppSupportURL": "http://localhost",
-  "AppUpdatesURL": "http://localhost"
+  "AppPublisherURL": "http://www.eaglesoft.cn",
+  "AppSupportURL": "http://www.eaglesoft.cn",
+  "AppUpdatesURL": "http://www.eaglesoft.cn"
 }

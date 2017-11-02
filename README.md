@@ -1,4 +1,4 @@
-# igemdesk
+# FlyChat
 
 > An electron-webpack project
 
