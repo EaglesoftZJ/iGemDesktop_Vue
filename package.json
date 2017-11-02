@@ -14,7 +14,7 @@
     "package:just": "node tasks/package.js package:just"
   },
   "dependencies": {
-    "soap": "latest"
+    "soap": "^0.23.0"
   },
   "devDependencies": {
     "async": "^2.1.4",
