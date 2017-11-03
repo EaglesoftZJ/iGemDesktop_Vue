@@ -1,7 +1,7 @@
 const electron = require('electron');
 const path = require('path');
 
-const { app, Menu, Tray, ipcMain, BrowserWindow, dialog} = require('electron');
+const { app, Menu, Tray, ipcMain, BrowserWindow, dialog } = require('electron');
 
 
 
@@ -19,6 +19,7 @@ const iconPath = path.join(__dirname, './icons/' + trayPath + '.png');
 const blinkIconPath = path.join(__dirname, './icons/' + trayPath + '_blink.png');
 
 let config = {};
+let willQuitApp = false;
 
 if (!!process.env.NODE_ENV) {
   // null
@@ -52,6 +53,15 @@ function createWindow() {
   // mainWindow.maximize();
   Menu.setApplicationMenu(null);
 
+
+  const dockMenu = Menu.buildFromTemplate([
+    { label: '退出', click() { app.exit(0); } },
+    { label: '切换用户', click() { app.quit(0); } },
+  ])
+
+
+  app.dock.setMenu(dockMenu)
+
   if (process.env.NODE_ENV.indexOf('development') !== -1) {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/devtron'));
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/vue-devtools'));
@@ -63,14 +73,16 @@ function createWindow() {
   {
     const UpdateObj = require('./update');
     let update = new UpdateObj();
-    update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
+    // update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
+    update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
+
     update.checkServerUpdates(mainWindow);
     if (process.argv[1] === 'debug') {
       process.env.DEBUG = true;
     }
   }
 
-  
+
 
   mainWindow.loadURL(config.url);
 
@@ -78,6 +90,11 @@ function createWindow() {
     // Dereference the window object, usually you would store windows
     // in an array if your app supports multi windows, this is the time
     // when you should delete the corresponding element.
+    console.log('willQuitApp' + willQuitApp);
+    if (willQuitApp) {
+      /* the user tried to quit the app */
+      mainWindow = null;
+    }
     if (mainWindow) {
       e.preventDefault();
     }
@@ -128,6 +145,8 @@ app.on('activate', function() {
     showWindow();
   }
 });
+
+app.on('before-quit', () => willQuitApp = true);
 
 // focus blur 适配hidden 和visible事件
 app.on('browser-window-blur', (event, window) => {
@@ -222,7 +241,7 @@ ipcMain.on('new-messages-notification', function(event, arg) {
 
   }
   if (isMacOS) {
-    
+
   }
 
 });

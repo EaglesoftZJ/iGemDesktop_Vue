@@ -119,6 +119,15 @@ var UpdateObj = function () {
       function (cb) {
         var url = self.feedURL
 
+        var soap = require('soap');
+        var args = {version: '1.0.0', winType: '64'};
+        soap.createClient(url, function(err, client) {
+          // console.log(client);
+            client.updateFlyChat(args, function(err, result) {
+                console.log(result);
+            });
+        });
+
         http.get(url, function (response) {
           var statusCode = response.statusCode;
           var contentType = response.headers['content-type'];
