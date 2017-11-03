@@ -92,9 +92,9 @@ var installer = function ()
       {
         var bgWidth = 550;
         var bgHeigth = 310;
-        var appX = 143;
+        var appX = 0;
         var appY = 157;
-        var dropX = 407;
+        var dropX = 307;
         var dropY = 157;
         var iconSize = 128;
         var textSize = 16;

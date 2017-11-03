@@ -73,10 +73,10 @@ function createWindow() {
   {
     const UpdateObj = require('./update');
     let update = new UpdateObj();
-    // update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
-    update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
+    update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
+    // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
 
-    update.checkServerUpdates(mainWindow);
+    update.checkServerUpdates();
     if (process.argv[1] === 'debug') {
       process.env.DEBUG = true;
     }
