@@ -59,8 +59,10 @@ function createWindow() {
     { label: '切换用户', click() { app.quit(0); } },
   ])
 
-
-  app.dock.setMenu(dockMenu)
+  if (isMacOS) {
+    app.dock.setMenu(dockMenu)
+  }
+ 
 
   if (process.env.NODE_ENV.indexOf('development') !== -1) {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/devtron'));
