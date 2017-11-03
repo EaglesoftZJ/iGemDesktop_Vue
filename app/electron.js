@@ -59,8 +59,10 @@ function createWindow() {
     { label: '切换用户', click() { app.quit(0); } },
   ])
 
-
-  app.dock.setMenu(dockMenu)
+  if (isMacOS) {
+    app.dock.setMenu(dockMenu)
+  }
+ 
 
   if (process.env.NODE_ENV.indexOf('development') !== -1) {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/devtron'));
@@ -73,8 +75,8 @@ function createWindow() {
   {
     const UpdateObj = require('./update');
     let update = new UpdateObj();
-    // update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
-    update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
+    update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
+    // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
 
     update.checkServerUpdates(mainWindow);
     if (process.argv[1] === 'debug') {

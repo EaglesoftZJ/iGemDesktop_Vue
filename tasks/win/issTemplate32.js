@@ -60,6 +60,23 @@ Filename: "{app}\\${issConfig.AppName}.exe"; Description: "Launch ${issConfig.Ap
 Filename: "{app}\\${issConfig.AppName}.exe"; Description: "Launch ${issConfig.AppName}"; Flags: nowait postinstall; Check: WizardNotSilent
 
 [Code]
+function InitializeSetup():boolean;
+var
+  MykeynotExist:boolean;
+  ResultCode: Integer;
+  uicmd: String;
+begin
+  MykeynotExist:= true;
+  if RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{23098B2F-1642-452A-A928-41885D3B4CBA}_is1', 'UninstallString', uicmd) then
+  begin
+  MyKeynotExist:= false;
+  Exec(RemoveQuotes(uicmd), '', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
+  end;
+  Result:= MykeynotExist
+end;
+
+
+
 function WizardNotSilent(): Boolean;
 begin
   Result := not WizardSilent();

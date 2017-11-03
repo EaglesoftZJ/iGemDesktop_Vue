@@ -9,6 +9,7 @@ const os = require('os');
 const childProcess = require('child_process');
 const async = require('async');
 const pkgInfo = require('./package.json');
+const iconv = require('iconv-lite');
 
 var UpdateObj = function () {
   var self = this;
@@ -23,6 +24,9 @@ var UpdateObj = function () {
   self.updateMD5 = '';
   self.updatePath = '';
   self.updateTmpPath = '';
+
+
+  
 
   self.getVerNum = function (ver) {
     var verArr = ver.split('.');
@@ -120,59 +124,38 @@ var UpdateObj = function () {
         var url = self.feedURL
 
         var soap = require('soap');
-        var args = {version: '1.0.0', winType: '64'};
-        soap.createClient(url, function(err, client) {
+        var args = { version: '1.0.0', winType: '64' };
+        soap.createClient(url, function (err, client) {
           // console.log(client);
-            client.updateFlyChat(args, function(err, result) {
-                console.log(result);
+          if (client)
+            client.updateFlyChat(args, function (err, result) {
+
+            
+              let parsedData = JSON.parse(result.return);
+
+              console.log(parsedData);
+              
+              // update.manifest = iconv.decode(new Buffer(update.manifest, 'base64'), 'gb2312');
+
+              self.updateURL = parsedData.url;
+              self.updateVer = parsedData.version;
+
+              dialog.showMessageBox({
+                type: 'none',
+                buttons: self.updateButtons,
+                title: '发现新版本',
+                message: self.updateMessage,
+              }, function (response) {
+                if (response == self.updateResponse) {
+                  cb(null, self.updateVer);
+                }
+              });
+              console.log(parsedData);
+
             });
-        });
+          });
 
-        http.get(url, function (response) {
-          var statusCode = response.statusCode;
-          var contentType = response.headers['content-type'];
-          if (statusCode != 200) {
-
-            cb(statusCode, null);
-          }
-          else {
-
-            response.setEncoding('utf8');
-            var rawData = '';
-            response.on('data', (chunk) => {
-
-              rawData += chunk
-            });
-            response.on('end', function () {
-              try {
-
-                var parsedData = JSON.parse(rawData);
-                self.updateURL = parsedData.url;
-                self.updateVer = parsedData.version;
-
-                dialog.showMessageBox({
-                  type: 'none',
-                  buttons: self.updateButtons,
-                  title: '发现新版本',
-                  message: self.updateMessage,
-                }, function (response) {
-                  if (response == self.updateResponse) {
-                    cb(null, self.updateVer);
-                  }
-                });
-
-                
-              }
-              catch (e) {
-
-                //cb(statusCode, null);
-              }
-            });
-
-          }
-        }).on('error', function (err) {
-          cb(err, null);
-        });
+      
       },
       function (res, cb) {
         http.get(self.updateURL, function (response) {
@@ -224,7 +207,7 @@ var UpdateObj = function () {
           console.log(`stdout: ${stdout}`);
           console.log(`stderr: ${stderr}`);
         });
-        setTimeout(function() {
+        setTimeout(function () {
           app.exit(0);
         }, 10000);
       }
