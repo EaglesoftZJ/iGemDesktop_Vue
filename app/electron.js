@@ -64,16 +64,27 @@ function createWindow() {
     height: 700
   });
 
+  let screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
+  let screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
+
+  let width = 320;
+  let height = 120;
+  let offsetX = 320;
+
+  let offSetY = height + 10;
+
   updateWindow = new BrowserWindow({
     frame: false,
-    width: 300,
-    height: 100,
-    x: 2000,
-    y: 2000,
+    width: width,
+    height: height,
+    x: screenWidth - offsetX,
+    y: screenHeight - offSetY,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false
   });
+
+  
 
   updateWindow.hide();
 
