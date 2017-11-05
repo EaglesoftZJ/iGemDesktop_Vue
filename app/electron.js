@@ -7,9 +7,14 @@ const { app, Menu, Tray, ipcMain, BrowserWindow, dialog } = require('electron');
 
 
 let mainWindow;
+let updateWindow;
+let notificationWindow;
 
 let blinkTrayFlag = false;
 let isMacOS = (process.platform === 'darwin');
+
+let updateUrl;
+let config = {};
 
 let trayPath = 'tray';
 if (isMacOS) {
@@ -18,8 +23,9 @@ if (isMacOS) {
 const iconPath = path.join(__dirname, './icons/' + trayPath + '.png');
 const blinkIconPath = path.join(__dirname, './icons/' + trayPath + '_blink.png');
 
-let config = {};
+
 let willQuitApp = false;
+let update;
 
 if (!!process.env.NODE_ENV) {
   // null
@@ -33,10 +39,18 @@ else {
 //   config.url = `http://localhost:3000`;
 // }
 // else 
-{
-  config.devtron = false;
-  config.url = `http://61.175.100.14:5433/`;
+
+if (process.env.NODE_ENV === 'developmentHot') {
+  config = require('../config');
+  updateUrl = `http://localhost:${config.port}/`;
 }
+else {
+  config.devtron = false;
+
+  updateUrl = 'file://' + path.join(__dirname, './dist/index.html');
+}
+config.url = `http://61.175.100.14:5433/`;
+
 
 // 主程序初始化
 function createWindow() {
@@ -48,6 +62,34 @@ function createWindow() {
     minWidth: 1000,
     width: 1000,
     height: 700
+  });
+
+  updateWindow = new BrowserWindow({
+    frame: false,
+    width: 300,
+    height: 100,
+    x: 2000,
+    y: 2000,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false
+  });
+
+  updateWindow.hide();
+
+
+  updateWindow.loadURL(updateUrl);
+
+  mainWindow.loadURL(config.url);
+
+  const UpdateObj = require('./update');
+  update = new UpdateObj();
+  update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
+  // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
+
+
+  updateWindow.webContents.on('dom-ready', function() {
+    update.checkUpdate(updateWindow);
   });
 
   // mainWindow.maximize();
@@ -62,7 +104,7 @@ function createWindow() {
   if (isMacOS) {
     app.dock.setMenu(dockMenu)
   }
- 
+
 
   if (process.env.NODE_ENV.indexOf('development') !== -1) {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/devtron'));
@@ -71,28 +113,21 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
-  //if (process.env.NODE_ENV === 'production') 
-  {
-    const UpdateObj = require('./update');
-    let update = new UpdateObj();
-    update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
-    // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
 
-    update.checkServerUpdates();
-    if (process.argv[1] === 'debug') {
-      process.env.DEBUG = true;
-    }
+
+  if (process.argv[1] === 'debug') {
+    process.env.DEBUG = true;
   }
 
 
 
-  mainWindow.loadURL(config.url);
+
+
 
   mainWindow.on('close', function(e) {
     // Dereference the window object, usually you would store windows
     // in an array if your app supports multi windows, this is the time
     // when you should delete the corresponding element.
-    console.log('willQuitApp' + willQuitApp);
     if (willQuitApp) {
       /* the user tried to quit the app */
       mainWindow = null;
@@ -113,7 +148,6 @@ function createWindow() {
   createTray();
 
   mainWindow.focus();
-  console.log('mainWindow opened');
 }
 
 function showWindow() {
@@ -176,7 +210,7 @@ function createTray() {
       }
     }
   ])
-  tray.setToolTip('iGem');
+  tray.setToolTip('FlyChat');
   tray.setContextMenu(contextMenu);
 
   tray.on('click', () => {
@@ -245,5 +279,27 @@ ipcMain.on('new-messages-notification', function(event, arg) {
   if (isMacOS) {
 
   }
+
+});
+
+ipcMain.on('page-created', function(event, confirm) {
+
+});
+
+ipcMain.on('confirm-update', function(event, confirm) {
+
+  console.log("confirm:" + confirm);
+  if (confirm) {
+    update.startUpdate(updateWindow);
+
+  } else {
+    updateWindow.hide();
+  }
+
+});
+
+ipcMain.on('quitAndInstall', function(event, confirm) {
+
+  update.quitAndInstall();
 
 });

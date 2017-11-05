@@ -1,32 +1,43 @@
 <style scoped>
-
+.main {
+  width: 100%;
+  height: 100%;
+}
 </style>
 
 <template>
-  <div>
-    <hello-page></hello-page>
+  <div class="main">
+      <Update v-if="canUpdate"></Update>
   </div>
 </template>
 
 <script>
-  import HelloPage from './pages/helloPage.vue';
+import Vue from "vue";
+import Store from "../vuex/store";
+import Update from "./update/update.vue";
 
-  import Vue from 'vue';
-  import Store from '../vuex/store';
+export default {
+  components: {
+    Update
+  },
+  data() {
+    return {};
+  },
+  computed: {
+    canUpdate: function() {
+      return Store.state.canUpdate;
+    }
+  },
 
-  export default {
-    components: {
-      HelloPage,
-    },
+  beforeCreate() {
+    global.Vue = Vue;
+    global.Store = Store;
+    this.$ect.ipcRenderer.send("page-created", true);
+    this.$ect.ipcRenderer.on('change-to-update', (event, arg) => {
+      Store.commit('setUpdate');
+    });
+  },
 
-    beforeCreate() {
-
-      global.Hello = require('../sections/helloJs');
-
-      global.Vue = Vue;
-      global.Store = Store;
-    },
-
-    name: 'MainPage',
-  };
+  name: "MainPage"
+};
 </script>

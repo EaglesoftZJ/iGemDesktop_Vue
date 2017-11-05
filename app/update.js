@@ -9,14 +9,14 @@ const os = require('os');
 const childProcess = require('child_process');
 const async = require('async');
 const pkgInfo = require('./package.json');
-const iconv = require('iconv-lite');
 
-var UpdateObj = function () {
+var UpdateObj = function() {
   var self = this;
 
   self.name = pkgInfo.name;
   self.version = pkgInfo.version;
   self.platform = os.platform();
+  self.arch = os.arch();
 
   self.feedURL = '';
   self.updateURL = '';
@@ -24,11 +24,10 @@ var UpdateObj = function () {
   self.updateMD5 = '';
   self.updatePath = '';
   self.updateTmpPath = '';
+  self.contentLength = 0;
+  self.receivedLength = 0.00;
 
-
-  
-
-  self.getVerNum = function (ver) {
+  self.getVerNum = function(ver) {
     var verArr = ver.split('.');
     var num = 0;
     num += parseInt(verArr[0]) * 1000 * 1000;
@@ -37,7 +36,7 @@ var UpdateObj = function () {
     return num;
   };
 
-  self.cleanup = function (ver) {
+  self.cleanup = function(ver) {
     var needCleanup = false;
     var curVer = self.getVerNum(self.version);
     var fileVer = self.getVerNum(ver);
@@ -73,7 +72,7 @@ var UpdateObj = function () {
   }
 
   var files = fs.readdirSync(self.appDataDir);
-  files.forEach(function (file) {
+  files.forEach(function(file) {
     var filePath = path.join(self.appDataDir, file);
 
     if (/^update_v([\d.]+)\.(exe|zip)$/.test(file)) {
@@ -92,108 +91,88 @@ var UpdateObj = function () {
     }
   });
 
-  self.setFeedURL = function (url) {
+  self.setFeedURL = function(url) {
     self.feedURL = url;
   };
 
-  self.getFeedURL = function () {
+  self.getFeedURL = function() {
     return self.feedURL;
   };
 
-  self.checkLocalUpdates = function () {
-    if (fs.existsSync(self.updatePath)) {
-      dialog.showMessageBox({
-        type: 'none',
-        buttons: self.updateButtons,
-        title: '发现新版本',
-        message: self.updateMessage,
-      }, function (response) {
-        if (response == self.updateResponse) {
-          self.quitAndInstall();
-        }
-      });
+ 
+
+  self.checkUpdate = function(window) {
+    var url = self.feedURL
+    let osType;
+    if (self.platform == 'darwin') {
+      osType = 'mac';
+    } else {
+      if (self.arch === 'x64'){
+        osType = '64';
+      } else {
+        osType = '32';
+      }
     }
-    else {
-      self.checkServerUpdates();
-    }
-  };
+    var soap = require('soap');
+    var args = { version: pkgInfo.version, winType: osType };
+    soap.createClient(url, function(err, client) {
+      // console.log(client);
+      if (client) {
+        client.updateFlyChat(args, function(err, result) {
+          var parsedData = JSON.parse(result.return);
+          self.updateURL = parsedData.url;
+          self.updateVer = parsedData.version;
+          console.log(parsedData);
 
-  self.checkServerUpdates = function () {
-    async.waterfall([
-      function (cb) {
-        var url = self.feedURL
+          if (parsedData.canUpdate) {
+            window.webContents.send('change-to-update');
+            window.show();
+          }
+        });
+      }
 
-        var soap = require('soap');
-        var args = { version: '1.0.0', winType: '64' };
-        soap.createClient(url, function (err, client) {
-          // console.log(client);
-          if (client)
-            client.updateFlyChat(args, function (err, result) {
+    });
 
-            
-              let parsedData = JSON.parse(result.return);
+  }
 
-              console.log(parsedData);
-              
-              // update.manifest = iconv.decode(new Buffer(update.manifest, 'base64'), 'gb2312');
+  self.startUpdate = function(window) {
+    window.webContents.send('start-to-update');
+    http.get(self.updateURL, function(response) {
+      var statusCode = response.statusCode;
+      var contentType = response.headers['content-type'];
+      self.contentLength = parseInt(response.headers['content-length']);
+      console.log(self.contentLength);
+      if (statusCode != 200) {
 
-              self.updateURL = parsedData.url;
-              self.updateVer = parsedData.version;
+      }
+      else {
+        var downloadFlag = false;
 
-              dialog.showMessageBox({
-                type: 'none',
-                buttons: self.updateButtons,
-                title: '发现新版本',
-                message: self.updateMessage,
-              }, function (response) {
-                if (response == self.updateResponse) {
-                  cb(null, self.updateVer);
-                }
-              });
-              console.log(parsedData);
+        self.updateTmpPath = path.join(self.appDataDir, `temp_v${self.updateVer}.exe`);
+        self.updatePath = path.join(self.appDataDir, `update_v${self.updateVer}.exe`);
+        downloadFlag = true;
 
-            });
+
+        if (downloadFlag) {
+
+          response.pipe(fs.createWriteStream(self.updateTmpPath));
+
+          response.on('data', (chunk) => {
+            self.receivedLength += chunk.length;
+            window.webContents.send('update-progress',self.receivedLength/self.contentLength *100);
           });
 
-      
-      },
-      function (res, cb) {
-        http.get(self.updateURL, function (response) {
-          var statusCode = response.statusCode;
-          var contentType = response.headers['content-type'];
-          if (statusCode != 200) {
-            cb(statusCode, null);
-          }
-          else {
-            var downloadFlag = false;
 
-            self.updateTmpPath = path.join(self.appDataDir, `temp_v${self.updateVer}.exe`);
-            self.updatePath = path.join(self.appDataDir, `update_v${self.updateVer}.exe`);
-            downloadFlag = true;
-
-
-            if (downloadFlag) {
-
-              response.pipe(fs.createWriteStream(self.updateTmpPath));
-
-
-              response.on('end', function () {
-                fs.renameSync(self.updateTmpPath, self.updatePath);
-                cb(null, null);
-              });
-            }
-          }
-        }).on('error', function (err) {
-
-          cb(err, null);
-        });
-      },
-      self.quitAndInstall
-    ],
-      (err, res) => { });
-  };
-
-  self.quitAndInstall = function () {
+          response.on('end', function() {
+            fs.renameSync(self.updateTmpPath, self.updatePath);
+            console.log('finish');
+            console.log(self.updatePath);
+          });
+        }
+      }
+    })
+  }
+  self.quitAndInstall = function() {
     var exec = childProcess.exec;
     if (self.platform === 'win32') {
       if (fs.existsSync(self.updatePath)) {
@@ -207,7 +186,7 @@ var UpdateObj = function () {
           console.log(`stdout: ${stdout}`);
           console.log(`stderr: ${stderr}`);
         });
-        setTimeout(function () {
+        setTimeout(function() {
           app.exit(0);
         }, 10000);
       }
@@ -218,7 +197,7 @@ var UpdateObj = function () {
     else if (self.platform === 'darwin') {
       var unzipPath = path.join(process.argv[0], '../../..');
       var unzip = exec(`unzip -o '${self.updatePath}' -d '${unzipPath}'`, { encoding: 'binary' });
-      unzip.on('exit', function () {
+      unzip.on('exit', function() {
         exec(`rm '${self.updatePath}'`);
         app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
         app.exit(0);

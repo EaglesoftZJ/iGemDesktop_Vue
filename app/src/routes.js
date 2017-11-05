@@ -2,10 +2,11 @@ export default [
   {
     path: '/',
     name: 'main-page',
-    component: require('./components/mainPage'),
+    component: require('./components/mainPage')
   },
   {
-    path: '*',
-    redirect: '/',
-  },
+    path: '/update',
+    name: 'update-page',
+    component: require('./components/update/update')
+  }
 ];
