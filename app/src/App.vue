@@ -4,7 +4,8 @@ body {
   height: 100%;
 }
 html {
-  height: 100%;
+   width: 90%;
+  height: 85%;
 }
 .main {
   width: 100%;

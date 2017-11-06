@@ -12473,7 +12473,7 @@ var Component = __webpack_require__(45)(
   /* template */
   __webpack_require__(164),
   /* scopeId */
-  "data-v-082e0eaf",
+  "data-v-2827aae2",
   /* cssModules */
   null
 )
@@ -44953,13 +44953,13 @@ exports.default = [{
 
 
 /* styles */
-__webpack_require__(169)
+__webpack_require__(168)
 
 var Component = __webpack_require__(45)(
   /* script */
   null,
   /* template */
-  __webpack_require__(166),
+  __webpack_require__(165),
   /* scopeId */
   null,
   /* cssModules */
@@ -55498,7 +55498,7 @@ exports = module.exports = __webpack_require__(44)();
 
 
 // module
-exports.push([module.i, ".main[data-v-082e0eaf]{width:100%;height:100%}.title[data-v-082e0eaf]{display:flex;justify-content:center;color:#66b1ff}.button[data-v-082e0eaf]{margin-top:10px;display:flex;justify-content:space-around}.progress[data-v-082e0eaf]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
+exports.push([module.i, ".main[data-v-2827aae2]{width:100%;height:100%}.title[data-v-2827aae2]{display:flex;justify-content:center;color:#66b1ff}.button[data-v-2827aae2]{margin-top:10px;display:flex;justify-content:space-around}.progress[data-v-2827aae2]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
 
 // exports
 
@@ -55512,7 +55512,7 @@ exports = module.exports = __webpack_require__(44)();
 
 
 // module
-exports.push([module.i, ".main[data-v-1d650a90]{width:100%;height:100%}", ""]);
+exports.push([module.i, "body{width:100%;height:100%}html{width:99%;height:99%}.main{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -55526,7 +55526,7 @@ exports = module.exports = __webpack_require__(44)();
 
 
 // module
-exports.push([module.i, "body{width:100%}.main,body,html{height:100%}.main{width:100%}", ""]);
+exports.push([module.i, ".main[data-v-67351a50]{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -55537,15 +55537,15 @@ exports.push([module.i, "body{width:100%}.main,body,html{height:100%}.main{width
 
 
 /* styles */
-__webpack_require__(168)
+__webpack_require__(169)
 
 var Component = __webpack_require__(45)(
   /* script */
   __webpack_require__(155),
   /* template */
-  __webpack_require__(165),
+  __webpack_require__(166),
   /* scopeId */
-  "data-v-1d650a90",
+  "data-v-67351a50",
   /* cssModules */
   null
 )
@@ -55609,7 +55609,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "main"
-  }, [(_vm.canUpdate) ? _c('Update') : _vm._e()], 1)
+  }, [_c('router-view')], 1)
 },staticRenderFns: []}
 
 /***/ }),
@@ -55619,7 +55619,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "main"
-  }, [_c('router-view')], 1)
+  }, [(_vm.canUpdate) ? _c('Update') : _vm._e()], 1)
 },staticRenderFns: []}
 
 /***/ }),
@@ -55633,7 +55633,7 @@ var content = __webpack_require__(160);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("8f9af96e", content, true);
+var update = __webpack_require__(46)("10db828c", content, true);
 
 /***/ }),
 /* 168 */
@@ -55646,7 +55646,7 @@ var content = __webpack_require__(161);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("16ce3758", content, true);
+var update = __webpack_require__(46)("3d9ed024", content, true);
 
 /***/ }),
 /* 169 */
@@ -55659,7 +55659,7 @@ var content = __webpack_require__(162);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("6aceb744", content, true);
+var update = __webpack_require__(46)("5a041a40", content, true);
 
 /***/ }),
 /* 170 */
