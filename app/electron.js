@@ -49,7 +49,8 @@ else {
 
   updateUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
-config.url = `http://61.175.100.14:5433/`;
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 
 
 // 主程序初始化
@@ -274,6 +275,7 @@ ipcMain.on('tray-bounce', function(event, arg) {
 ipcMain.on('new-messages-notification', function(event, arg) {
   if (!mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
+    console.log(arg);
 
   }
   if (isMacOS) {
