@@ -2,10 +2,13 @@
 body {
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
+  margin:0;
 }
 html {
-   width: 90%;
-  height: 85%;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 .main {
   width: 100%;

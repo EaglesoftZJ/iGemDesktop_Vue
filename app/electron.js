@@ -49,8 +49,8 @@ else {
 
   updateUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 
 
 // 主程序初始化
@@ -69,10 +69,15 @@ function createWindow() {
   let screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
 
   let width = 320;
-  let height = 120;
-  let offsetX = 320;
+  let height = 130;
+  let offsetX = 340;
 
   let offSetY = height + 10;
+
+  if (isMacOS) {
+    offsetX = -2000;
+    offSetY = -2000;
+  }
 
   updateWindow = new BrowserWindow({
     frame: false,
@@ -123,6 +128,7 @@ function createWindow() {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/vue-devtools'));
 
     mainWindow.webContents.openDevTools();
+    updateWindow.webContents.openDevTools();
   }
 
 
