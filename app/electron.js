@@ -49,8 +49,8 @@ else {
 
   updateUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 
 
 // 主程序初始化
@@ -128,7 +128,7 @@ function createWindow() {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/vue-devtools'));
 
     mainWindow.webContents.openDevTools();
-    updateWindow.webContents.openDevTools();
+    // updateWindow.webContents.openDevTools();
   }
 
 
@@ -161,6 +161,13 @@ function createWindow() {
   mainWindow.on('closed', function() {
     mainWindow = null;
   });
+
+  mainWindow.on('minimize', function() {
+    console.log('abc');
+    setTimeout(()=>{mainWindow.webContents.executeJavaScript('window.messenger.onAppVisible()')},1000);
+    
+  });
+
 
 
   createTray();
@@ -205,7 +212,7 @@ app.on('before-quit', () => willQuitApp = true);
 // focus blur 适配hidden 和visible事件
 app.on('browser-window-blur', (event, window) => {
   if (window == mainWindow) {
-    window.webContents.executeJavaScript('window.messenger.onAppHidden()');
+    window.webContents.executeJavaScript('window.messenger.onAppVisible()');
   }
 })
 
@@ -215,6 +222,7 @@ app.on('browser-window-focus', (event, window) => {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
   }
 })
+
 
 // 小标逻辑
 function createTray() {
@@ -292,9 +300,17 @@ ipcMain.on('tray-bounce', function(event, arg) {
 ipcMain.on('new-messages-notification', function(event, arg) {
   if (!mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
+    // let notifications = JSON.parse(arg.notifications);
+    blinkTray();
+    if (isMacOS) {
+      app.dock.bounce();
+      app.dock.setBadge(arg.notifications.length.toString());
+    }
     console.log(arg);
 
   }
+
+  console.log("received");
   if (isMacOS) {
 
   }
