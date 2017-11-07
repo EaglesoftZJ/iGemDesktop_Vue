@@ -12473,7 +12473,7 @@ var Component = __webpack_require__(45)(
   /* template */
   __webpack_require__(164),
   /* scopeId */
-  "data-v-2827aae2",
+  "data-v-082e0eaf",
   /* cssModules */
   null
 )
@@ -44953,13 +44953,13 @@ exports.default = [{
 
 
 /* styles */
-__webpack_require__(168)
+__webpack_require__(169)
 
 var Component = __webpack_require__(45)(
   /* script */
   null,
   /* template */
-  __webpack_require__(165),
+  __webpack_require__(166),
   /* scopeId */
   null,
   /* cssModules */
@@ -55278,6 +55278,16 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -55286,7 +55296,8 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
   data() {
     return {
       updateStatus: 0, // 0 未开始  1  开始下载  2  下载完成
-      updateProgress: 0
+      updateProgress: 0,
+      startInstall: false
     };
   },
   components: {},
@@ -55297,7 +55308,7 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
     });
 
     this.$ect.ipcRenderer.on("update-progress", (event, arg) => {
-      this.updateProgress = arg;
+      this.updateProgress = Math.round(arg);
       if (arg >= 100) {
         this.updateStatus = 2;
       }
@@ -55314,6 +55325,7 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
       __WEBPACK_IMPORTED_MODULE_1_electron___default.a.ipcRenderer.send("confirm-update", false);
     },
     quitAndInstall() {
+      this.startInstall = true;
       this.$ect.ipcRenderer.send('quitAndInstall');
     }
   },
@@ -55498,7 +55510,7 @@ exports = module.exports = __webpack_require__(44)();
 
 
 // module
-exports.push([module.i, ".main[data-v-2827aae2]{width:100%;height:100%}.title[data-v-2827aae2]{display:flex;justify-content:center;color:#66b1ff}.button[data-v-2827aae2]{margin-top:10px;display:flex;justify-content:space-around}.progress[data-v-2827aae2]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
+exports.push([module.i, ".main[data-v-082e0eaf]{width:100%;height:100%}.title[data-v-082e0eaf]{padding-top:15px;display:flex;justify-content:center;color:#66b1ff;font-size:16px}.message[data-v-082e0eaf]{display:flex;justify-content:center;font-size:13px;padding-top:10px}.button[data-v-082e0eaf]{padding-top:15px;display:flex;justify-content:space-around}.progress[data-v-082e0eaf]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
 
 // exports
 
@@ -55512,7 +55524,7 @@ exports = module.exports = __webpack_require__(44)();
 
 
 // module
-exports.push([module.i, "body{width:100%;height:100%}html{width:99%;height:99%}.main{width:100%;height:100%}", ""]);
+exports.push([module.i, ".main[data-v-1d650a90]{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -55526,7 +55538,7 @@ exports = module.exports = __webpack_require__(44)();
 
 
 // module
-exports.push([module.i, ".main[data-v-67351a50]{width:100%;height:100%}", ""]);
+exports.push([module.i, "body{margin:0}body,html{box-sizing:border-box}.main,body,html{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -55537,15 +55549,15 @@ exports.push([module.i, ".main[data-v-67351a50]{width:100%;height:100%}", ""]);
 
 
 /* styles */
-__webpack_require__(169)
+__webpack_require__(168)
 
 var Component = __webpack_require__(45)(
   /* script */
   __webpack_require__(155),
   /* template */
-  __webpack_require__(166),
+  __webpack_require__(165),
   /* scopeId */
-  "data-v-67351a50",
+  "data-v-1d650a90",
   /* cssModules */
   null
 )
@@ -55562,6 +55574,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "main"
   }, [_c('div', {
     staticClass: "title"
+  }, [_vm._v("系统升级")]), _vm._v(" "), _c('div', {
+    staticClass: "message"
   }, [_vm._v("检测到新版本，是否更新")]), _vm._v(" "), _c('div', {
     staticClass: "button"
   }, [_c('el-button', {
@@ -55586,15 +55600,20 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "stroke-width": 18,
       "percentage": _vm.updateProgress
     }
-  })], 1) : (_vm.updateStatus == 2) ? _c('div', {
+  }), _vm._v(" "), _c('div', {
+    staticClass: "message"
+  }, [_vm._v("正在下载文件，请稍候")])], 1) : (_vm.updateStatus == 2) ? _c('div', {
     staticClass: "main"
   }, [_c('div', {
     staticClass: "title"
+  }, [_vm._v("下载完成")]), _vm._v(" "), _c('div', {
+    staticClass: "message"
   }, [_vm._v("点击确定，将关闭程序并开始更新")]), _vm._v(" "), _c('div', {
     staticClass: "button"
   }, [_c('el-button', {
     attrs: {
-      "type": "primary"
+      "type": "primary",
+      "disabled": _vm.startInstall
     },
     on: {
       "click": _vm.quitAndInstall
@@ -55609,7 +55628,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "main"
-  }, [_c('router-view')], 1)
+  }, [(_vm.canUpdate) ? _c('Update') : _vm._e()], 1)
 },staticRenderFns: []}
 
 /***/ }),
@@ -55619,7 +55638,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "main"
-  }, [(_vm.canUpdate) ? _c('Update') : _vm._e()], 1)
+  }, [_c('router-view')], 1)
 },staticRenderFns: []}
 
 /***/ }),
@@ -55633,7 +55652,7 @@ var content = __webpack_require__(160);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("10db828c", content, true);
+var update = __webpack_require__(46)("8f9af96e", content, true);
 
 /***/ }),
 /* 168 */
@@ -55646,7 +55665,7 @@ var content = __webpack_require__(161);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("3d9ed024", content, true);
+var update = __webpack_require__(46)("16ce3758", content, true);
 
 /***/ }),
 /* 169 */
@@ -55659,7 +55678,7 @@ var content = __webpack_require__(162);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("5a041a40", content, true);
+var update = __webpack_require__(46)("6aceb744", content, true);
 
 /***/ }),
 /* 170 */

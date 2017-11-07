@@ -149,8 +149,15 @@ var UpdateObj = function() {
       else {
         var downloadFlag = false;
 
-        self.updateTmpPath = path.join(self.appDataDir, `temp_v${self.updateVer}.exe`);
-        self.updatePath = path.join(self.appDataDir, `update_v${self.updateVer}.exe`);
+        if (self.updateURL.endsWith('dmg')) {
+          self.updateTmpPath = path.join(self.appDataDir, `temp_v${self.updateVer}.dmg`);
+          self.updatePath = path.join(self.appDataDir, `update_v${self.updateVer}.dmg`);
+        } else {
+          self.updateTmpPath = path.join(self.appDataDir, `temp_v${self.updateVer}.exe`);
+          self.updatePath = path.join(self.appDataDir, `update_v${self.updateVer}.exe`);
+        }
+
+        
         downloadFlag = true;
 
 
@@ -196,13 +203,21 @@ var UpdateObj = function() {
       }
     }
     else if (self.platform === 'darwin') {
-      var unzipPath = path.join(process.argv[0], '../../..');
-      var unzip = exec(`unzip -o '${self.updatePath}' -d '${unzipPath}'`, { encoding: 'binary' });
-      unzip.on('exit', function() {
-        exec(`rm '${self.updatePath}'`);
-        app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+      exec(`open ${self.updatePath.replace(' ','\\ ')} `, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`exec error: ${error}`);
+          return;
+        }
         app.exit(0);
+        console.log(`stdout: ${stdout}`);
+        console.log(`stderr: ${stderr}`);
       });
+      app.exit(0);
+      // unzip.on('exit', function() {
+      //   exec(`rm '${self.updatePath}'`);
+      //   app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+      //   app.exit(0);
+      // });
     }
     else {
       // null
