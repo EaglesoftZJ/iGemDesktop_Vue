@@ -12,13 +12,35 @@ const pkgInfo = require('./package.json');
 
 var NotificationObj = function() {
   var self = this;
-  self.notiMap = {};
+  self.notificationsMap = {};
+  self.currentDialogNotification = '';
 
-  self.LoadFromNotifications = function(notifications){
+  self.LoadFromNotifications = function(notifications) {
+
+    self.notificationsMap = {};
+    for (let i = 0; i < notifications.length; i++ ){
+      let n = notifications[i];
+      let flag = true;
+      Object.keys(self.notificationsMap).forEach(function(k) {
+        if (k === n.senderName) {
+          flag = false;
+          self.notificationsMap[k] = self.notificationsMap[k] + 1;
+        }
+
+      });
+      if (flag) {
+        self.notificationsMap[n.senderName] = 1;
+      }
+      
+    }
+
+
+    // console.log('notificationsMap:', self.notificationsMap);
+    
 
   }
 
-  
+
 };
 
 

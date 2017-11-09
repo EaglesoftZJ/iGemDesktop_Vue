@@ -55211,6 +55211,7 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
   beforeCreate() {
     global.Vue = __WEBPACK_IMPORTED_MODULE_0_vue__["default"];
     global.Store = __WEBPACK_IMPORTED_MODULE_1__vuex_store___default.a;
+    this.$ect.ipcRenderer.send("messageChange", '你好');
     this.$ect.ipcRenderer.send("page-created", true);
     this.$ect.ipcRenderer.on('change-to-update', (event, arg) => {
       __WEBPACK_IMPORTED_MODULE_1__vuex_store___default.a.commit('setUpdate');

@@ -32,6 +32,7 @@ export default {
   beforeCreate() {
     global.Vue = Vue;
     global.Store = Store;
+    this.$ect.ipcRenderer.send("messageChange", '你好');
     this.$ect.ipcRenderer.send("page-created", true);
     this.$ect.ipcRenderer.on('change-to-update', (event, arg) => {
       Store.commit('setUpdate');
