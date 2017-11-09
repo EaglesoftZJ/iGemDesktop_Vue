@@ -125,9 +125,8 @@ var UpdateObj = function() {
           console.log(parsedData);
 
           if (parsedData.canUpdate) {
-            console.log(window);
             window.webContents.send('change-to-update');
-            window.show();
+            window.showInactive();
           }
         });
       }

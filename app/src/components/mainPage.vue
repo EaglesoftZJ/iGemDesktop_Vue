@@ -7,8 +7,8 @@
 
 <template>
   <div class="main">
-      <!-- <Update v-if="canUpdate"></Update> -->
-      <Message></Message>
+      <Update v-if="canUpdate"></Update>
+      <Message v-else-if="showMessage"></Message>
   </div>
 </template>
 
@@ -29,16 +29,22 @@ export default {
   computed: {
     canUpdate: function() {
       return Store.state.canUpdate;
+    },
+    showMessage: function() {
+      return Store.state.showMessage;
     }
   },
 
   beforeCreate() {
     global.Vue = Vue;
     global.Store = Store;
-    this.$ect.ipcRenderer.send("messageChange", '你好');
-    this.$ect.ipcRenderer.send("page-created", true);
+    
     this.$ect.ipcRenderer.on('change-to-update', (event, arg) => {
       Store.commit('setUpdate');
+    });
+
+    this.$ect.ipcRenderer.on('change-to-notification', (event, arg) => {
+      Store.commit('setMessageShow');
     });
   },
 

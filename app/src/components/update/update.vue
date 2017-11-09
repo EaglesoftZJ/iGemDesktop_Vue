@@ -82,6 +82,8 @@ export default {
         this.updateStatus = 2;
       }
     });
+
+    this.$ect.ipcRenderer.send("update-created", true);
   },
 
   mounted() {},

@@ -7,7 +7,8 @@ export default new Vuex.Store({
     state: {
         // 配置
         config: {},
-        canUpdate: false
+        canUpdate: false,
+        showMessage: false
     },
     mutations: {
         init: state => {
@@ -15,6 +16,9 @@ export default new Vuex.Store({
         },
         setUpdate: state => {
             state.canUpdate = true;
+        },
+        setMessageShow: state => {
+            state.showMessage = true;
         }
     },
 })

@@ -1,12 +1,12 @@
 <template>
     <div class="message">
         <div class="message-current">
-            <span class="message-current-name" :title="data.current.userName">{{ data.current.userName }}</span>
+            <span class="message-current-name" :title="data.current.userName">{{ data.current.userName }}:</span>
             <span class="message-current-detial">{{ data.current.text }}</span>
         </div>
           <div class="message-list">
              <transition-group name="message">
-              <div class="message-item" v-for="item in data.messages" :key="item.id">
+              <div class="message-item" v-for="item in data.messages" :key="item.id" v-if="item.userName != data.current.userName">
                   <div class="message-user-pic" :class="!item.avatar ? 'placeholder--' + item.placeholder : ''">
                       <img :src="item.avatar" width="100%" height="100%" v-if="item.avatar" /> 
                       <span v-else>{{ getFirstChar(item.userName) }}</span>
@@ -32,13 +32,6 @@ export default {
           fileUrl: ''
         },
         messages: [
-          {
-            placeholder: '',
-            userName: '',
-            avatar: '',
-            id: '',
-            size: -1
-          }
         ]
       }
     }
@@ -54,75 +47,13 @@ export default {
   },
   created () {
     // ajax请求
-    var data = {
-      current: {
-        userName: 'name1',
-        content: 'text',
-        text: 'hello, hello!!!',
-        fileUrl: ''
-      },
-      messages: [
-        {
-          placeholder: 'blue',
-          userName: 'name1',
-          avatar: '',
-          size: 10,
-          id: 1
-        },
-        {
-          placeholder: 'yellow',
-          userName: 'name123',
-          avatar: '../assets/pic.jpg',
-          size: 10,
-          id: 2
-        },
-        {
-          placeholder: 'yellow',
-          userName: 'name2',
-          avatar: '',
-          size: 1,
-          id: 3
-        },
-        {
-          placeholder: 'red',
-          userName: 'name3',
-          avatar: '',
-          size: 6,
-          id: 4
-        },
-        {
-          placeholder: 'green',
-          userName: 'name4',
-          avatar: '',
-          size: 6,
-          id: 5
-        },
-        {
-          placeholder: 'purple',
-          userName: 'name5',
-          avatar: '',
-          size: 6,
-          id: 6
-        },
-        {
-          placeholder: 'orange',
-          userName: 'name6',
-          avatar: '',
-          size: 6,
-          id: 7
-        }
-      ]
-    }
-    $.extend(this.data, data, true)
-    setTimeout(() => {
-      this.data.messages.unshift({
-        placeholder: 'orange',
-        userName: 'namenew',
-        avatar: '',
-        size: 6,
-        id: 11
-      })
-    }, 1000)
+    this.$ect.ipcRenderer.on("update-messages", (event, arg) => {
+      this.data.messages = arg;
+    });
+    this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
+      this.data.current.userName = arg.userName;
+      this.data.current.text = arg.text;
+    });
   }
 }
 </script>
