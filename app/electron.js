@@ -26,6 +26,8 @@ let willQuitApp = false;
 let update;
 let notification;
 
+let currentUID;
+
 
 if (!!process.env.NODE_ENV) {
   // null
@@ -108,7 +110,6 @@ function createWindow() {
     show: false
   });
 
-  notificationWindow.openDevTools();
 
 
 
@@ -132,12 +133,10 @@ function createWindow() {
 
 
   updateWindow.webContents.on('dom-ready', function() {
-    console.log('aaa');
     update.checkUpdate(updateWindow);
   });
 
   notificationWindow.webContents.on('dom-ready', function() {
-    console.log('bbb');
     notification.init(notificationWindow);
   });
   // mainWindow.maximize();
@@ -251,6 +250,9 @@ app.on('before-quit', () => {
 app.on('browser-window-blur', (event, window) => {
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
+    if (currentUID) {
+      window.webContents.send('windows-blur', currentUID);
+    }
   }
 })
 
@@ -258,6 +260,7 @@ app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
+    window.webContents.send('windows-focus', currentUID);
   }
 })
 
@@ -388,21 +391,24 @@ ipcMain.on('size-change', function(event, arg) {
 });
 
 ipcMain.on('logged-in', function(event, arg) {
-  console.log('logged-in');
+  mainWindow.focus();
 });
 
 ipcMain.on('dialog-switch', function(event, arg) {
-  console.log('dialog-switch')
+  console.log('dialog-switch',arg);
+  currentUID = arg;
+  notificationWindow.webContents.send('update-current-messages', {});
 });
 
-ipcMain.on('message-change', function(event, arg) {
-  console.log('message-change');
-  if (!mainWindow.isFocused()) {
-    notification.loadCurrentMessage(arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
+// ipcMain.on('message-change', function(event, arg) {
+//   console.log('message-change');
+//   if (!mainWindow.isFocused()) {
+//     blinkTray();
+//     notification.loadCurrentMessage(arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
     
-  }
-  // console.log("message:", arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
-});
+//   }
+//   // console.log("message:", arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
+// });
 
 ipcMain.on('quitAndInstall', function(event, confirm) {
 

@@ -55205,15 +55205,15 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
           text: '',
           fileUrl: ''
         },
-        messages: [{
-          placeholder: '',
-          userName: '',
-          avatar: '',
-          id: '',
-          size: -1
-        }]
+        messages: []
       }
     };
+  },
+
+  computed: {
+    current() {
+      return !!this.data.current.userName;
+    }
   },
   methods: {
     getFirstChar(title) {
@@ -55222,12 +55222,22 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
         return '#';
       }
       return title[0].match(emojiFirstChar) ? '#' : title[0];
+    },
+    sizeChange() {
+      var top = this.current ? 40 : 0;
+      var height = (this.data.messages.length >= 3 ? 123 : this.data.messages.length * 41) + top;
+      this.$ect.ipcRenderer.send("size-change", { width: 260, height: height });
     }
   },
   created() {
-    // ajax请求
     this.$ect.ipcRenderer.on("update-messages", (event, arg) => {
-      this.messages = arg;
+      this.data.messages = JSON.parse(JSON.stringify(arg));
+      this.sizeChange();
+    });
+    this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
+      this.data.current.userName = arg.userName;
+      this.data.current.text = arg.text;
+      this.sizeChange();
     });
   }
 });
@@ -55768,23 +55778,23 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "message"
-  }, [_c('div', {
+  }, [(_vm.current) ? _c('div', {
     staticClass: "message-current"
   }, [_c('span', {
     staticClass: "message-current-name",
     attrs: {
       "title": _vm.data.current.userName
     }
-  }, [_vm._v(_vm._s(_vm.data.current.userName))]), _vm._v(" "), _c('span', {
+  }, [_vm._v(_vm._s(_vm.data.current.userName) + ":")]), _vm._v(" "), _c('span', {
     staticClass: "message-current-detial"
-  }, [_vm._v(_vm._s(_vm.data.current.text))])]), _vm._v(" "), _c('div', {
+  }, [_vm._v(_vm._s(_vm.data.current.text))])]) : _vm._e(), _vm._v(" "), _c('div', {
     staticClass: "message-list"
   }, [_c('transition-group', {
     attrs: {
       "name": "message"
     }
   }, _vm._l((_vm.data.messages), function(item) {
-    return _c('div', {
+    return (item.userName != _vm.data.current.userName) ? _c('div', {
       key: item.id,
       staticClass: "message-item"
     }, [_c('div', {
@@ -55800,7 +55810,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       staticClass: "message-user-name"
     }, [_vm._v(_vm._s(item.userName))]), _vm._v(" "), _c('div', {
       staticClass: "message-size"
-    }, [_vm._v(_vm._s(item.size))])])
+    }, [_vm._v(_vm._s(item.size))])]) : _vm._e()
   }))], 1)])
 },staticRenderFns: []}
 
