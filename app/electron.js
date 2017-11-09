@@ -81,6 +81,8 @@ function createWindow() {
     offSetY = -2000;
   }
 
+  console.log(isMacOS, offsetX);
+
   updateWindow = new BrowserWindow({
     frame: false,
     width: width,
@@ -93,7 +95,7 @@ function createWindow() {
   });
 
   width = 260;
-  height = 163;
+  height = 0;
 
   notificationWindow = new BrowserWindow({
     frame: false,
@@ -105,6 +107,8 @@ function createWindow() {
     skipTaskbar: true,
     show: false
   });
+
+  notificationWindow.openDevTools();
 
 
 
@@ -372,7 +376,27 @@ ipcMain.on('confirm-update', function(event, confirm) {
 
 });
 
-ipcMain.on('messageChange', function(event, arg) {
+// 消息框尺寸变化
+ipcMain.on('size-change', function(event, arg) {
+  console.log('size-change');
+  // console.log(notificationWindow.getPosition());
+  var preHeight = notificationWindow.getSize()[1];
+  var x = notificationWindow.getPosition()[0];
+  var y = notificationWindow.getPosition()[1];
+  notificationWindow.setSize(arg.width, arg.height);
+  notificationWindow.setPosition(x, y + preHeight - arg.height);
+});
+
+ipcMain.on('logged-in', function(event, arg) {
+  console.log('logged-in');
+});
+
+ipcMain.on('dialog-switch', function(event, arg) {
+  console.log('dialog-switch')
+});
+
+ipcMain.on('message-change', function(event, arg) {
+  console.log('message-change');
   if (!mainWindow.isFocused()) {
     notification.loadCurrentMessage(arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
     

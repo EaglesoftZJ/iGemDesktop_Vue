@@ -1,6 +1,6 @@
 <template>
     <div class="message">
-        <div class="message-current">
+        <div class="message-current" v-if="current">
             <span class="message-current-name" :title="data.current.userName">{{ data.current.userName }}:</span>
             <span class="message-current-detial">{{ data.current.text }}</span>
         </div>
@@ -36,6 +36,12 @@ export default {
       }
     }
   },
+
+  computed: {
+    current() {
+      return !!this.data.current.userName;
+    }
+  },
   methods: {
     getFirstChar (title) {
       const emojiFirstChar = /([\uE000-\uF8FF]|\uD83C|\uD83D)/g
@@ -43,16 +49,22 @@ export default {
         return '#'
       }
       return title[0].match(emojiFirstChar) ? '#' : title[0]
+    },
+    sizeChange() {
+      var top = this.current ? 40 : 0;
+      var height = (this.data.messages.length >= 3 ? 123 : this.data.messages.length * 41) + top;
+      this.$ect.ipcRenderer.send("size-change", {width: 260, height: height});
     }
   },
   created () {
-    // ajax请求
     this.$ect.ipcRenderer.on("update-messages", (event, arg) => {
-      this.data.messages = arg;
+      this.data.messages = JSON.parse(JSON.stringify(arg));
+      this.sizeChange();  
     });
     this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
       this.data.current.userName = arg.userName;
       this.data.current.text = arg.text;
+      this.sizeChange();
     });
   }
 }
