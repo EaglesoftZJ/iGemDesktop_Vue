@@ -19,6 +19,7 @@
     </div>
 </template>
 <script>
+import linq from 'linq';
 export default {
   name: 'Message',
   componentName: 'Message',
@@ -52,13 +53,14 @@ export default {
     },
     sizeChange() {
       var top = this.current ? 40 : 0;
-      var height = (this.data.messages.length >= 3 ? 123 : this.data.messages.length * 41) + top;
+      var arr = linq.from(this.data.messages).where('$.userName !="' + this.data.current.userName + '"').toArray();
+      var height = (arr.length >= 3 ? 123 : arr.length * 41) + top;
       this.$ect.ipcRenderer.send("size-change", {width: 260, height: height});
     }
   },
   created () {
     this.$ect.ipcRenderer.on("update-messages", (event, arg) => {
-      this.data.messages = JSON.parse(JSON.stringify(arg));
+      this.data.messages = arg;
       this.sizeChange();  
     });
     this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
