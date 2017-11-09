@@ -16,6 +16,21 @@ let indexConfig = {
   module: {
     rules: [
       {
+        test: /\.scss$/,
+        loader: ExtractTextPlugin.extract({
+          fallback: "style",
+          use: "css!sass"
+        })
+      },
+      {
+        test: require.resolve("jquery"),
+        use: "expose-loader?$"
+      },
+      {
+        test: require.resolve("jquery"), 
+        use: "expose-loader?jquery"
+      },
+      {
         test: /\.vue$/,
         loader: 'vue-loader',
         options: {
