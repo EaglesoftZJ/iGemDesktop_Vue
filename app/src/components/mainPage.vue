@@ -7,7 +7,8 @@
 
 <template>
   <div class="main">
-      <Update v-if="canUpdate"></Update>
+      <!-- <Update v-if="canUpdate"></Update> -->
+      <Message></Message>
   </div>
 </template>
 
@@ -15,10 +16,12 @@
 import Vue from "vue";
 import Store from "../vuex/store";
 import Update from "./update/update.vue";
+import Message from "./Message/Message.vue";
 
 export default {
   components: {
-    Update
+    Update,
+    Message
   },
   data() {
     return {};

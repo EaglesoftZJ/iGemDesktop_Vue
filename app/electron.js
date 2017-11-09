@@ -202,8 +202,10 @@ function createWindow() {
   let screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
   let screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
 
-  let width = 320;
-  let height = 130;
+  // let width = 320;
+  // let height = 130;
+  let width = 260;
+  let height = 163;
   let offsetX = 340;
 
   let offSetY = height + 10;
