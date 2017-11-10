@@ -301,6 +301,7 @@ function createTray() {
       label: '注销',
       click() {
         mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
+        mainWindow.webContents.send('setLoggedOut');
       }
     },
     {
