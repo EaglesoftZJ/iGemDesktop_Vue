@@ -18,16 +18,22 @@ var NotificationObj = function() {
   self.notificationWindow = null;
   self.showTime = 0;
   self.intervalId ;
+  self.allowShow = true;
 
   self.init = (window) => {
     this.notificationWindow = window;
   }
 
+
   self.start = () => {
     this.notificationWindow.webContents.send('change-to-notification');
     intervalId = setInterval(() => {
+
+      if (!this.allowShow) {
+        this.clearShowTime();
+      }
       
-      if (this.notificationWindow)
+      if (this.notificationWindow )
         this.showTime = this.showTime - 1 <= 0 ? 0 : this.showTime - 1;
         if (this.showTime > 0) {
           console.log('showInactive:', this.notificationWindow.isVisible());

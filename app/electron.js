@@ -31,7 +31,7 @@ let currentUID;
 
 const elctronConfig = new ElctronConfig();
 
-if (!elctronConfig.notification) {
+if (!elctronConfig.get('notification')) {
   elctronConfig.set('notification.show',true);
 }
 
@@ -59,8 +59,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 // config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
-// config.url = 'http://220.189.207.18:3000/';
+// config.url = 'http://localhost:3000/';
+config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
@@ -134,6 +134,8 @@ function createWindow() {
   const NotificationObj = require('./notificationManager');
   update = new UpdateObj();
   notification = new NotificationObj();
+
+  notification.allowShow = elctronConfig.get("notification.show");
   update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
   // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
 
@@ -280,20 +282,35 @@ function createTray() {
   tray = new Tray(iconPath);
   const contextMenu = Menu.buildFromTemplate([
     {
+      label: '允许推送',
+      type: 'checkbox',
+      checked: elctronConfig.get('notification.show'),
+      click() {
+        
+        let showNoti = elctronConfig.get('notification.show')
+
+       
+        elctronConfig.set('notification.show', !showNoti);
+        notification.allowShow = !showNoti;
+
+        console.log('showNoti',showNoti,notification.allowShow, elctronConfig.path);
+
+      }
+    },
+    {
+      label: '注销',
+      click() {
+        mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
+      }
+    },
+    {
       label: '退出',
       click() {
         mainWindow = null;
         app.quit();
       }
     },
-    {
-      label: '允许推送',
-      type: 'checkbox',
-      checked: elctronConfig.get('notification.show'),
-      click() {
-        elctronConfig.set('notification.show', elctronConfig.get('notification.show'))
-      }
-    }
+   
   ])
   tray.setToolTip('FlyChat');
   tray.setContextMenu(contextMenu);

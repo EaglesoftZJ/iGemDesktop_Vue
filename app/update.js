@@ -116,7 +116,6 @@ var UpdateObj = function() {
     var soap = require('soap');
     var args = { version: pkgInfo.version, winType: osType };
     soap.createClient(url, function(err, client) {
-      // console.log(client);
       if (client) {
         client.updateFlyChat(args, function(err, result) {
           var parsedData = JSON.parse(result.return);
