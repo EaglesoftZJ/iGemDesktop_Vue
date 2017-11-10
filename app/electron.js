@@ -455,3 +455,12 @@ ipcMain.on('quitAndInstall', function(event, confirm) {
   update.quitAndInstall();
 
 });
+
+ipcMain.on('logged-in', function(event, arg) {
+  mainWindow.webContents.send('loginStore', elctronConfig.get('login'))
+});
+
+ipcMain.on('setLoginStore', function(event, arg) {
+  elctronConfig.set('login.' + arg.key, arg.value);
+});
+
