@@ -9,7 +9,7 @@ const os = require('os');
 const childProcess = require('child_process');
 const async = require('async');
 const pkgInfo = require('./package.json');
-const linq = require('Linq');
+const linq = require('linq');
 
 var NotificationObj = function() {
   var self = this;

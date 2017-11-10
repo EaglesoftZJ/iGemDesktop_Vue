@@ -422,7 +422,7 @@ ipcMain.on('size-change', function(event, arg) {
   var x = notificationWindow.getPosition()[0];
   var y = notificationWindow.getPosition()[1];
   notificationWindow.setSize(arg.width, arg.height);
-  notificationWindow.setPosition(x, y + preHeight - arg.height);
+  notificationWindow.setPosition(0, 0);
 });
 
 ipcMain.on('logged-in', function(event, arg) {

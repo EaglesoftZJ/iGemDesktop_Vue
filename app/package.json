@@ -7,10 +7,13 @@
   "dependencies": {
     "async": "^2.1.4",
     "element-ui": "^2.0.3",
-    "jquery": "^3.1.1",
-    "soap": "^0.23.0",
     "vue": "^2.1.6",
     "vue-router": "^2.1.1",
-    "vuex": "^2.1.1"
+    "vuex": "^2.1.1",
+    "electron-config": "^1.0.0",
+    "expose-loader": "^0.7.3",
+    "jquery": "^3.2.1",
+    "linq": "^3.0.9",
+    "soap": "^0.23.0"
   }
 }
