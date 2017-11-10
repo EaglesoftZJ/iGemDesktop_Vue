@@ -437,7 +437,7 @@ ipcMain.on('dialog-switch', function(event, arg) {
 
 ipcMain.on('notification-click', function(event, arg){
   currentUID = 'u' + arg;
-  mainWindow.focus();
+  mainWindow.show();
 })
 
 // ipcMain.on('message-change', function(event, arg) {
