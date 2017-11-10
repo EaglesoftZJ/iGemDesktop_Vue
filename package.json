@@ -14,10 +14,11 @@
     "package:just": "node tasks/package.js package:just"
   },
   "dependencies": {
-    "soap": "^0.23.0",
+    "electron-config": "^1.0.0",
     "expose-loader": "^0.7.3",
     "jquery": "^3.2.1",
-    "linq": "^3.0.9"
+    "linq": "^3.0.9",
+    "soap": "^0.23.0"
   },
   "devDependencies": {
     "async": "^2.1.4",

@@ -6,7 +6,7 @@
         </div>
           <div class="message-list">
              <transition-group name="message">
-              <div class="message-item" v-for="item in data.messages" :key="item.id" v-if="item.userName != data.current.userName">
+              <div class="message-item" v-for="item in data.messages" :key="item.id" @click ="clickUser(item.id)" v-if="item.userName != data.current.userName">
                   <div class="message-user-pic" :class="!item.avatar ? 'placeholder--' + item.placeholder : ''">
                       <img :src="item.avatar" width="100%" height="100%" v-if="item.avatar" /> 
                       <span v-else>{{ getFirstChar(item.userName) }}</span>
@@ -19,23 +19,22 @@
     </div>
 </template>
 <script>
-import linq from 'linq';
+import linq from "linq";
 export default {
-  name: 'Message',
-  componentName: 'Message',
-  data () {
+  name: "Message",
+  componentName: "Message",
+  data() {
     return {
       data: {
         current: {
-          userName: '',
-          content: '',
-          text: '',
-          fileUrl: ''
+          userName: "",
+          content: "",
+          text: "",
+          fileUrl: ""
         },
-        messages: [
-        ]
+        messages: []
       }
-    }
+    };
   },
 
   computed: {
@@ -44,24 +43,30 @@ export default {
     }
   },
   methods: {
-    getFirstChar (title) {
-      const emojiFirstChar = /([\uE000-\uF8FF]|\uD83C|\uD83D)/g
+    getFirstChar(title) {
+      const emojiFirstChar = /([\uE000-\uF8FF]|\uD83C|\uD83D)/g;
       if (title.length === 0) {
-        return '#'
+        return "#";
       }
-      return title[0].match(emojiFirstChar) ? '#' : title[0]
+      return title[0].match(emojiFirstChar) ? "#" : title[0];
     },
     sizeChange() {
       var top = this.current ? 40 : 0;
-      var arr = linq.from(this.data.messages).where('$.userName !="' + this.data.current.userName + '"').toArray();
+      var arr = linq
+        .from(this.data.messages)
+        .where('$.userName !="' + this.data.current.userName + '"')
+        .toArray();
       var height = (arr.length >= 3 ? 123 : arr.length * 41) + top;
-      this.$ect.ipcRenderer.send("size-change", {width: 260, height: height});
+      this.$ect.ipcRenderer.send("size-change", { width: 260, height: height });
+    },
+    clickUser(id) {
+      this.$ect.ipcRenderer.send("notification-click", id);
     }
   },
-  created () {
+  created() {
     this.$ect.ipcRenderer.on("update-messages", (event, arg) => {
       this.data.messages = arg;
-      this.sizeChange();  
+      this.sizeChange();
     });
     this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
       this.data.current.userName = arg.userName;
@@ -69,7 +74,7 @@ export default {
       this.sizeChange();
     });
   }
-}
+};
 </script>
 <style lang="scss" scoped>
 $color-empty: #b8b8b8;
@@ -84,7 +89,8 @@ $color-green: #67bf74;
 .message {
   width: 260px;
   font-size: 14px;
-  font-family: tahoma, arial, 'Hiragino Sans GB','Microsoft YaHei', '\5b8b\4f53',sans-serif;
+  font-family: tahoma, arial, "Hiragino Sans GB", "Microsoft YaHei",
+    "\5b8b\4f53", sans-serif;
   background: #fff;
 }
 .message-current {
@@ -195,10 +201,10 @@ $color-green: #67bf74;
   background: red;
   box-sizing: content-box;
 }
-.message-enter{
+.message-enter {
   transform: translate3d(-100%, 0, 0);
 }
- .message-leave-active{
+.message-leave-active {
   transform: translate3d(100%, 0, 0);
- }
+}
 </style>

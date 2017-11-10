@@ -2,6 +2,7 @@ const electron = require('electron');
 const path = require('path');
 
 const { app, Menu, Tray, ipcMain, BrowserWindow, dialog } = require('electron');
+const ElctronConfig = require('electron-config');
 
 
 let mainWindow;
@@ -27,6 +28,12 @@ let update;
 let notification;
 
 let currentUID;
+
+const elctronConfig = new ElctronConfig();
+
+if (!elctronConfig.notification) {
+  elctronConfig.set('notification.show',true);
+}
 
 
 if (!!process.env.NODE_ENV) {
@@ -260,7 +267,10 @@ app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
-    window.webContents.send('windows-focus', currentUID);
+    if (currentUID) {
+      window.webContents.send('windows-focus', currentUID);
+    }
+
   }
 })
 
@@ -274,6 +284,14 @@ function createTray() {
       click() {
         mainWindow = null;
         app.quit();
+      }
+    },
+    {
+      label: '允许推送',
+      type: 'checkbox',
+      checked: elctronConfig.get('notification.show'),
+      click() {
+        elctronConfig.set('notification.show', elctronConfig.get('notification.show'))
       }
     }
   ])
@@ -399,6 +417,11 @@ ipcMain.on('dialog-switch', function(event, arg) {
   currentUID = arg;
   notificationWindow.webContents.send('update-current-messages', {});
 });
+
+ipcMain.on('notification-click', function(event, arg){
+  currentUID = 'u' + arg;
+  mainWindow.focus();
+})
 
 // ipcMain.on('message-change', function(event, arg) {
 //   console.log('message-change');
