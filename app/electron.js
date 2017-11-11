@@ -59,8 +59,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 // config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
-config.url = 'http://220.189.207.18:3000/';
+config.url = 'http://localhost:3000/';
+// config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
@@ -188,18 +188,20 @@ function createWindow() {
     // when you should delete the corresponding element.
     if (willQuitApp) {
       /* the user tried to quit the app */
+      mainWindow.webContents.executeJavaScript('localStorage.clear()');
+      elctronConfig.set('login.info.isLogin', false);
       mainWindow = null;
     }
     if (mainWindow) {
       e.preventDefault();
     }
-
     hideWindow();
 
   })
 
   mainWindow.on('closed', function() {
     mainWindow = null;
+   
   });
 
   mainWindow.on('minimize', function() {
@@ -300,8 +302,8 @@ function createTray() {
     {
       label: '注销',
       click() {
-        mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
         mainWindow.webContents.send('setLoggedOut');
+        mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
       }
     },
     {
@@ -423,7 +425,7 @@ ipcMain.on('size-change', function(event, arg) {
   var x = notificationWindow.getPosition()[0];
   var y = notificationWindow.getPosition()[1];
   notificationWindow.setSize(arg.width, arg.height);
-  notificationWindow.setPosition(0, 0);
+  notificationWindow.setPosition(x, y + preHeight - arg.height);
 });
 
 ipcMain.on('logged-in', function(event, arg) {
@@ -438,7 +440,7 @@ ipcMain.on('dialog-switch', function(event, arg) {
 
 ipcMain.on('notification-click', function(event, arg){
   currentUID = 'u' + arg;
-  mainWindow.show();
+  mainWindow.focus();
 })
 
 // ipcMain.on('message-change', function(event, arg) {
@@ -463,5 +465,6 @@ ipcMain.on('logged-in', function(event, arg) {
 
 ipcMain.on('setLoginStore', function(event, arg) {
   elctronConfig.set('login.' + arg.key, arg.value);
+  console.log(elctronConfig.get('login'));
 });
 
