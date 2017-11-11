@@ -35,6 +35,9 @@ if (!elctronConfig.get('notification')) {
   elctronConfig.set('notification.show',true);
 }
 
+let screenWidth;
+let screenHeight;
+
 
 if (!!process.env.NODE_ENV) {
   // null
@@ -58,8 +61,8 @@ else {
 
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -75,8 +78,8 @@ function createWindow() {
     height: 700
   });
 
-  let screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
-  let screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
+  screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
+  screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
 
   let width = 320;
   let height = 130;
@@ -425,11 +428,13 @@ ipcMain.on('size-change', function(event, arg) {
   var x = notificationWindow.getPosition()[0];
   var y = notificationWindow.getPosition()[1];
   notificationWindow.setSize(arg.width, arg.height);
-  notificationWindow.setPosition(x, y + preHeight - arg.height);
+
+  console.log("size",screenHeight , arg.height);
+  notificationWindow.setPosition(x, screenHeight - arg.height);
 });
 
 ipcMain.on('logged-in', function(event, arg) {
-  mainWindow.focus();
+  mainWindow.show();
 });
 
 ipcMain.on('dialog-switch', function(event, arg) {
@@ -440,7 +445,8 @@ ipcMain.on('dialog-switch', function(event, arg) {
 
 ipcMain.on('notification-click', function(event, arg){
   currentUID = 'u' + arg;
-  mainWindow.focus();
+  notification.clearShowTime();
+  mainWindow.show();
 })
 
 // ipcMain.on('message-change', function(event, arg) {

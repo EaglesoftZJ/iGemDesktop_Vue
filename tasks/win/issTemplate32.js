@@ -28,7 +28,9 @@ AppUpdatesURL=${issConfig.AppUpdatesURL}
 DefaultDirName={pf}\\${issConfig.AppPublisher}\\${issConfig.AppName}
 DefaultGroupName=${issConfig.AppPublisher}
 OutputBaseFilename=${appFileName}-v${issConfig.AppVersion}
-AppMutex=${issConfig.AppName}
+AppMutex=${issConfig.AppName}Production
+SetupMutex=${issConfig.AppName}Setup
+CloseApplications=force
 OutputDir=${OutputDir}
 SourceDir=${SourceDir}
 Compression=lzma2
@@ -42,9 +44,9 @@ ArchitecturesAllowed=x86
 
 
 [Tasks]
-Name: desktopicon; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
-Name: startmenuicon; Description: "Create a &startmenu icon"; GroupDescription: "Additional icons:"
-Name: startupicon; Description: "Create a &startupicon icon"; GroupDescription: "Additional icons:"
+Name: desktopicon; Description: {cm:CreateDesktopIcon}; GroupDescription: "Additional icons:"
+Name: startmenuicon; Description: {cm:CreateStartmenuIcon}; GroupDescription: "Additional icons:"
+Name: startupicon; Description: {cm:CreateStartupIcon}; GroupDescription: "Additional icons:"
 Name: runapp; Description: "no"; GroupDescription: "no"; Check: WizardSilent
 
 [Files]
