@@ -194,7 +194,7 @@ var UpdateObj = function() {
         });
         setTimeout(function() {
           app.exit(0);
-        }, 10000);
+        }, 5000);
       }
       else {
         dialog.showErrorBox('升级失败', '升级程序已损坏,请重新下载完整程序安装');
