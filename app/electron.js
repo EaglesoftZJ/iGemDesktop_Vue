@@ -62,8 +62,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -331,6 +331,14 @@ function createTray() {
         mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
       }
     },
+    // {
+    //   label: '重新加载数据',
+    //   click() {
+    //     let js = 'location.href=="'+ config.url + '"?location.reload():location.href="' + config.url + '"';
+    //     console.log(js);
+    //     mainWindow.webContents.executeJavaScript(js);
+    //   }
+    // },
     {
       label: '退出',
       click() {
