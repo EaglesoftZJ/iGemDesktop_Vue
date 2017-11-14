@@ -151,19 +151,12 @@ function createWindow() {
     update.checkUpdate(updateWindow, notification);
   });
 
-  
+
   // mainWindow.maximize();
   Menu.setApplicationMenu(null);
 
 
-  const dockMenu = Menu.buildFromTemplate([
-    { label: '退出', click() { app.exit(0); } },
-    { label: '切换用户', click() { app.quit(0); } },
-  ])
 
-  if (isMacOS) {
-    app.dock.setMenu(dockMenu)
-  }
 
 
   if (process.env.NODE_ENV.indexOf('development') !== -1) {
@@ -346,9 +339,16 @@ function createTray() {
       }
     },
 
-  ])
+  ]);
+  if (isMacOS) {
+    app.dock.setMenu(contextMenu)
+  } else {
+    tray.setContextMenu(contextMenu);
+  }
+
+
   tray.setToolTip('FlyChat');
-  tray.setContextMenu(contextMenu);
+
 
   tray.on('click', () => {
     mainWindow.isVisible() ? hideWindow() : showWindow()
