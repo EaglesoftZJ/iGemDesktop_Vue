@@ -143,15 +143,15 @@ function createWindow() {
   update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
   // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
 
-
-
-  updateWindow.webContents.on('dom-ready', function() {
-    update.checkUpdate(updateWindow);
-  });
-
   notificationWindow.webContents.on('dom-ready', function() {
     notification.init(notificationWindow);
   });
+
+  updateWindow.webContents.on('dom-ready', function() {
+    update.checkUpdate(updateWindow, notification);
+  });
+
+  
   // mainWindow.maximize();
   Menu.setApplicationMenu(null);
 

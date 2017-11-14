@@ -101,7 +101,7 @@ var UpdateObj = function() {
 
  
 
-  self.checkUpdate = function(window) {
+  self.checkUpdate = function(window, noti) {
     var url = self.feedURL
     let osType;
     if (self.platform == 'darwin') {
@@ -126,6 +126,8 @@ var UpdateObj = function() {
           if (parsedData.canUpdate) {
             window.webContents.send('change-to-update');
             window.showInactive();
+          } else {
+            noti.start();
           }
         });
       }

@@ -12471,9 +12471,9 @@ var Component = __webpack_require__(25)(
   /* script */
   __webpack_require__(158),
   /* template */
-  __webpack_require__(168),
+  __webpack_require__(169),
   /* scopeId */
-  "data-v-082e0eaf",
+  "data-v-2827aae2",
   /* cssModules */
   null
 )
@@ -44953,7 +44953,7 @@ exports.default = [{
 
 
 /* styles */
-__webpack_require__(174)
+__webpack_require__(173)
 
 var Component = __webpack_require__(25)(
   /* script */
@@ -58647,7 +58647,7 @@ exports = module.exports = __webpack_require__(24)();
 
 
 // module
-exports.push([module.i, ".message[data-v-2e48fd9f]{width:260px;font-size:14px;font-family:tahoma,arial,Hiragino Sans GB,Microsoft YaHei,\\\\5B8B\\4F53,sans-serif;background:#fff}.message-current[data-v-2e48fd9f]{width:100%;height:40px;padding:0 10px;line-height:40px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.message-current-name[data-v-2e48fd9f]{font-weight:700}.message-current-detial[data-v-2e48fd9f]{margin-right:5px}.message-detial[data-v-2e48fd9f]{display:inline-block}.message-list[data-v-2e48fd9f]{width:260px;max-height:123px;box-sizing:border-box;overflow-x:hidden;overflow-y:auto}.message-item[data-v-2e48fd9f]{position:relative;height:30px;padding:5px 10px;overflow:hidden;border-top:1px solid #e3e8ee;box-sizing:content-box;cursor:pointer;transition:all .3s ease-in}.message-item[data-v-2e48fd9f]:hover{background:#e3e8ee}.message-item[data-v-2e48fd9f]:not(:first-child){border-top:1px dashed #e3e8ee}.message-user-pic[data-v-2e48fd9f]{display:inline-block;width:30px;height:30px;overflow:hidden;color:#fff;text-align:center;line-height:30px;vertical-align:middle;border-radius:100%}.placeholder--empty[data-v-2e48fd9f]{background-color:#b8b8b8}.placeholder--lblue[data-v-2e48fd9f]{background-color:#59a2be}.placeholder--blue[data-v-2e48fd9f]{background-color:#2093cd}.placeholder--purple[data-v-2e48fd9f]{background-color:#ad62a7}.placeholder--red[data-v-2e48fd9f]{background-color:#f16364}.placeholder--orange[data-v-2e48fd9f]{background-color:#f9a43e}.placeholder--yellow[data-v-2e48fd9f]{background-color:#ed608b}.placeholder--green[data-v-2e48fd9f]{background-color:#67bf74}.message-user-name[data-v-2e48fd9f]{display:inline-block;width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.message-size[data-v-2e48fd9f]{position:absolute;top:10px;right:10px;min-width:12px;height:12px;padding:4px;text-align:center;color:#fff;line-height:12px;border-radius:12px;background:red;box-sizing:content-box}.message-enter[data-v-2e48fd9f]{transform:translate3d(-100%,0,0)}.message-leave-active[data-v-2e48fd9f]{transform:translate3d(100%,0,0)}", ""]);
+exports.push([module.i, ".message[data-v-1aefa17f]{width:260px;font-size:14px;font-family:tahoma,arial,Hiragino Sans GB,Microsoft YaHei,\\\\5B8B\\4F53,sans-serif;background:#fff}.message-current[data-v-1aefa17f]{width:100%;height:40px;padding:0 10px;line-height:40px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.message-current-name[data-v-1aefa17f]{font-weight:700}.message-current-detial[data-v-1aefa17f]{margin-right:5px}.message-detial[data-v-1aefa17f]{display:inline-block}.message-list[data-v-1aefa17f]{width:260px;max-height:123px;box-sizing:border-box;overflow-x:hidden;overflow-y:auto}.message-item[data-v-1aefa17f]{position:relative;height:30px;padding:5px 10px;overflow:hidden;border-top:1px solid #e3e8ee;box-sizing:content-box;cursor:pointer;transition:all .3s ease-in}.message-item[data-v-1aefa17f]:hover{background:#e3e8ee}.message-item[data-v-1aefa17f]:not(:first-child){border-top:1px dashed #e3e8ee}.message-user-pic[data-v-1aefa17f]{display:inline-block;width:30px;height:30px;overflow:hidden;color:#fff;text-align:center;line-height:30px;vertical-align:middle;border-radius:100%}.placeholder--empty[data-v-1aefa17f]{background-color:#b8b8b8}.placeholder--lblue[data-v-1aefa17f]{background-color:#59a2be}.placeholder--blue[data-v-1aefa17f]{background-color:#2093cd}.placeholder--purple[data-v-1aefa17f]{background-color:#ad62a7}.placeholder--red[data-v-1aefa17f]{background-color:#f16364}.placeholder--orange[data-v-1aefa17f]{background-color:#f9a43e}.placeholder--yellow[data-v-1aefa17f]{background-color:#ed608b}.placeholder--green[data-v-1aefa17f]{background-color:#67bf74}.message-user-name[data-v-1aefa17f]{display:inline-block;width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.message-size[data-v-1aefa17f]{position:absolute;top:10px;right:10px;min-width:12px;height:12px;padding:4px;text-align:center;color:#fff;line-height:12px;border-radius:12px;background:red;box-sizing:content-box}.message-enter[data-v-1aefa17f]{transform:translate3d(-100%,0,0)}.message-leave-active[data-v-1aefa17f]{transform:translate3d(100%,0,0)}", ""]);
 
 // exports
 
@@ -58661,7 +58661,7 @@ exports = module.exports = __webpack_require__(24)();
 
 
 // module
-exports.push([module.i, ".main[data-v-082e0eaf]{width:100%;height:100%}.title[data-v-082e0eaf]{padding-top:15px;display:flex;justify-content:center;color:#66b1ff;font-size:16px}.message[data-v-082e0eaf]{display:flex;justify-content:center;font-size:13px;padding-top:10px}.button[data-v-082e0eaf]{padding-top:15px;display:flex;justify-content:space-around}.progress[data-v-082e0eaf]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
+exports.push([module.i, ".main[data-v-2827aae2]{width:100%;height:100%}.title[data-v-2827aae2]{padding-top:15px;display:flex;justify-content:center;color:#66b1ff;font-size:16px}.message[data-v-2827aae2]{display:flex;justify-content:center;font-size:13px;padding-top:10px}.button[data-v-2827aae2]{padding-top:15px;display:flex;justify-content:space-around}.progress[data-v-2827aae2]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
 
 // exports
 
@@ -58675,7 +58675,7 @@ exports = module.exports = __webpack_require__(24)();
 
 
 // module
-exports.push([module.i, ".main[data-v-1d650a90]{width:100%;height:100%}", ""]);
+exports.push([module.i, "body{margin:0}body,html{box-sizing:border-box}.main,body,html{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -58689,7 +58689,7 @@ exports = module.exports = __webpack_require__(24)();
 
 
 // module
-exports.push([module.i, "body{margin:0}body,html{box-sizing:border-box}.main,body,html{width:100%;height:100%}", ""]);
+exports.push([module.i, ".main[data-v-67351a50]{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -58706,9 +58706,9 @@ var Component = __webpack_require__(25)(
   /* script */
   __webpack_require__(156),
   /* template */
-  __webpack_require__(171),
+  __webpack_require__(168),
   /* scopeId */
-  "data-v-2e48fd9f",
+  "data-v-1aefa17f",
   /* cssModules */
   null
 )
@@ -58722,15 +58722,15 @@ module.exports = Component.exports
 
 
 /* styles */
-__webpack_require__(173)
+__webpack_require__(174)
 
 var Component = __webpack_require__(25)(
   /* script */
   __webpack_require__(157),
   /* template */
-  __webpack_require__(169),
+  __webpack_require__(171),
   /* scopeId */
-  "data-v-1d650a90",
+  "data-v-67351a50",
   /* cssModules */
   null
 )
@@ -58740,6 +58740,54 @@ module.exports = Component.exports
 
 /***/ }),
 /* 168 */
+/***/ (function(module, exports) {
+
+module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
+  return _c('div', {
+    staticClass: "message"
+  }, [(_vm.current) ? _c('div', {
+    staticClass: "message-current"
+  }, [_c('span', {
+    staticClass: "message-current-name",
+    attrs: {
+      "title": _vm.data.current.userName
+    }
+  }, [_vm._v(_vm._s(_vm.data.current.userName) + ":")]), _vm._v(" "), _c('span', {
+    staticClass: "message-current-detial"
+  }, [_vm._v(_vm._s(_vm.data.current.text))])]) : _vm._e(), _vm._v(" "), _c('div', {
+    staticClass: "message-list"
+  }, [_c('transition-group', {
+    attrs: {
+      "name": "message"
+    }
+  }, _vm._l((_vm.data.messages), function(item) {
+    return (item.userName != _vm.data.current.userName) ? _c('div', {
+      key: item.id,
+      staticClass: "message-item",
+      on: {
+        "click": function($event) {
+          _vm.clickUser(item.id)
+        }
+      }
+    }, [_c('div', {
+      staticClass: "message-user-pic",
+      class: !item.avatar ? 'placeholder--' + item.placeholder : ''
+    }, [(item.avatar) ? _c('img', {
+      attrs: {
+        "src": item.avatar,
+        "width": "100%",
+        "height": "100%"
+      }
+    }) : _c('span', [_vm._v(_vm._s(_vm.getFirstChar(item.userName)))])]), _vm._v(" "), _c('span', {
+      staticClass: "message-user-name"
+    }, [_vm._v(_vm._s(item.userName))]), _vm._v(" "), _c('div', {
+      staticClass: "message-size"
+    }, [_vm._v(_vm._s(item.size))])]) : _vm._e()
+  }))], 1)])
+},staticRenderFns: []}
+
+/***/ }),
+/* 169 */
 /***/ (function(module, exports) {
 
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
@@ -58795,16 +58843,6 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 },staticRenderFns: []}
 
 /***/ }),
-/* 169 */
-/***/ (function(module, exports) {
-
-module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
-  return _c('div', {
-    staticClass: "main"
-  }, [(_vm.canUpdate) ? _c('Update') : (_vm.showMessage) ? _c('Message') : _vm._e()], 1)
-},staticRenderFns: []}
-
-/***/ }),
 /* 170 */
 /***/ (function(module, exports) {
 
@@ -58820,46 +58858,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
-    staticClass: "message"
-  }, [(_vm.current) ? _c('div', {
-    staticClass: "message-current"
-  }, [_c('span', {
-    staticClass: "message-current-name",
-    attrs: {
-      "title": _vm.data.current.userName
-    }
-  }, [_vm._v(_vm._s(_vm.data.current.userName) + ":")]), _vm._v(" "), _c('span', {
-    staticClass: "message-current-detial"
-  }, [_vm._v(_vm._s(_vm.data.current.text))])]) : _vm._e(), _vm._v(" "), _c('div', {
-    staticClass: "message-list"
-  }, [_c('transition-group', {
-    attrs: {
-      "name": "message"
-    }
-  }, _vm._l((_vm.data.messages), function(item) {
-    return (item.userName != _vm.data.current.userName) ? _c('div', {
-      key: item.id,
-      staticClass: "message-item",
-      on: {
-        "click": function($event) {
-          _vm.clickUser(item.id)
-        }
-      }
-    }, [_c('div', {
-      staticClass: "message-user-pic",
-      class: !item.avatar ? 'placeholder--' + item.placeholder : ''
-    }, [(item.avatar) ? _c('img', {
-      attrs: {
-        "src": item.avatar,
-        "width": "100%",
-        "height": "100%"
-      }
-    }) : _c('span', [_vm._v(_vm._s(_vm.getFirstChar(item.userName)))])]), _vm._v(" "), _c('span', {
-      staticClass: "message-user-name"
-    }, [_vm._v(_vm._s(item.userName))]), _vm._v(" "), _c('div', {
-      staticClass: "message-size"
-    }, [_vm._v(_vm._s(item.size))])]) : _vm._e()
-  }))], 1)])
+    staticClass: "main"
+  }, [(_vm.canUpdate) ? _c('Update') : (_vm.showMessage) ? _c('Message') : _vm._e()], 1)
 },staticRenderFns: []}
 
 /***/ }),
@@ -58873,7 +58873,7 @@ var content = __webpack_require__(163);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("8f9af96e", content, true);
+var update = __webpack_require__(46)("10db828c", content, true);
 
 /***/ }),
 /* 173 */
@@ -58886,7 +58886,7 @@ var content = __webpack_require__(164);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("16ce3758", content, true);
+var update = __webpack_require__(46)("3d9ed024", content, true);
 
 /***/ }),
 /* 174 */
@@ -58899,7 +58899,7 @@ var content = __webpack_require__(165);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("6aceb744", content, true);
+var update = __webpack_require__(46)("5a041a40", content, true);
 
 /***/ }),
 /* 175 */
@@ -59172,8 +59172,8 @@ if(content.locals) module.exports = content.locals;
 if(false) {
 	// When the styles change, update the <style> tags
 	if(!content.locals) {
-		module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/vue-loader/lib/style-rewriter.js?id=data-v-2e48fd9f&scoped=true!../../../../node_modules/sass-loader/index.js!../../../../node_modules/vue-loader/lib/selector.js?type=styles&index=0!./Message.vue", function() {
-			var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/vue-loader/lib/style-rewriter.js?id=data-v-2e48fd9f&scoped=true!../../../../node_modules/sass-loader/index.js!../../../../node_modules/vue-loader/lib/selector.js?type=styles&index=0!./Message.vue");
+		module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/vue-loader/lib/style-rewriter.js?id=data-v-1aefa17f&scoped=true!../../../../node_modules/sass-loader/index.js!../../../../node_modules/vue-loader/lib/selector.js?type=styles&index=0!./Message.vue", function() {
+			var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/vue-loader/lib/style-rewriter.js?id=data-v-1aefa17f&scoped=true!../../../../node_modules/sass-loader/index.js!../../../../node_modules/vue-loader/lib/selector.js?type=styles&index=0!./Message.vue");
 			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
 			update(newContent);
 		});
