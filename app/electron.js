@@ -28,6 +28,7 @@ let update;
 let notification;
 
 let currentUID;
+let clearChatWhenBlured = true;
 
 const elctronConfig = new ElctronConfig();
 
@@ -213,7 +214,7 @@ function createWindow() {
       submenu: [
         { label: "关于", selector: "orderFrontStandardAboutPanel:" },
         { type: "separator" },
-        { label: "退出", accelerator: "Command+Q", click: function() { app.exit(0); } }
+        { label: "退出", accelerator: "Command+Q", click: function() { notification.stop(); app.exit(0); } }
       ]
     }, {
       label: "Edit",
@@ -286,7 +287,7 @@ app.on('before-quit', () => {
 app.on('browser-window-blur', (event, window) => {
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
-    if (currentUID) {
+    if (currentUID && clearChatWhenBlured) {
       window.webContents.send('windows-blur', currentUID);
     }
   }
@@ -342,6 +343,7 @@ function createTray() {
     {
       label: '退出',
       click() {
+        notification.stop();
         app.exit(0);
       }
     },
@@ -516,3 +518,11 @@ ipcMain.on('getCurrentUID', function(event, arg) {
   console.log(elctronConfig.get('login'));
 });
 
+ipcMain.on('startUploadFile', function(event, arg) {
+  clearChatWhenBlured = false;
+  // mainWindow.webContents.send("openFileSelector")
+});
+
+ipcMain.on('endUploadFile', function(event, arg) {
+  clearChatWhenBlured = true;
+});
