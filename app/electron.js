@@ -213,7 +213,7 @@ function createWindow() {
       submenu: [
         { label: "关于", selector: "orderFrontStandardAboutPanel:" },
         { type: "separator" },
-        { label: "退出", accelerator: "Command+Q", click: function() { app.quit(); } }
+        { label: "退出", accelerator: "Command+Q", click: function() { app.exit(0); } }
       ]
     }, {
       label: "Edit",
@@ -342,8 +342,7 @@ function createTray() {
     {
       label: '退出',
       click() {
-        mainWindow = null;
-        app.quit();
+        app.exit(0);
       }
     },
 
@@ -504,9 +503,15 @@ ipcMain.on('quitAndInstall', function(event, confirm) {
 
 ipcMain.on('logged-in', function(event, arg) {
   mainWindow.webContents.send('loginStore', elctronConfig.get('login'))
+  console.log(elctronConfig.path);
 });
 
 ipcMain.on('setLoginStore', function(event, arg) {
+  elctronConfig.set('login.' + arg.key, arg.value);
+  console.log(elctronConfig.get('login'));
+});
+
+ipcMain.on('getCurrentUID', function(event, arg) {
   elctronConfig.set('login.' + arg.key, arg.value);
   console.log(elctronConfig.get('login'));
 });
