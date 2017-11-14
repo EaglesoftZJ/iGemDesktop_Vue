@@ -32,7 +32,7 @@ let currentUID;
 const elctronConfig = new ElctronConfig();
 
 if (!elctronConfig.get('notification')) {
-  elctronConfig.set('notification.show',true);
+  elctronConfig.set('notification.show', true);
 }
 
 let screenWidth;
@@ -61,8 +61,9 @@ else {
 
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -83,7 +84,7 @@ function createWindow() {
 
   let width = 320;
   let height = 130;
- 
+
   let offsetX = 340;
 
   let offSetY = height + 10;
@@ -173,7 +174,7 @@ function createWindow() {
     // notificationWindow.webContents.openDevTools();
     // updateWindow.webContents.openDevTools();
   }
-
+  // mainWindow.webContents.openDevTools();
 
 
   if (process.argv[1] === 'debug') {
@@ -204,7 +205,7 @@ function createWindow() {
 
   mainWindow.on('closed', function() {
     mainWindow = null;
-   
+
   });
 
   mainWindow.on('minimize', function() {
@@ -212,6 +213,34 @@ function createWindow() {
     setTimeout(() => { mainWindow.webContents.executeJavaScript('window.messenger.onAppVisible()') }, 1000);
 
   });
+
+  if (isMacOS) {
+    var template = [{
+      label: "Application",
+      submenu: [
+        { label: "关于", selector: "orderFrontStandardAboutPanel:" },
+        { type: "separator" },
+        { label: "退出", accelerator: "Command+Q", click: function() { app.quit(); } }
+      ]
+    }, {
+      label: "Edit",
+      submenu: [
+        { label: "撤销", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
+        { label: "恢复", accelerator: "Shift+CmdOrCtrl+Z", selector: "redo:" },
+        { type: "separator" },
+        { label: "剪切", accelerator: "CmdOrCtrl+X", selector: "cut:" },
+        { label: "复制", accelerator: "CmdOrCtrl+C", selector: "copy:" },
+        { label: "粘贴", accelerator: "CmdOrCtrl+V", selector: "paste:" },
+        { label: "全选", accelerator: "CmdOrCtrl+A", selector: "selectAll:" }
+      ]
+    }
+    ];
+
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+
+
+  }
+
 
 
 
@@ -291,14 +320,14 @@ function createTray() {
       type: 'checkbox',
       checked: elctronConfig.get('notification.show'),
       click() {
-        
+
         let showNoti = elctronConfig.get('notification.show')
 
-       
+
         elctronConfig.set('notification.show', !showNoti);
         notification.allowShow = !showNoti;
 
-        console.log('showNoti',showNoti,notification.allowShow, elctronConfig.path);
+        console.log('showNoti', showNoti, notification.allowShow, elctronConfig.path);
 
       }
     },
@@ -316,7 +345,7 @@ function createTray() {
         app.quit();
       }
     },
-   
+
   ])
   tray.setToolTip('FlyChat');
   tray.setContextMenu(contextMenu);
@@ -429,7 +458,7 @@ ipcMain.on('size-change', function(event, arg) {
   var y = notificationWindow.getPosition()[1];
   notificationWindow.setSize(arg.width, arg.height);
 
-  console.log("size",screenHeight , arg.height);
+  console.log("size", screenHeight, arg.height);
   notificationWindow.setPosition(x, screenHeight - arg.height);
 });
 
@@ -438,12 +467,12 @@ ipcMain.on('active-focus', function(event, arg) {
 });
 
 ipcMain.on('dialog-switch', function(event, arg) {
-  console.log('dialog-switch',arg);
+  console.log('dialog-switch', arg);
   currentUID = arg;
   notificationWindow.webContents.send('update-current-messages', {});
 });
 
-ipcMain.on('notification-click', function(event, arg){
+ipcMain.on('notification-click', function(event, arg) {
   currentUID = 'u' + arg;
   notification.clearShowTime();
   mainWindow.show();
@@ -454,7 +483,7 @@ ipcMain.on('notification-click', function(event, arg){
 //   if (!mainWindow.isFocused()) {
 //     blinkTray();
 //     notification.loadCurrentMessage(arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
-    
+
 //   }
 //   // console.log("message:", arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
 // });
