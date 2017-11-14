@@ -300,6 +300,10 @@ app.on('browser-window-focus', (event, window) => {
     if (currentUID) {
       window.webContents.send('windows-focus', currentUID);
     }
+    if(!clearChatWhenBlured) {
+      console.log('???????focus and start clear when blured');
+      clearChatWhenBlured = true;
+    }
 
   }
 })
