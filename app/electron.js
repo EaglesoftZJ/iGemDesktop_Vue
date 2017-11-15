@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -295,6 +295,7 @@ app.on('browser-window-blur', (event, window) => {
 
 app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
+  console.log(currentUID);
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
     if (currentUID) {
@@ -355,17 +356,21 @@ function createTray() {
   ]);
   if (isMacOS) {
     app.dock.setMenu(contextMenu)
+    tray.on('click', () => {
+      showWindow();
+    })
   } else {
     tray.setContextMenu(contextMenu);
+    tray.on('click', () => {
+      mainWindow.isVisible() ? hideWindow() : showWindow()
+    })
   }
 
 
   tray.setToolTip('FlyChat');
 
 
-  tray.on('click', () => {
-    mainWindow.isVisible() ? hideWindow() : showWindow()
-  })
+  
 
   var count = 0;
   setInterval(function() {
@@ -465,14 +470,19 @@ ipcMain.on('confirm-update', function(event, confirm) {
 // 消息框尺寸变化
 ipcMain.on('size-change', function(event, arg) {
   console.log('size-change');
-  // console.log(notificationWindow.getPosition());
+  //console.log(notificationWindow.getPosition());
   var preHeight = notificationWindow.getSize()[1];
   var x = notificationWindow.getPosition()[0];
   var y = notificationWindow.getPosition()[1];
   notificationWindow.setSize(arg.width, arg.height);
+  
 
-  console.log("size", screenHeight, arg.height);
+  
   notificationWindow.setPosition(x, screenHeight - arg.height);
+  
+
+  console.log("size",screenWidth,screenHeight, notificationWindow.getPosition()[0],notificationWindow.getPosition()[1]);
+  
 });
 
 ipcMain.on('active-focus', function(event, arg) {
@@ -486,7 +496,13 @@ ipcMain.on('dialog-switch', function(event, arg) {
 });
 
 ipcMain.on('notification-click', function(event, arg) {
-  currentUID = 'u' + arg;
+  console.log(arg);
+  if(arg.startsWith("u")||arg.startsWith("g")) {
+    currentUID = arg;
+  } else {
+    currentUID = 'u' + arg;
+  }
+  
   notification.clearShowTime();
   mainWindow.show();
 })

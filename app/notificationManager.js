@@ -45,7 +45,7 @@ var NotificationObj = function() {
           }
 
         } else {
-          if (this.notificationWindow.isVisible()) {
+          if (this.notificationWindow && this.notificationWindow.isVisible()) {
             this.notificationWindow.hide();
           }
 
