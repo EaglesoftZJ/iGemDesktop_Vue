@@ -210,14 +210,14 @@ function createWindow() {
 
   if (isMacOS) {
     var template = [{
-      label: "Application",
+      label: "程序",
       submenu: [
         { label: "关于", selector: "orderFrontStandardAboutPanel:" },
         { type: "separator" },
         { label: "退出", accelerator: "Command+Q", click: function() { notification.stop(); app.exit(0); } }
       ]
     }, {
-      label: "Edit",
+      label: "编辑",
       submenu: [
         { label: "撤销", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
         { label: "恢复", accelerator: "Shift+CmdOrCtrl+Z", selector: "redo:" },
