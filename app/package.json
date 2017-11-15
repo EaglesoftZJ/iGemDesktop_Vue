@@ -1,7 +1,7 @@
 {
   "name": "FlyChat",
   "description": "易舸软件即时通讯项目",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "n1ghtw1sh <116516842@qq.com>",
   "main": "electron.js",
   "dependencies": {
@@ -10,7 +10,7 @@
     "vue": "^2.1.6",
     "vue-router": "^2.1.1",
     "vuex": "^2.1.1",
-    "electron-config": "^1.0.0",
+    "electron-config": "^1.0.1",
     "expose-loader": "^0.7.3",
     "jquery": "^3.2.1",
     "linq": "^3.0.9",
