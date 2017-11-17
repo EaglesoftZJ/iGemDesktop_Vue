@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -295,14 +295,12 @@ app.on('browser-window-blur', (event, window) => {
 
 app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
-  console.log(currentUID);
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
     if (currentUID) {
       window.webContents.send('windows-focus', currentUID);
     }
     if(!clearChatWhenBlured) {
-      console.log('???????focus and start clear when blured');
       clearChatWhenBlured = true;
     }
 
@@ -325,8 +323,6 @@ function createTray() {
 
         elctronConfig.set('notification.show', !showNoti);
         notification.allowShow = !showNoti;
-
-        console.log('showNoti', showNoti, notification.allowShow, elctronConfig.path);
 
       }
     },
@@ -490,13 +486,12 @@ ipcMain.on('active-focus', function(event, arg) {
 });
 
 ipcMain.on('dialog-switch', function(event, arg) {
-  console.log('dialog-switch', arg);
   currentUID = arg;
   notificationWindow.webContents.send('update-current-messages', {});
 });
 
 ipcMain.on('notification-click', function(event, arg) {
-  console.log(arg);
+  console.log('arg',arg);
   if(arg.startsWith("u")||arg.startsWith("g")) {
     currentUID = arg;
   } else {

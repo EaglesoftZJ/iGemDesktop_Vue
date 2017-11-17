@@ -45,7 +45,7 @@ var NotificationObj = function() {
           }
 
         } else {
-          if (this.notificationWindow && this.notificationWindow.isVisible()) {
+          if (this &&this.notificationWindow && this.notificationWindow.isVisible()) {
             this.notificationWindow.hide();
           }
 
@@ -100,16 +100,7 @@ var NotificationObj = function() {
     console.log(result);
 
     this.notificationWindow.webContents.send('update-messages', result);
-
-
-    
-
     self.addShowTime(6);
-
-
-    console.log('notificationsMap:', self.notificationsMap);
-
-
   }
 
 
