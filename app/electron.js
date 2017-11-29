@@ -1,7 +1,7 @@
 const electron = require('electron');
 const path = require('path');
 
-const { app, Menu, Tray, ipcMain, BrowserWindow, dialog } = require('electron');
+const { app, Menu, Tray, ipcMain, BrowserWindow, dialog, clipboard, nativeImage } = require('electron');
 const ElctronConfig = require('electron-config');
 
 
@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -540,4 +540,11 @@ ipcMain.on('startUploadFile', function(event, arg) {
 
 ipcMain.on('endUploadFile', function(event, arg) {
   clearChatWhenBlured = true;
+});
+
+// 图片复制
+ipcMain.on('copy-image', function(event, arg) {
+  var dataUrl = arg.dataUrl;
+  var img = nativeImage.createFromDataURL(dataUrl);
+  clipboard.writeImage(img);
 });
