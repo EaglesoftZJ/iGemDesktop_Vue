@@ -151,7 +151,6 @@ function createWindow() {
   updateWindow.webContents.on('dom-ready', function() {
     update.checkUpdate(updateWindow, notification);
   });
-  notificationWindow.openDevTools();
 
   // mainWindow.maximize();
   Menu.setApplicationMenu(null);
@@ -165,7 +164,7 @@ function createWindow() {
     BrowserWindow.addDevToolsExtension(path.join(__dirname, '../node_modules/vue-devtools'));
 
     mainWindow.webContents.openDevTools();
-    // notificationWindow.webContents.openDevTools();
+    notificationWindow.webContents.openDevTools();
     // updateWindow.webContents.openDevTools();
   }
   // mainWindow.webContents.openDevTools();
