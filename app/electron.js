@@ -64,8 +64,8 @@ else {
 }
 
 // config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
-// config.url = 'http://220.189.207.18:3000/';
+// config.url = 'http://localhost:3000/';
+config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
