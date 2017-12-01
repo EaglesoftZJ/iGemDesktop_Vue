@@ -64,8 +64,8 @@ else {
 }
 
 // config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
-config.url = 'http://220.189.207.18:3000/';
+config.url = 'http://localhost:3000/';
+// config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
@@ -119,7 +119,10 @@ function createWindow() {
     y: screenHeight - offSetY,
     alwaysOnTop: true,
     skipTaskbar: true,
-    show: false
+    show: false,
+    resizable: false,
+    movable: false,
+    useContentSize: true
   });
 
 
@@ -453,10 +456,10 @@ ipcMain.on('new-messages', function(event, arg) {
 
 
     blinkTray();
-    if (isMacOS) {
+    var len = arg.minimizeMsg.length.toString();
+    if (isMacOS && len) {
       app.dock.bounce();
-      var len = arg.minimizeMsg.length.toString();
-      len > 0 && app.dock.setBadge(len);
+      app.dock.setBadge(len);
     }
     // 数据更新消息框展示
     notification.LoadFromNotifications(arg.minimizeMsg, 'show');
@@ -518,10 +521,15 @@ ipcMain.on('active-focus', function(event, arg) {
 });
 
 ipcMain.on('dialog-switch', function(event, arg) {
-  currentUID = arg.id;
-  var currentGroupName = /^g/.test(arg.id) ? arg.name : '';
-  console.log('current', arg.id, currentGroupName);
-  notificationWindow.webContents.send('update-current-dailog', {currentDialog: arg.id, currentGroupName});
+  console.log(1111111111, arg);
+  var info = arg.dialogInfo;
+  var currentDialog = (info.members ? 'g' : 'u') + info.id;
+  currentUID = currentDialog;
+  var currentType = info.members ? 'group' : 'user';
+  var currentAvatar = info.avatar;
+  var currentPlaceholder = info.placeholder;
+  var currentName = info.name;
+  notificationWindow.webContents.send('update-current-dailog', {currentDialog, currentType, currentAvatar, currentPlaceholder, currentName});
 });
 
 ipcMain.on('notification-click', function(event, arg) {
