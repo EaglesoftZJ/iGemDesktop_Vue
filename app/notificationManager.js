@@ -35,21 +35,22 @@ var NotificationObj = function() {
       
       if (this.notificationWindow )
         this.showTime = this.showTime - 1 <= 0 ? 0 : this.showTime - 1;
-        if (this.showTime > 0) {
-          console.log('showInactive:', this.notificationWindow.isVisible());
+      if (this.showTime > 0) {
+        console.log('showInactive:', this.notificationWindow.isVisible());
+        
+        if (!this.notificationWindow.isVisible()) {
           
-          if (!this.notificationWindow.isVisible()) {
-            
-            this.notificationWindow.showInactive();
-            
-          }
-
-        } else {
-          if (this &&this.notificationWindow && this.notificationWindow.isVisible()) {
-            this.notificationWindow.hide();
-          }
-
+          this.notificationWindow.showInactive();
+          
         }
+
+      } else {
+        if (this &&this.notificationWindow && this.notificationWindow.isVisible()) {
+          this.notificationWindow.hide();
+          this.notificationWindow.webContents.send('update-current-messages', {});
+        }
+
+      }
     }, 1000);
   }
 
@@ -60,15 +61,13 @@ var NotificationObj = function() {
     }
   }
   
-  self.loadCurrentMessage = (message, username) => {
-    this.notificationWindow.webContents.send('update-current-messages', {
-      userName:username,
-      text: message
-    });
+  self.loadCurrentMessage = (obj) => {
+    console.log('obj', obj);
+    this.notificationWindow.webContents.send('update-current-messages', obj);
     self.addShowTime(6);
   }
 
-  self.LoadFromNotifications = function(notifications) {
+  self.LoadFromNotifications = function(notifications, type) {
 
     // self.notificationsMap = {};
     // for (let i = 0; i < notifications.length; i++) {
@@ -90,17 +89,31 @@ var NotificationObj = function() {
 
     let keys = linq.from(notifications).select('$.senderName').reverse().distinct().toArray();
 
-    let result = keys.map((k) => {
+    // let keys = linq.from(notifications).select('$.senderName').reverse().distinct().toArray();
+
+    // let result = keys.map((k) => {
+    //   return {
+    //     userName: k,
+    //     id: linq.from(notifications).first('$.senderName == "' + k + '"').sender,
+    //     size: linq.from(notifications).count('$.senderName == "' + k + '"')
+    //   }
+    // })
+
+     let result = notifications.map((item) => {
       return {
-        userName: k,
-        id: linq.from(notifications).first('$.senderName == "' + k + '"').sender,
-        size: linq.from(notifications).count('$.senderName == "' + k + '"')
+        userName: item.peer.title,
+        id: item.peer.peer.key,
+        size: item.counter,
+        avatar: item.peer.avatar,
+        placeholder: item.peer.placeholder,
       }
     })
     console.log(result);
 
     this.notificationWindow.webContents.send('update-messages', result);
-    self.addShowTime(6);
+    if (type === 'show') {
+      self.addShowTime(6);
+    }
   }
 
 

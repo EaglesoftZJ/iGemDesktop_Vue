@@ -151,7 +151,7 @@ function createWindow() {
   updateWindow.webContents.on('dom-ready', function() {
     update.checkUpdate(updateWindow, notification);
   });
-
+  notificationWindow.openDevTools();
 
   // mainWindow.maximize();
   Menu.setApplicationMenu(null);
@@ -287,9 +287,9 @@ app.on('before-quit', () => {
 app.on('browser-window-blur', (event, window) => {
   if (window == mainWindow) {
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
-    if (currentUID && clearChatWhenBlured) {
-      window.webContents.send('windows-blur', currentUID);
-    }
+    // if (currentUID && clearChatWhenBlured) {
+    //   window.webContents.send('windows-blur', currentUID);
+    // }
   }
 })
 
@@ -300,9 +300,9 @@ app.on('browser-window-focus', (event, window) => {
     if (currentUID) {
       window.webContents.send('windows-focus', currentUID);
     }
-    if(!clearChatWhenBlured) {
-      clearChatWhenBlured = true;
-    }
+    // if(!clearChatWhenBlured) {
+    //   clearChatWhenBlured = true;
+    // }
 
   }
 })
@@ -423,18 +423,51 @@ ipcMain.on('tray-bounce', function(event, arg) {
 });
 
 ipcMain.on('new-messages-notification', function(event, arg) {
+  console.log(123, arg);
   if (!mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
     // let notifications = JSON.parse(arg.notifications);
-    blinkTray();
-    if (isMacOS) {
-      app.dock.bounce();
-      app.dock.setBadge(arg.notifications.length.toString());
-    }
-    notification.LoadFromNotifications(arg.notifications);
+
+
+    // blinkTray();
+    // if (isMacOS) {
+    //   app.dock.bounce();
+    //   app.dock.setBadge(arg.notifications.length.toString());
+    // }
+    // notification.LoadFromNotifications(arg.notifications);
 
     // console.log(arg);
 
+  }
+
+  if (isMacOS) {
+
+  }
+
+});
+
+ipcMain.on('new-messages', function(event, arg) {
+  console.log(123, arg, arg.minimizeMsg.length > 0 && arg.minimizeMsg[0].peer);
+  if (!mainWindow.isFocused()) {
+    // notificationManager.addShowTime(5);
+    // let notifications = JSON.parse(arg.notifications);
+
+
+    blinkTray();
+    if (isMacOS) {
+      app.dock.bounce();
+      var len = arg.minimizeMsg.length.toString();
+      len > 0 && app.dock.setBadge(len);
+    }
+    // 数据更新消息框展示
+    notification.LoadFromNotifications(arg.minimizeMsg, 'show');
+
+
+    // console.log(arg);
+
+  } else {
+    // 数据更新消息框不展示
+    notification.LoadFromNotifications(arg.minimizeMsg, 'update');    
   }
 
   if (isMacOS) {
@@ -486,8 +519,10 @@ ipcMain.on('active-focus', function(event, arg) {
 });
 
 ipcMain.on('dialog-switch', function(event, arg) {
-  currentUID = arg;
-  notificationWindow.webContents.send('update-current-messages', {});
+  currentUID = arg.id;
+  var currentGroupName = /^g/.test(arg.id) ? arg.name : '';
+  console.log('current', arg.id, currentGroupName);
+  notificationWindow.webContents.send('update-current-dailog', {currentDialog: arg.id, currentGroupName});
 });
 
 ipcMain.on('notification-click', function(event, arg) {
@@ -502,15 +537,27 @@ ipcMain.on('notification-click', function(event, arg) {
   mainWindow.show();
 })
 
-// ipcMain.on('message-change', function(event, arg) {
-//   console.log('message-change');
-//   if (!mainWindow.isFocused()) {
-//     blinkTray();
-//     notification.loadCurrentMessage(arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
+// 存储当前窗口最后一条信息key
+var currentMsgKey = '';
 
-//   }
-//   // console.log("message:", arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
-// });
+ipcMain.on('message-change', function(event, arg) {
+  console.log('message-change');
+  var currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
+
+  if (!mainWindow.isFocused() && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
+    blinkTray();
+    notification.loadCurrentMessage({
+      text: currentMsg.content.text, 
+      title: currentMsg.sender.title, 
+      id: currentMsg.sender.peer.key, 
+      content: currentMsg.content.content,
+      fileUrl: currentMsg.content.preview,
+      fileName: currentMsg.content.fileName
+    });
+  } 
+  currentMsgKey = currentMsg ? currentMsg['sortKey'] : '';
+  // console.log("message:", arg.message[arg.message.length - 1].content.text, arg.message[arg.message.length - 1].sender.userName);
+});
 
 ipcMain.on('quitAndInstall', function(event, confirm) {
 

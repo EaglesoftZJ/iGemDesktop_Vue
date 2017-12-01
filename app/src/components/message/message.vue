@@ -1,12 +1,14 @@
 <template>
     <div class="message">
-        <div class="message-current" v-if="current">
-            <span class="message-current-name" :title="data.current.userName">{{ data.current.userName }}:</span>
-            <span class="message-current-detial">{{ data.current.text }}</span>
+        <div class="message-current" @click="clickUser(currentDialog)" v-if="current">
+            <div class="message-current-group" v-if="currentGroupName" :title="currentGroupName">群组<span>{{ currentGroupName }}</span>中</div>
+            <span :class="['message-current-name', 'group']" :title="data.current.title">{{ data.current.title }}</span>
+            <span v-if="data.current.content == 'text' || data.current.content == 'document'" class="message-current-detial">{{ data.current.text ? ': ' + data.current.text : '发送了文件 ' + data.current.fileName }}</span>
+            <div v-if="data.current.content == 'photo' || data.current.content == 'animation'" class="message-current-img" :style="{'background-image': 'url(' + data.current.fileUrl + ')'}"></div>
         </div>
           <div class="message-list">
              <transition-group name="message">
-              <div class="message-item" v-for="item in data.messages" :key="item.id" @click ="clickUser(item.id)" v-if="item.userName != data.current.userName">
+              <div class="message-item" v-for="item in data.messages" :key="item.id" @click ="clickUser(item.id)">
                   <div class="message-user-pic" :class="!item.avatar ? 'placeholder--' + item.placeholder : ''">
                       <img :src="item.avatar" width="100%" height="100%" v-if="item.avatar" /> 
                       <span v-else>{{ getFirstChar(item.userName) }}</span>
@@ -27,19 +29,23 @@ export default {
     return {
       data: {
         current: {
-          userName: "",
+          id: "",
+          title: "",
           content: "",
           text: "",
-          fileUrl: ""
+          fileUrl: "",
+          fileName: ""
         },
         messages: []
-      }
+      },
+      currentDialog: '',
+      currentGroupName: ''
     };
   },
 
   computed: {
     current() {
-      return !!this.data.current.userName;
+      return !!this.data.current.title;
     }
   },
   methods: {
@@ -51,10 +57,10 @@ export default {
       return title[0].match(emojiFirstChar) ? "#" : title[0];
     },
     sizeChange() {
-      var top = this.current ? 40 : 0;
+      var top = this.current ? this.currentGroupName ? 60 : 30 : 0;
       var arr = linq
         .from(this.data.messages)
-        .where('$.userName !="' + this.data.current.userName + '"')
+        // .where('$.sender !=="' + this.currentDialog + '"')
         .toArray();
       var height = (arr.length >= 3 ? 123 : arr.length * 41) + top;
       this.$ect.ipcRenderer.send("size-change", { width: 260, height: height });
@@ -69,9 +75,17 @@ export default {
       this.sizeChange();
     });
     this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
-      this.data.current.userName = arg.userName;
-      this.data.current.text = arg.text;
+      console.log(11111111111, arg);
+      this.$set(this.data, 'current',  arg);
+      // this.data.current.titlee = arg.userName;
+      // this.data.current.text = arg.text;
+      // this.data.current.id = arg.id;
       this.sizeChange();
+    });
+    this.$ect.ipcRenderer.on("update-current-dailog", (event, arg) => {
+      // 用于记录当前对话框的类型，如果是群组记录群组名称，用于展示以不同形式展示不同类型的当前聊天内容
+      this.currentDialog = arg.currentDialog;
+      this.currentGroupName = arg.currentGroupName;
     });
   }
 };
@@ -95,19 +109,40 @@ $color-green: #67bf74;
 }
 .message-current {
   width: 100%;
-  height: 40px;
+  min-height: 30px;
   padding: 0 10px;
-  line-height: 40px;
+  line-height: 30px;
   box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+.message-current-group {
+  height: 30px;
+  font-size: 16px;
+  line-height: 40px;
+}
+.message-current-group span {
+  font-weight: bold;
 }
 .message-current-name {
   font-weight: bold;
 }
+.message-current-name.group {
+  font-weight: normal;
+}
 .message-current-detial {
   margin-right: 5px;
+}
+.message-current-img {
+  display: inline-block;
+  width: 100px;
+  height: 26px;
+  vertical-align: text-bottom;
+  background-position: left top;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 .message-detial {
   display: inline-block;
