@@ -1,7 +1,7 @@
 {
   "name": "FlyChat",
   "description": "易舸即时通讯软件",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "eaglesoft.cn",
   "scripts": {
     "postinstall": "cd app && npm i",
@@ -14,7 +14,7 @@
     "package:just": "node tasks/package.js package:just"
   },
   "dependencies": {
-    "electron-config": "^1.0.1",
+    "electron-config": "^1.0.2",
     "expose-loader": "^0.7.3",
     "jquery": "^3.2.1",
     "linq": "^3.0.9",
@@ -46,7 +46,7 @@
     "vue": "^2.1.6",
     "vue-devtools": "^2.3.1-beta1",
     "vue-loader": "^10.0.2",
-    "vue-style-loader": "^1.0.1",
+    "vue-style-loader": "^1.0.2",
     "vue-template-compiler": "^2.1.6",
     "webpack": "^2.2.0",
     "webpack-dev-server": "^2.2.0"
