@@ -449,14 +449,15 @@ ipcMain.on('new-messages-notification', function(event, arg) {
 });
 
 ipcMain.on('new-messages', function(event, arg) {
-  console.log(123, arg, arg.minimizeMsg.length > 0 && arg.minimizeMsg[0].peer);
   if (!mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
     // let notifications = JSON.parse(arg.notifications);
 
 
     blinkTray();
-    var len = arg.minimizeMsg.length.toString();
+    var len = null;
+    if (arg.minimizeMsg)
+      len = arg.minimizeMsg.length.toString();
     if (isMacOS && len) {
       app.dock.bounce();
       app.dock.setBadge(len);
@@ -553,7 +554,9 @@ var currentMsgKey = '';
 
 ipcMain.on('message-change', function(event, arg) {
   console.log('message-change');
-  var currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
+  var currentMsg = null;
+  if (arg.currentMsg)
+   currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
 
   if (!mainWindow.isFocused() && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
     blinkTray();
