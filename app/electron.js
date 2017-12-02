@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -523,13 +523,17 @@ ipcMain.on('active-focus', function(event, arg) {
 ipcMain.on('dialog-switch', function(event, arg) {
   console.log(1111111111, arg);
   var info = arg.dialogInfo;
-  var currentDialog = (info.members ? 'g' : 'u') + info.id;
-  currentUID = currentDialog;
-  var currentType = info.members ? 'group' : 'user';
-  var currentAvatar = info.avatar;
-  var currentPlaceholder = info.placeholder;
-  var currentName = info.name;
-  notificationWindow.webContents.send('update-current-dailog', {currentDialog, currentType, currentAvatar, currentPlaceholder, currentName});
+  if(info) {
+    var currentDialog = (info.members ? 'g' : 'u') + info.id;
+    currentUID = currentDialog;
+    var currentType = info.members ? 'group' : 'user';
+    var currentAvatar = info.avatar;
+    var currentPlaceholder = info.placeholder;
+    var currentName = info.name;
+    notificationWindow.webContents.send('update-current-dailog', {currentDialog, currentType, currentAvatar, currentPlaceholder, currentName});
+
+  }
+ 
 });
 
 ipcMain.on('notification-click', function(event, arg) {
