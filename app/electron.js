@@ -455,14 +455,18 @@ ipcMain.on('new-messages', function(event, arg) {
     // let notifications = JSON.parse(arg.notifications);
 
 
-    blinkTray();
-    var len = arg.minimizeMsg.length.toString();
-    if (isMacOS && len) {
-      app.dock.bounce();
-      app.dock.setBadge(len);
+    
+    var len = arg.minimizeMsg.length;
+    if (len) {
+      blinkTray();
+      if (isMacOS) {
+        app.dock.bounce();
+        app.dock.setBadge(arg.minimizeMsg.length.toString());
+      }
+      // 数据更新消息框展示
+      notification.LoadFromNotifications(arg.minimizeMsg, 'show');
     }
-    // 数据更新消息框展示
-    notification.LoadFromNotifications(arg.minimizeMsg, 'show');
+    
 
 
     // console.log(arg);

@@ -58842,6 +58842,17 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 /* harmony default export */ __webpack_exports__["default"] = ({
@@ -58860,14 +58871,35 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
         },
         messages: []
       },
+      currentType: '',
+      currentAvatar: '',
+      currentPlaceholder: '',
       currentDialog: '',
-      currentGroupName: ''
+      currentName: ''
     };
   },
 
   computed: {
     current() {
       return !!this.data.current.title;
+    },
+    total() {
+      var len = __WEBPACK_IMPORTED_MODULE_0_linq___default.a.from(this.data.messages).sum('$.size');
+      return len + (this.current ? 1 : 0);
+    },
+    detialInfo() {
+      var info = '';
+      if (this.data.current.content == 'text') {
+        info = this.data.current.text;
+      } else if (this.data.current.content == 'document') {
+        info = '发送了文件 ' + this.data.current.fileName;
+      } else if (this.data.current.content == 'photo' || this.data.current.content == 'animation') {
+        info = `<div class="message-current-img" style="background-image: url(${this.data.current.fileUrl})"></div>`;
+      }
+      if (this.currentType === 'group') {
+        info = this.data.current.title + ': ' + info;
+      }
+      return info;
     }
   },
   methods: {
@@ -58879,34 +58911,30 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
       return title[0].match(emojiFirstChar) ? "#" : title[0];
     },
     sizeChange() {
-      var top = this.current ? this.currentGroupName ? 60 : 30 : 0;
-      var arr = __WEBPACK_IMPORTED_MODULE_0_linq___default.a.from(this.data.messages)
-      // .where('$.sender !=="' + this.currentDialog + '"')
-      .toArray();
-      var height = (arr.length >= 3 ? 123 : arr.length * 41) + top;
+      var arr = __WEBPACK_IMPORTED_MODULE_0_linq___default.a.from(this.data.messages).toArray();
+      var height = $(this.$refs.con).height();
       this.$ect.ipcRenderer.send("size-change", { width: 260, height: height });
     },
     clickUser(id) {
       this.$ect.ipcRenderer.send("notification-click", id);
     }
   },
+  updated() {
+    this.sizeChange();
+  },
   created() {
     this.$ect.ipcRenderer.on("update-messages", (event, arg) => {
       this.data.messages = arg;
-      this.sizeChange();
     });
     this.$ect.ipcRenderer.on("update-current-messages", (event, arg) => {
-      console.log(11111111111, arg);
       this.$set(this.data, 'current', arg);
-      // this.data.current.titlee = arg.userName;
-      // this.data.current.text = arg.text;
-      // this.data.current.id = arg.id;
-      this.sizeChange();
     });
     this.$ect.ipcRenderer.on("update-current-dailog", (event, arg) => {
-      // 用于记录当前对话框的类型，如果是群组记录群组名称，用于展示以不同形式展示不同类型的当前聊天内容
-      this.currentDialog = arg.currentDialog;
-      this.currentGroupName = arg.currentGroupName;
+      for (var key in arg) {
+        if (arg.hasOwnProperty(key)) {
+          this[key] = arg[key];
+        }
+      }
     });
   }
 });
@@ -59273,7 +59301,7 @@ exports = module.exports = __webpack_require__(23)();
 
 
 // module
-exports.push([module.i, ".message[data-v-2e48fd9f]{width:260px;font-size:14px;font-family:tahoma,arial,Hiragino Sans GB,Microsoft YaHei,\\\\5B8B\\4F53,sans-serif;background:#fff}.message-current[data-v-2e48fd9f]{width:100%;min-height:30px;padding:0 10px;line-height:30px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.message-current-group[data-v-2e48fd9f]{height:30px;font-size:16px;line-height:40px}.message-current-group span[data-v-2e48fd9f],.message-current-name[data-v-2e48fd9f]{font-weight:700}.message-current-name.group[data-v-2e48fd9f]{font-weight:400}.message-current-detial[data-v-2e48fd9f]{margin-right:5px}.message-current-img[data-v-2e48fd9f]{display:inline-block;width:100px;height:26px;vertical-align:text-bottom;background-position:0 0;background-repeat:no-repeat;background-size:contain}.message-detial[data-v-2e48fd9f]{display:inline-block}.message-list[data-v-2e48fd9f]{width:260px;max-height:123px;box-sizing:border-box;overflow-x:hidden;overflow-y:auto}.message-item[data-v-2e48fd9f]{position:relative;height:30px;padding:5px 10px;overflow:hidden;border-top:1px solid #e3e8ee;box-sizing:content-box;cursor:pointer;transition:all .3s ease-in}.message-item[data-v-2e48fd9f]:hover{background:#e3e8ee}.message-item[data-v-2e48fd9f]:not(:first-child){border-top:1px dashed #e3e8ee}.message-user-pic[data-v-2e48fd9f]{display:inline-block;width:30px;height:30px;overflow:hidden;color:#fff;text-align:center;line-height:30px;vertical-align:middle;border-radius:100%}.placeholder--empty[data-v-2e48fd9f]{background-color:#b8b8b8}.placeholder--lblue[data-v-2e48fd9f]{background-color:#59a2be}.placeholder--blue[data-v-2e48fd9f]{background-color:#2093cd}.placeholder--purple[data-v-2e48fd9f]{background-color:#ad62a7}.placeholder--red[data-v-2e48fd9f]{background-color:#f16364}.placeholder--orange[data-v-2e48fd9f]{background-color:#f9a43e}.placeholder--yellow[data-v-2e48fd9f]{background-color:#ed608b}.placeholder--green[data-v-2e48fd9f]{background-color:#67bf74}.message-user-name[data-v-2e48fd9f]{display:inline-block;width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.message-size[data-v-2e48fd9f]{position:absolute;top:10px;right:10px;min-width:12px;height:12px;padding:4px;text-align:center;color:#fff;line-height:12px;border-radius:12px;background:red;box-sizing:content-box}.message-enter[data-v-2e48fd9f]{transform:translate3d(-100%,0,0)}.message-leave-active[data-v-2e48fd9f]{transform:translate3d(100%,0,0)}", ""]);
+exports.push([module.i, ".message{width:260px;height:100%;overflow:hidden;font-size:14px;font-family:tahoma,arial,Hiragino Sans GB,Microsoft YaHei,\\\\5B8B\\4F53,sans-serif;background:#fff}.message-con{max-height:177px;overflow-x:hidden;overflow-y:auto}.message-current{width:100%;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.message-list{width:260px;box-sizing:border-box;overflow-x:hidden;overflow-y:auto}.message-item{position:relative;display:flex;height:36px;padding:5px 10px;overflow:hidden;border-top:1px solid #e3e8ee;box-sizing:content-box;cursor:pointer;transition:all .3s ease-in}.message-item:hover{background:#e3e8ee}.message-item:not(:first-child){border-top:1px dashed #e3e8ee}.message-user-pic{width:36px;height:36px;flex:0 0 auto;margin-right:5px;overflow:hidden;color:#fff;text-align:center;line-height:36px;vertical-align:middle;border-radius:100%}.message-detail{display:flex;flex:1;flex-direction:column;width:200px;line-height:1.2}.message-user-name{flex:1;font-weight:700}.message-user-info{flex:1;font-size:12px}.message-current-img{display:inline-block;width:100px;height:100%;background-size:contain;background-position:0;background-repeat:no-repeat;vertical-align:text-bottom}.message-list .message-detail{line-height:36px}.text-overflow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.placeholder--empty{background-color:#b8b8b8}.placeholder--lblue{background-color:#59a2be}.placeholder--blue{background-color:#2093cd}.placeholder--purple{background-color:#ad62a7}.placeholder--red{background-color:#f16364}.placeholder--orange{background-color:#f9a43e}.placeholder--yellow{background-color:#ed608b}.placeholder--green{background-color:#67bf74}.message-size{position:absolute;top:10px;right:20px;min-width:12px;height:12px;padding:4px;text-align:center;color:#fff;line-height:12px;border-radius:12px;background:red;box-sizing:content-box}.message-enter{transform:translate3d(-100%,0,0)}.message-leave-active{transform:translate3d(100%,0,0)}.message-total{height:36px;line-height:36px;padding:0 10px;box-shadow:0 1px 0 0 #efecec}", ""]);
 
 // exports
 
@@ -59334,7 +59362,7 @@ var Component = __webpack_require__(24)(
   /* template */
   __webpack_require__(171),
   /* scopeId */
-  "data-v-2e48fd9f",
+  null,
   /* cssModules */
   null
 )
@@ -59447,31 +59475,39 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "message"
-  }, [(_vm.current) ? _c('div', {
-    staticClass: "message-current",
+  }, [_c('div', {
+    ref: "con",
+    staticClass: "message-con"
+  }, [_c('div', {
+    staticClass: "message-total"
+  }, [_vm._v("新消息 (" + _vm._s(_vm.total) + ")")]), _vm._v(" "), (_vm.current) ? _c('div', {
+    staticClass: "message-current"
+  }, [_c('div', {
+    staticClass: "message-item",
     on: {
       "click": function($event) {
         _vm.clickUser(_vm.currentDialog)
       }
     }
-  }, [(_vm.currentGroupName) ? _c('div', {
-    staticClass: "message-current-group",
+  }, [_c('div', {
+    staticClass: "message-user-pic",
+    class: !_vm.currentAvatar ? 'placeholder--' + _vm.currentPlaceholder : ''
+  }, [(_vm.currentAvatar) ? _c('img', {
     attrs: {
-      "title": _vm.currentGroupName
+      "src": _vm.currentAvatar,
+      "width": "100%",
+      "height": "100%"
     }
-  }, [_vm._v("群组"), _c('span', [_vm._v(_vm._s(_vm.currentGroupName))]), _vm._v("中")]) : _vm._e(), _vm._v(" "), _c('span', {
-    class: ['message-current-name', 'group'],
-    attrs: {
-      "title": _vm.data.current.title
+  }) : _c('span', [_vm._v(_vm._s(_vm.getFirstChar(_vm.currentName)))])]), _vm._v(" "), _c('div', {
+    staticClass: "message-detail"
+  }, [_c('div', {
+    staticClass: "message-user-name text-overflow"
+  }, [_vm._v(_vm._s(_vm.currentName))]), _vm._v(" "), _c('div', {
+    staticClass: "message-user-info text-overflow",
+    domProps: {
+      "innerHTML": _vm._s(_vm.detialInfo)
     }
-  }, [_vm._v(_vm._s(_vm.data.current.title))]), _vm._v(" "), (_vm.data.current.content == 'text' || _vm.data.current.content == 'document') ? _c('span', {
-    staticClass: "message-current-detial"
-  }, [_vm._v(_vm._s(_vm.data.current.text ? ': ' + _vm.data.current.text : '发送了文件 ' + _vm.data.current.fileName))]) : _vm._e(), _vm._v(" "), (_vm.data.current.content == 'photo' || _vm.data.current.content == 'animation') ? _c('div', {
-    staticClass: "message-current-img",
-    style: ({
-      'background-image': 'url(' + _vm.data.current.fileUrl + ')'
-    })
-  }) : _vm._e()]) : _vm._e(), _vm._v(" "), _c('div', {
+  })])])]) : _vm._e(), _vm._v(" "), _c('div', {
     staticClass: "message-list"
   }, [_c('transition-group', {
     attrs: {
@@ -59495,12 +59531,14 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         "width": "100%",
         "height": "100%"
       }
-    }) : _c('span', [_vm._v(_vm._s(_vm.getFirstChar(item.userName)))])]), _vm._v(" "), _c('span', {
-      staticClass: "message-user-name"
-    }, [_vm._v(_vm._s(item.userName))]), _vm._v(" "), _c('div', {
+    }) : _c('span', [_vm._v(_vm._s(_vm.getFirstChar(item.userName)))])]), _vm._v(" "), _c('div', {
+      staticClass: "message-detail"
+    }, [_c('div', {
+      staticClass: "message-user-name text-overflow"
+    }, [_vm._v(_vm._s(item.userName))])]), _vm._v(" "), _c('div', {
       staticClass: "message-size"
     }, [_vm._v(_vm._s(item.size))])])
-  }))], 1)])
+  }))], 1)])])
 },staticRenderFns: []}
 
 /***/ }),
@@ -59586,7 +59624,7 @@ var content = __webpack_require__(162);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(177)("289bccb8", content, true);
+var update = __webpack_require__(177)("05c444ce", content, true);
 
 /***/ }),
 /* 177 */
