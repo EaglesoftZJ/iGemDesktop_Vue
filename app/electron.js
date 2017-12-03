@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -77,7 +77,8 @@ function createWindow() {
     minHeight: 700,
     minWidth: 1000,
     width: 1000,
-    height: 700
+    height: 700,
+    fullscreenable: false
   });
 
   screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
@@ -449,25 +450,29 @@ ipcMain.on('new-messages-notification', function(event, arg) {
 });
 
 ipcMain.on('new-messages', function(event, arg) {
-  console.log(123, arg, arg.minimizeMsg.length > 0 && arg.minimizeMsg[0].peer);
   if (!mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
     // let notifications = JSON.parse(arg.notifications);
 
-
-    
-    var len = arg.minimizeMsg.length;
-    if (len) {
-      blinkTray();
-      if (isMacOS) {
-        app.dock.bounce();
-        app.dock.setBadge(arg.minimizeMsg.length.toString());
-      }
-      // 数据更新消息框展示
-      notification.LoadFromNotifications(arg.minimizeMsg, 'show');
+    // var len = arg.minimizeMsg.length;
+    // if (len) {
+    //   blinkTray();
+    //   if (isMacOS) {
+    //     app.dock.bounce();
+    //     app.dock.setBadge(arg.minimizeMsg.length.toString());
+    //   }
+    //   // 数据更新消息框展示
+    //   notification.LoadFromNotifications(arg.minimizeMsg, 'show');
+    blinkTray();
+    var len = null;
+    if (arg.minimizeMsg)
+      len = arg.minimizeMsg.length.toString();
+    if (isMacOS && len) {
+      app.dock.bounce();
+      app.dock.setBadge(len);
     }
-    
-
+    // 数据更新消息框展示
+    notification.LoadFromNotifications(arg.minimizeMsg, 'show');
 
     // console.log(arg);
 
@@ -527,13 +532,17 @@ ipcMain.on('active-focus', function(event, arg) {
 ipcMain.on('dialog-switch', function(event, arg) {
   console.log(1111111111, arg);
   var info = arg.dialogInfo;
-  var currentDialog = (info.members ? 'g' : 'u') + info.id;
-  currentUID = currentDialog;
-  var currentType = info.members ? 'group' : 'user';
-  var currentAvatar = info.avatar;
-  var currentPlaceholder = info.placeholder;
-  var currentName = info.name;
-  notificationWindow.webContents.send('update-current-dailog', {currentDialog, currentType, currentAvatar, currentPlaceholder, currentName});
+  if(info) {
+    var currentDialog = (info.members ? 'g' : 'u') + info.id;
+    currentUID = currentDialog;
+    var currentType = info.members ? 'group' : 'user';
+    var currentAvatar = info.avatar;
+    var currentPlaceholder = info.placeholder;
+    var currentName = info.name;
+    notificationWindow.webContents.send('update-current-dailog', {currentDialog, currentType, currentAvatar, currentPlaceholder, currentName});
+
+  }
+ 
 });
 
 ipcMain.on('notification-click', function(event, arg) {
@@ -553,7 +562,9 @@ var currentMsgKey = '';
 
 ipcMain.on('message-change', function(event, arg) {
   console.log('message-change');
-  var currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
+  var currentMsg = null;
+  if (arg.currentMsg)
+   currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
 
   if (!mainWindow.isFocused() && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
     blinkTray();
