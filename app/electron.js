@@ -299,6 +299,7 @@ app.on('browser-window-blur', (event, window) => {
 app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
   if (window == mainWindow) {
+    stopBlinkTray();
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
     if (currentUID) {
       window.webContents.send('windows-focus', currentUID);
@@ -454,25 +455,27 @@ ipcMain.on('new-messages', function(event, arg) {
     // notificationManager.addShowTime(5);
     // let notifications = JSON.parse(arg.notifications);
 
-    // var len = arg.minimizeMsg.length;
-    // if (len) {
-    //   blinkTray();
-    //   if (isMacOS) {
-    //     app.dock.bounce();
-    //     app.dock.setBadge(arg.minimizeMsg.length.toString());
-    //   }
-    //   // 数据更新消息框展示
-    //   notification.LoadFromNotifications(arg.minimizeMsg, 'show');
-    blinkTray();
-    var len = null;
-    if (arg.minimizeMsg)
-      len = arg.minimizeMsg.length.toString();
-    if (isMacOS && len) {
-      app.dock.bounce();
-      app.dock.setBadge(len);
+    var len = arg.minimizeMsg && arg.minimizeMsg.length;
+    if (len) {
+      blinkTray();
+      if (isMacOS) {
+        app.dock.bounce();
+        app.dock.setBadge(arg.minimizeMsg.length.toString());
+      }
+      // 数据更新消息框展示
+      notification.LoadFromNotifications(arg.minimizeMsg, 'show');
     }
-    // 数据更新消息框展示
-    notification.LoadFromNotifications(arg.minimizeMsg, 'show');
+      
+    // blinkTray();
+    // var len = null;
+    // if (arg.minimizeMsg)
+    //   len = arg.minimizeMsg.length.toString();
+    // if (isMacOS && len) {
+    //   app.dock.bounce();
+    //   app.dock.setBadge(len);
+    // }
+    // // 数据更新消息框展示
+    // notification.LoadFromNotifications(arg.minimizeMsg, 'show');
 
     // console.log(arg);
 

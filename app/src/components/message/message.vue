@@ -92,7 +92,8 @@ export default {
       var arr = linq
         .from(this.data.messages)
         .toArray();
-      var height = $(this.$refs.con).height();
+      var height = (this.data.messages.length + (this.data.current.title ? 1 : 0)) * 47 + 36;
+      height = height > 177 ? 177 : height;
       this.$ect.ipcRenderer.send("size-change", { width: 260, height: height });
       
     },
