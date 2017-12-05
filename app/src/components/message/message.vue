@@ -94,6 +94,7 @@ export default {
         .toArray();
       var height = (this.data.messages.length + (this.data.current.title ? 1 : 0)) * 47 + 36;
       height = height > 177 ? 177 : height;
+      $(this.$refs.con).scrollTop(0);
       this.$ect.ipcRenderer.send("size-change", { width: 260, height: height });
       
     },

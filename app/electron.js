@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -599,6 +599,16 @@ ipcMain.on('setLoginStore', function(event, arg) {
   elctronConfig.set('login.' + arg.key, arg.value);
   console.log(elctronConfig.get('login'));
 });
+
+ipcMain.on('getDialogStore', function(event, arg) {
+  console.log('getDialogStore');
+  mainWindow.webContents.send('dialogStore', elctronConfig.get('dialog'));
+})
+
+ipcMain.on('setDialogStore', function(event, arg) {
+  elctronConfig.set('dialog.' + arg.key, arg.value);
+})
+
 
 ipcMain.on('getCurrentUID', function(event, arg) {
   elctronConfig.set('login.' + arg.key, arg.value);
