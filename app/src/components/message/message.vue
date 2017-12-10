@@ -1,5 +1,5 @@
 <template>
-    <div class="message">
+    <div class="message-box">
         <div class="message-con" ref="con">
         <div class="message-total">新消息 ({{ total }})</div>
         <div class="message-current" v-if="current">
@@ -132,7 +132,7 @@ $color-orange: #f9a43e;
 $color-yellow: #e4c62e;
 $color-pink: #ed608b;
 $color-green: #67bf74;
-.message {
+.message-box {
   width: 260px;
   height:100%;
   overflow: hidden;
