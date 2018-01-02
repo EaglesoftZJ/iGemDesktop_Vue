@@ -63,8 +63,8 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -148,12 +148,22 @@ function createWindow() {
   update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
   // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
 
+
+  var readSize = 0;
+
   notificationWindow.webContents.on('dom-ready', function() {
     notification.init(notificationWindow);
+    readSize++;
+    if (readSize === 2) {
+      update.checkUpdate(updateWindow, notification);
+    }
   });
 
   updateWindow.webContents.on('dom-ready', function() {
-    update.checkUpdate(updateWindow, notification);
+    readSize++;
+    if (readSize === 2) {
+      update.checkUpdate(updateWindow, notification);
+    }
   });
 
   // mainWindow.maximize();
@@ -381,17 +391,18 @@ function createTray() {
       if (blinkTrayFlag) {
         tray.setImage(blinkIconPath);
       }
-
     }
   }, 500);
 }
 
 function blinkTray() {
   blinkTrayFlag = true;
+  console.log(123, blinkTrayFlag);
 }
 
 function stopBlinkTray() {
   blinkTrayFlag = false;
+  console.log(321, blinkTrayFlag);
 }
 
 ipcMain.on('new-messages-show', function(event, arg) {
@@ -408,11 +419,10 @@ ipcMain.on('tray-badge', function(event, arg) {
     app.dock.bounce();
     app.dock.setBadge(arg.count.toString());
   }
-
 });
 
 ipcMain.on('new-messages-hide', function(event, arg) {
-  stopBlinkTray();
+  // stopBlinkTray();
   if (isMacOS) {
     app.dock.setBadge('');
   }
@@ -497,7 +507,7 @@ ipcMain.on('update-created', function(event, confirm) {
 });
 
 ipcMain.on('confirm-update', function(event, confirm) {
-
+  console.log(123, 'confirm-update');
   if (confirm) {
     update.startUpdate(updateWindow);
 
@@ -570,6 +580,7 @@ ipcMain.on('message-change', function(event, arg) {
    currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
 
   if (!mainWindow.isFocused() && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
+    console.log(123, 'blinkTray');
     blinkTray();
     notification.loadCurrentMessage({
       text: currentMsg.content.text, 

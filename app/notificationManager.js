@@ -27,7 +27,7 @@ var NotificationObj = function() {
 
   self.start = () => {
     this.notificationWindow.webContents.send('change-to-notification');
-    intervalId = setInterval(() => {
+    this.intervalId = setInterval(() => {
 
       if (!this.allowShow) {
         this.clearShowTime();
@@ -57,7 +57,7 @@ var NotificationObj = function() {
   self.stop = () => {
     if (this.intervalId) {
       clearInterval(this.intervalId);
-      intervalId = null;
+      this.intervalId = null;
     }
   }
   

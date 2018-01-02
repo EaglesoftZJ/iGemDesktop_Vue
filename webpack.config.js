@@ -17,10 +17,11 @@ let indexConfig = {
     rules: [
       {
         test: /\.scss$/,
-        loader: ExtractTextPlugin.extract({
-          fallback: "style",
-          use: "css!sass"
-        })
+        use: ['style-loader', 'css-loader', 'sass-loader']
+        // loader: ExtractTextPlugin.extract({
+        //   fallback: "style",
+        //   use: "css!sass"
+        // })
       },
       {
         test: require.resolve("jquery"),
