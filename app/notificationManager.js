@@ -36,7 +36,7 @@ var NotificationObj = function() {
       if (this.notificationWindow )
         this.showTime = this.showTime - 1 <= 0 ? 0 : this.showTime - 1;
       if (this.showTime > 0) {
-        console.log('showInactive:', this.notificationWindow.isVisible());
+        // console.log('showInactive:', this.notificationWindow.isVisible());
         
         if (!this.notificationWindow.isVisible()) {
           
@@ -62,7 +62,7 @@ var NotificationObj = function() {
   }
   
   self.loadCurrentMessage = (obj) => {
-    console.log('obj', obj);
+    // console.log('obj', obj);
     this.notificationWindow.webContents.send('update-current-messages', obj);
     self.addShowTime(6);
   }
@@ -108,7 +108,7 @@ var NotificationObj = function() {
         placeholder: item.peer.placeholder,
       }
     })
-    console.log(result);
+    // console.log(result);
 
     this.notificationWindow.webContents.send('update-messages', result);
     if (type === 'show') {
