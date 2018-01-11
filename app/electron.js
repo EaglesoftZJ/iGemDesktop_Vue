@@ -219,6 +219,39 @@ function createWindow() {
   }
 
 
+  mainWindow.webContents.session.on('will-download', function(e, item) {
+
+
+
+    console.log('will-download');
+
+    // By default electron doesn't
+    var dialog = require('dialog');
+    consoe.log('item', item);
+    var savePath = dialog.showSaveDialog(mainWindow, { defaultPath: item.getFilename() });
+    if (savePath != undefined) {
+      item.setSavePath(savePath)
+    } else {
+      item.cancel()
+      return
+    }
+
+    console.log(item.getMimeType());
+    console.log(item.getFilename());
+    console.log(item.getTotalBytes());
+    item.on('updated', function() {
+      console.log('Received bytes: ' + item.getReceivedBytes());
+    });
+    item.on('done', function(e, state) {
+      if (state == "completed") {
+        console.log("Download successfully");
+      } else {
+        console.log("Download is cancelled or interrupted that can't be resumed");
+      }
+    })
+  })
+
+
 
 
 
@@ -670,4 +703,21 @@ ipcMain.on('copy-image', function(event, arg) {
   var dataUrl = arg.dataUrl;
   var img = nativeImage.createFromDataURL(dataUrl);
   clipboard.writeImage(img);
+});
+
+
+var inLoginTimes = 0;
+var inMainTimes = 0;
+
+// 记录主窗口进入main次数
+ipcMain.on('recodeInMain', function(event, arg) {
+  inMainTimes++;
+  console.log('inMainTimes', inMainTimes, inLoginTimes);
+  mainWindow.webContents.send('inMainTimes', {main: inMainTimes, login: inLoginTimes});
+});
+
+// 记录主窗口进入login次数
+ipcMain.on('recodeInLogin', function(event, arg) {
+   inLoginTimes++;
+   console.log('inLoginTimes', inMainTimes, inLoginTimes);
 });
