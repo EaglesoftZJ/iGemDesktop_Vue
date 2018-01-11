@@ -1,7 +1,7 @@
 const electron = require('electron');
 const path = require('path');
 
-const { app, Menu, Tray, ipcMain, BrowserWindow, dialog, clipboard, nativeImage } = require('electron');
+const { app, Menu, MenuItem, Tray, ipcMain, BrowserWindow, dialog, clipboard, nativeImage } = require('electron');
 const ElctronConfig = require('electron-config');
 
 
@@ -64,8 +64,8 @@ else {
 }
 
 // config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
-config.url = 'http://220.189.207.18:3000/';
+config.url = 'http://localhost:3000/';
+// config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
@@ -168,6 +168,36 @@ function createWindow() {
 
   // mainWindow.maximize();
   Menu.setApplicationMenu(null);
+
+  // 配置右键菜单
+  const menu = new Menu();
+  menu.append(new MenuItem({
+    label: '复制',
+    accelerator: 'CmdOrCtrl+C',
+    role: 'copy'
+  }));
+  menu.append(new MenuItem({
+    label: '粘贴',
+    accelerator: 'CmdOrCtrl+V',
+    role: 'paste'
+  }));
+
+  menu.append(new MenuItem({
+    label: '剪切',
+    accelerator: 'CmdOrCtrl+X',
+    role: 'cut'
+  }));
+  
+  menu.append(new MenuItem({
+    label: '全选',
+    accelerator: 'CmdOrCtrl+A',
+    role: 'selectall'
+  }));
+
+  mainWindow.webContents.on('context-menu', function (e, params) {
+    menu.popup(mainWindow, params.x, params.y)
+  });
+
 
 
 
