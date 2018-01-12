@@ -222,14 +222,15 @@ function createWindow() {
   // 拦截主页面下载
   mainWindow.webContents.session.on('will-download', function(e, item) {
     console.log('will-download');
-    var arr = item.getFilename().match(/\.(\w*)$/);
+    var name = decodeURIComponent(item.getFilename());
+    var arr = name.match(/\.(\w*)$/);
     var extension = arr ? arr[1] : '*';
     var savePath = dialog.showSaveDialog(mainWindow, 
-      { defaultPath: item.getFilename(), 
+      { defaultPath: name, 
         filters: [{ name: 'All Files', extensions: [extension]}] 
       });
     if (savePath != undefined) {
-      item.setSavePath(savePath)
+      item.setSavePath(savePath);
     } else {
       item.cancel()
       mainWindow.webContents.send('downloadCancelled');
