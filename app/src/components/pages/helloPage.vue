@@ -41,7 +41,7 @@
       this.analyseProcess = childProcess.fork(forkPath);
       this.analyseProcess.on ("message", function (msg)
       {
-        console.log(msg)
+        // console.log(msg)
       });
 
       // this.analyseProcess.send({msg: true});
