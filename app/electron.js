@@ -64,8 +64,9 @@ else {
 }
 
 // config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
+config.url = 'http://192.168.31.163:3000/';
 
 
 // 主程序初始化
@@ -196,8 +197,7 @@ function createWindow() {
     console.log('will-download');
 
     // By default electron doesn't
-    var dialog = require('dialog');
-    consoe.log('item', item);
+    console.log('item', item);
     var savePath = dialog.showSaveDialog(mainWindow, { defaultPath: item.getFilename() });
     if (savePath != undefined) {
       item.setSavePath(savePath)
