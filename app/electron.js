@@ -320,6 +320,7 @@ function createWindow() {
 function showWindow() {
   if (mainWindow) {
     mainWindow.show();
+    mainWindow.focus();
     mainWindow.setSkipTaskbar(false);
   }
 }
@@ -500,7 +501,7 @@ ipcMain.on('tray-bounce', function (event, arg) {
 
 ipcMain.on('new-messages-notification', function (event, arg) {
   // console.log(123, arg);
-  if (!mainWindow.isFocused()) {
+  if (!mainWindow.isVisible() || !mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
     // let notifications = JSON.parse(arg.notifications);
 
@@ -523,7 +524,8 @@ ipcMain.on('new-messages-notification', function (event, arg) {
 });
 
 ipcMain.on('new-messages', function (event, arg) {
-  if (!mainWindow.isFocused()) {
+  console.log('new-messages', mainWindow.isFocused());
+  if (!mainWindow.isVisible() || !mainWindow.isFocused()) {
     // notificationManager.addShowTime(5);
     // let notifications = JSON.parse(arg.notifications);
 
@@ -630,6 +632,7 @@ ipcMain.on('notification-click', function (event, arg) {
 
   notification.clearShowTime();
   mainWindow.show();
+  mainWindow.focus();
 })
 
 // 存储当前窗口最后一条信息key
@@ -641,7 +644,7 @@ ipcMain.on('message-change', function (event, arg) {
   if (arg.currentMsg)
     currentMsg = arg.currentMsg[arg.currentMsg.length - 1];
 
-  if (!mainWindow.isFocused() && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
+  if ((!mainWindow.isVisible() || !mainWindow.isFocused()) && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
     // console.log(123, 'blinkTray');
     blinkTray();
     notification.loadCurrentMessage({
