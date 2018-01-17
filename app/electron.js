@@ -63,10 +63,9 @@ else {
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
 }
 
-// config.url = `http://61.175.100.14:5433/`;
+config.url = `http://61.175.100.14:5433/`;
 // config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
-config.url = 'http://192.168.31.163:3000/';
 
 
 // 主程序初始化
@@ -223,14 +222,15 @@ function createWindow() {
   // 拦截主页面下载
   mainWindow.webContents.session.on('will-download', function (e, item) {
     console.log('will-download');
-    var arr = item.getFilename().match(/\.(\w*)$/);
+    var name = decodeURIComponent(item.getFilename());
+    var arr = name.match(/\.(\w*)$/);
     var extension = arr ? arr[1] : '*';
-    var savePath = dialog.showSaveDialog(mainWindow,
-      { defaultPath: item.getFilename(),
-        filters: [{ name: 'All Files', extensions: [extension]}]
+    var savePath = dialog.showSaveDialog(mainWindow, 
+      { defaultPath: name, 
+        filters: [{ name: 'All Files', extensions: [extension]}] 
       });
     if (savePath != undefined) {
-      item.setSavePath(savePath)
+      item.setSavePath(savePath);
     } else {
       item.cancel()
       mainWindow.webContents.send('downloadCancelled');
