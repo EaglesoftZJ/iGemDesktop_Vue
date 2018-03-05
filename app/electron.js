@@ -30,6 +30,8 @@ let notification;
 let currentUID;
 let clearChatWhenBlured = true;
 
+let downloadPeer = null;
+
 const elctronConfig = new ElctronConfig();
 
 if (!elctronConfig.get('notification')) {
@@ -229,19 +231,22 @@ function createWindow() {
       { defaultPath: name, 
         filters: [{ name: 'All Files', extensions: [extension]}] 
       });
+    // 绑定peer信息
+    item.peer = downloadPeer;
+    item.name = name;
     if (savePath != undefined) {
       item.setSavePath(savePath);
     } else {
       item.cancel()
       mainWindow.webContents.send('downloadCancelled');
-      return
+      return;
     }
     item.on('updated', function () {
       // console.log('Received bytes: ' + item.getReceivedBytes());
     });
     item.on('done', function (e, state) {
       if (state == "completed") {
-        mainWindow.webContents.send('downloadCompleted');
+        mainWindow.webContents.send('downloadCompleted', item);
         console.log("Download successfully");
       } else {
         mainWindow.webContents.send('downloadCancelled');
@@ -521,6 +526,11 @@ ipcMain.on('new-messages-notification', function (event, arg) {
 
   }
 
+});
+
+// 存储即将下载的弹窗
+ipcMain.on('will-download-peer', function (event, arg) {
+  downloadPeer = arg;
 });
 
 ipcMain.on('new-messages', function (event, arg) {
