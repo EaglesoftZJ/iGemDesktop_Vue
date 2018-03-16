@@ -2,7 +2,7 @@ const electron = require('electron');
 const path = require('path');
 
 const { app, Menu, MenuItem, Tray, ipcMain, BrowserWindow, dialog, clipboard, nativeImage } = require('electron');
-const ElctronConfig = require('electron-config');
+const ElctronConfig = require('electron-store');
 
 
 let mainWindow;
@@ -85,6 +85,19 @@ function createWindow() {
 
   screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
   screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
+
+  // 单实例判断
+  const isSecondInstance = app.makeSingleInstance((commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+  
+  if (isSecondInstance) {
+    app.quit();
+  }
 
   let width = 320;
   let height = 130;
