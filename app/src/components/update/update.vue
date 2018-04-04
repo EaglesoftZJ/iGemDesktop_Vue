@@ -34,11 +34,11 @@
 
 <template>
   <div class="main" v-if="updateStatus == 0">
-    <div class="title">系统升级</div>
-    <div class="message">检测到新版本，是否更新</div>
+    <div class="title">Flychat客户端升级</div>
+    <div class="message">检测到新版本<a style="color: #2196f3" href="javascript:;" @click="openUpdateDetial">(查看更新内容)</a>，是否更新</div>
     <div class="button">
-      <el-button type="primary" @click="confirmUpdate">确认升级</el-button>
-      <el-button type="danger" @click="cancelUpdate">取消</el-button>
+        <el-button type="primary" @click="confirmUpdate">确认升级</el-button>
+        <el-button type="danger" @click="cancelUpdate">取消</el-button>
     </div>
   </div>
   
@@ -98,6 +98,10 @@ export default {
     quitAndInstall() {
       this.startInstall = true;
       this.$ect.ipcRenderer.send('quitAndInstall');
+    },
+    openUpdateDetial() {
+        // 打开日志更新窗口
+        electron.ipcRenderer.send("showUpdateDetial");
     }
   },
 

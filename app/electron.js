@@ -8,6 +8,7 @@ const ElctronConfig = require('electron-store');
 let mainWindow;
 let updateWindow;
 let notificationWindow;
+let updateDetialWindow;
 
 let blinkTrayFlag = false;
 let isMacOS = (process.platform === 'darwin');
@@ -58,16 +59,18 @@ else {
 if (process.env.NODE_ENV === 'developmentHot') {
   config = require('../config');
   localUrl = `http://localhost:${config.port}/`;
+  updateDetialUrl = `http://localhost:${config.port}/updateDetial.html`;
 }
 else {
   config.devtron = false;
 
   localUrl = 'file://' + path.join(__dirname, './dist/index.html');
+  updateDetialUrl = 'file://' + path.join(__dirname, './dist/updateDetial.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
+// config.url = `http://61.175.100.14:5433/`;
 // config.url = 'http://localhost:3000/';
-// config.url = 'http://220.189.207.18:3000/';
+config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
@@ -75,6 +78,22 @@ function createWindow() {
   /**
    * Initial window options
    */
+    
+    // 单实例判断
+    const isSecondInstance = app.makeSingleInstance((commandLine, workingDirectory) => {
+        // Someone tried to run a second instance, we should focus our window.
+        if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+            mainWindow.focus();
+        }
+    })
+    
+    if (isSecondInstance) {
+        app.quit();
+        return;
+    }
+
+
   mainWindow = new BrowserWindow({
     minHeight: 700,
     minWidth: 1000,
@@ -86,18 +105,6 @@ function createWindow() {
   screenWidth = electron.screen.getPrimaryDisplay().workAreaSize.width;
   screenHeight = electron.screen.getPrimaryDisplay().workAreaSize.height;
 
-  // 单实例判断
-  const isSecondInstance = app.makeSingleInstance((commandLine, workingDirectory) => {
-    // Someone tried to run a second instance, we should focus our window.
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
-    }
-  })
-  
-  if (isSecondInstance) {
-    app.quit();
-  }
 
   let width = 320;
   let height = 130;
@@ -112,6 +119,16 @@ function createWindow() {
   }
 
   // console.log(isMacOS, offsetX);
+
+  // 更新日志窗口
+  updateDetialWindow = new BrowserWindow({
+    width: 600,
+    height: 450,
+    useContentSize: true,
+    // alwaysOnTop: true,
+    skipTaskbar: true,
+    show: true
+  });
 
   updateWindow = new BrowserWindow({
     frame: false,
@@ -143,15 +160,20 @@ function createWindow() {
 
 
 
-
+  updateDetialWindow.hide();
   updateWindow.hide();
   notificationWindow.hide();
 
-
+  updateDetialWindow.loadURL(updateDetialUrl);
   updateWindow.loadURL(localUrl);
   notificationWindow.loadURL(localUrl);
 
   mainWindow.loadURL(config.url);
+
+//   // 清理缓存
+//   mainWindow.webContents.session.clearCache(() => {
+//     console.log('清除http缓存!');
+// });
 
   const UpdateObj = require('./update');
 
@@ -162,9 +184,14 @@ function createWindow() {
   notification.allowShow = elctronConfig.get("notification.show");
   update.setFeedURL('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl');
   // update.setFeedURL('http://192.168.1.182:8080/services/ActorService?wsdl');
-
+  
+  updateDetialWindow.webContents.on('dom-ready', function () {
+    // 更新日志页面内容加载完毕
+    update.getUpdateDetial(updateDetialWindow);
+  });
 
   var readSize = 0;
+  
 
   notificationWindow.webContents.on('dom-ready', function () {
     notification.init(notificationWindow);
@@ -224,7 +251,9 @@ function createWindow() {
 
     mainWindow.webContents.openDevTools();
     notificationWindow.webContents.openDevTools();
-    // updateWindow.webContents.openDevTools();
+    updateWindow.webContents.openDevTools();
+    // 更新日志
+    updateDetialWindow.webContents.openDevTools();
   }
   // mainWindow.webContents.openDevTools();
 
@@ -233,6 +262,14 @@ function createWindow() {
     process.env.DEBUG = true;
   }
 
+    // 监听日志页面关闭
+    updateDetialWindow.on('close', function(event) {
+        if (updateDetialWindow) {
+            updateDetialWindow.hide();
+            event.preventDefault();
+        }
+    });
+       
 
   // 拦截主页面下载
   mainWindow.webContents.session.on('will-download', function (e, item) {
@@ -369,12 +406,14 @@ app.on('activate', function () {
 });
 
 app.on('before-quit', () => {
+    console.log('before-quit');
   willQuitApp = true;
   notification.stop();
   notification = null;
   update = null;
   updateWindow = null;
   notificationWindow = null;
+  updateDetialWindow = null;
 });
 
 // focus blur 适配hidden 和visible事件
@@ -744,4 +783,20 @@ ipcMain.on('recodeInMain', function (event, arg) {
 ipcMain.on('recodeInLogin', function (event, arg) {
   inLoginTimes++;
   console.log('inLoginTimes', inMainTimes, inLoginTimes);
+});
+
+// 日志窗口显示
+ipcMain.on('showUpdateDetial', function (event, arg) {
+    updateDetialWindow.show();
+});
+
+// 日志窗口隐藏
+ipcMain.on('hideUpdateDetial', function (event, arg) {
+    updateDetialWindow.hide();
+});
+
+// 清理缓存
+ipcMain.on('clearCache', function (event, arg) {
+    mainWindow.webContents.session.clearCache(() => {
+    });
 });

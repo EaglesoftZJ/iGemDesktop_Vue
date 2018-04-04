@@ -11,7 +11,8 @@ let indexConfig = {
   target: 'electron-renderer',
   devtool: '#eval-source-map',
   entry: {
-    build: path.join(__dirname, './app/src/main.js')
+    build: path.join(__dirname, './app/src/main.js'),
+    update: path.join(__dirname, './app/src/update.js')
   },
   module: {
     rules: [
@@ -84,8 +85,15 @@ let indexConfig = {
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: './app/index.ejs',
-      title: settings.name
+      title: settings.name,
+      chunks: ['build']
     }),
+    new HtmlWebpackPlugin({
+        filename: 'updateDetial.html',
+        template: './app/index.ejs',
+        title: settings.name,
+        chunks: ['update']
+      }),
     new webpack.ProvidePlugin({
     }),
     new webpack.NoEmitOnErrorsPlugin()

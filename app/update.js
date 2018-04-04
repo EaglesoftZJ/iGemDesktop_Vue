@@ -26,6 +26,7 @@ var UpdateObj = function() {
   self.updateTmpPath = '';
   self.contentLength = 0;
   self.receivedLength = 0.00;
+  self.updateDetialResult = null;
 
   self.getVerNum = function(ver) {
     var verArr = ver.split('.');
@@ -134,7 +135,18 @@ var UpdateObj = function() {
       }
 
     });
-
+  }
+  self.getUpdateDetial = function(winstance) {
+    // 获取日志数据
+    var soap = require('soap');
+    soap.createClient('http://192.168.1.182:9080/services/ActorService?wsdl', function(err, client) {
+        if (client) {
+            client.selectGxrz({type: '1'}, (err, result) => {
+                self.updateDetialResult = result;
+                winstance.webContents.send('receiveUpdateDetail', self.updateDetialResult);
+            });
+        }
+    });
   }
 
   self.startUpdate = function(window) {
