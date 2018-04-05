@@ -139,7 +139,7 @@ var UpdateObj = function() {
   self.getUpdateDetial = function(winstance) {
     // 获取日志数据
     var soap = require('soap');
-    soap.createClient('http://192.168.1.182:9080/services/ActorService?wsdl', function(err, client) {
+    soap.createClient('http://61.175.100.14:8012/ActorServices-Maven/services/ActorService?wsdl', function(err, client) {
         if (client) {
             client.selectGxrz({type: '1'}, (err, result) => {
                 self.updateDetialResult = result;
