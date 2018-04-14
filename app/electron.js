@@ -1,9 +1,8 @@
 const electron = require('electron');
 const path = require('path');
 
-const { app, Menu, MenuItem, Tray, ipcMain, BrowserWindow, dialog, clipboard, nativeImage } = require('electron');
+const { app, Menu, MenuItem, Tray, ipcMain, BrowserWindow, dialog, clipboard, nativeImage, shell } = require('electron');
 const ElctronConfig = require('electron-store');
-
 
 let mainWindow;
 let updateWindow;
@@ -31,7 +30,7 @@ let notification;
 let currentUID;
 let clearChatWhenBlured = true;
 
-let downloadPeer = null;
+let downloadInfo = null;
 
 const elctronConfig = new ElctronConfig();
 
@@ -69,8 +68,8 @@ else {
 }
 
 // config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
-config.url = 'http://220.189.207.18:3000/';
+config.url = 'http://localhost:3000/';
+// config.url = 'http://220.189.207.18:3000/';
 
 
 // 主程序初始化
@@ -282,7 +281,7 @@ function createWindow() {
         filters: [{ name: 'All Files', extensions: [extension]}] 
       });
     // 绑定peer信息
-    item.peer = downloadPeer;
+    item.info = downloadInfo;
     item.name = name;
     if (savePath != undefined) {
       item.setSavePath(savePath);
@@ -581,8 +580,8 @@ ipcMain.on('new-messages-notification', function (event, arg) {
 });
 
 // 存储即将下载的弹窗
-ipcMain.on('will-download-peer', function (event, arg) {
-  downloadPeer = arg;
+ipcMain.on('will-download-info', function (event, arg) {
+  downloadInfo = arg;
 });
 
 ipcMain.on('new-messages', function (event, arg) {
@@ -799,4 +798,9 @@ ipcMain.on('hideUpdateDetial', function (event, arg) {
 ipcMain.on('clearCache', function (event, arg) {
     mainWindow.webContents.session.clearCache(() => {
     });
+});
+
+// 用默认浏览器打开网页
+ipcMain.on('openLink', function (event, arg) {
+    shell.openExternal(arg.url, arg.option || {});
 });
