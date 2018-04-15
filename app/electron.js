@@ -67,8 +67,8 @@ else {
   updateDetialUrl = 'file://' + path.join(__dirname, './dist/updateDetial.html');
 }
 
-// config.url = `http://61.175.100.14:5433/`;
-config.url = 'http://localhost:3000/';
+config.url = `http://61.175.100.14:5433/`;
+// config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
