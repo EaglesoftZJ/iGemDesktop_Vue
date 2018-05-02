@@ -299,6 +299,7 @@ function createWindow() {
         console.log("Download successfully");
       } else {
         mainWindow.webContents.send('downloadCancelled');
+        dialog.showErrorBox('提示', '文件下载错误，请检查网络或者存在同名文件未关闭!');
         console.log("Download is cancelled or interrupted that can't be resumed");
       }
     })
