@@ -290,16 +290,21 @@ function createWindow() {
       mainWindow.webContents.send('downloadCancelled');
       return;
     }
-    item.on('updated', function () {
-      // console.log('Received bytes: ' + item.getReceivedBytes());
+    item.on('updated', function (e, state) {
+      if (state === 'progressing') {
+        console.log('Received bytes: ' + item.getReceivedBytes());
+      } else if (state === 'interrupted') {
+        dialog.showErrorBox('提示', '文件下载错误，请检查是否有同名文件未关闭');
+      }
     });
+
     item.on('done', function (e, state) {
       if (state == "completed") {
         mainWindow.webContents.send('downloadCompleted', item);
+        shell.openItem(savePath);
         console.log("Download successfully");
       } else {
         mainWindow.webContents.send('downloadCancelled');
-        dialog.showErrorBox('提示', '文件下载错误，请检查网络或者存在同名文件未关闭!');
         console.log("Download is cancelled or interrupted that can't be resumed");
       }
     })
