@@ -67,8 +67,8 @@ else {
   updateDetialUrl = 'file://' + path.join(__dirname, './dist/updateDetial.html');
 }
 
-config.url = `http://61.175.100.14:5433/`;
-// config.url = 'http://localhost:3000/';
+// config.url = `http://61.175.100.14:5433/`;
+config.url = 'http://localhost:3000/';
 // config.url = 'http://220.189.207.18:3000/';
 
 
@@ -301,7 +301,7 @@ function createWindow() {
     item.on('done', function (e, state) {
       if (state == "completed") {
         mainWindow.webContents.send('downloadCompleted', item);
-        shell.openItem(savePath);
+        item.info.autoOpen && shell.openItem(savePath);
         console.log("Download successfully");
       } else {
         mainWindow.webContents.send('downloadCancelled');
@@ -587,6 +587,7 @@ ipcMain.on('new-messages-notification', function (event, arg) {
 
 // 存储即将下载的弹窗
 ipcMain.on('will-download-info', function (event, arg) {
+  // console.log('will-download-info', JSON.stringify(arg));
   downloadInfo = arg;
 });
 
