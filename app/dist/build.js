@@ -12471,9 +12471,9 @@ var Component = __webpack_require__(25)(
   /* script */
   __webpack_require__(157),
   /* template */
-  __webpack_require__(166),
+  __webpack_require__(165),
   /* scopeId */
-  "data-v-2827aae2",
+  "data-v-082e0eaf",
   /* cssModules */
   null
 )
@@ -58628,7 +58628,7 @@ exports = module.exports = __webpack_require__(24)();
 
 
 // module
-exports.push([module.i, ".main[data-v-2827aae2]{width:100%;height:100%}.title[data-v-2827aae2]{padding-top:15px;display:flex;justify-content:center;color:#66b1ff;font-size:16px}.message[data-v-2827aae2]{display:flex;justify-content:center;font-size:13px;padding-top:10px}.button[data-v-2827aae2]{padding-top:15px;display:flex;justify-content:space-around}.progress[data-v-2827aae2]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
+exports.push([module.i, ".main[data-v-082e0eaf]{width:100%;height:100%}.title[data-v-082e0eaf]{padding-top:15px;display:flex;justify-content:center;color:#66b1ff;font-size:16px}.message[data-v-082e0eaf]{display:flex;justify-content:center;font-size:13px;padding-top:10px}.button[data-v-082e0eaf]{padding-top:15px;display:flex;justify-content:space-around}.progress[data-v-082e0eaf]{width:100%;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:30px}", ""]);
 
 // exports
 
@@ -58642,7 +58642,7 @@ exports = module.exports = __webpack_require__(24)();
 
 
 // module
-exports.push([module.i, ".main[data-v-67351a50]{width:100%;height:100%}", ""]);
+exports.push([module.i, ".main[data-v-1d650a90]{width:100%;height:100%}", ""]);
 
 // exports
 
@@ -58659,7 +58659,7 @@ var Component = __webpack_require__(25)(
   /* script */
   __webpack_require__(155),
   /* template */
-  __webpack_require__(165),
+  __webpack_require__(167),
   /* scopeId */
   null,
   /* cssModules */
@@ -58681,9 +58681,9 @@ var Component = __webpack_require__(25)(
   /* script */
   __webpack_require__(156),
   /* template */
-  __webpack_require__(167),
+  __webpack_require__(166),
   /* scopeId */
-  "data-v-67351a50",
+  "data-v-1d650a90",
   /* cssModules */
   null
 )
@@ -58693,6 +58693,82 @@ module.exports = Component.exports
 
 /***/ }),
 /* 165 */
+/***/ (function(module, exports) {
+
+module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
+  return (_vm.updateStatus == 0) ? _c('div', {
+    staticClass: "main"
+  }, [_c('div', {
+    staticClass: "title"
+  }, [_vm._v("Flychat客户端升级")]), _vm._v(" "), _c('div', {
+    staticClass: "message"
+  }, [_vm._v("检测到新版本"), _c('a', {
+    staticStyle: {
+      "color": "#2196f3"
+    },
+    attrs: {
+      "href": "javascript:;"
+    },
+    on: {
+      "click": _vm.openUpdateDetial
+    }
+  }, [_vm._v("(查看更新内容)")]), _vm._v("，是否更新")]), _vm._v(" "), _c('div', {
+    staticClass: "button"
+  }, [_c('el-button', {
+    attrs: {
+      "type": "primary"
+    },
+    on: {
+      "click": _vm.confirmUpdate
+    }
+  }, [_vm._v("确认升级")]), _vm._v(" "), _c('el-button', {
+    attrs: {
+      "type": "danger"
+    },
+    on: {
+      "click": _vm.cancelUpdate
+    }
+  }, [_vm._v("取消")])], 1)]) : (_vm.updateStatus == 1) ? _c('div', {
+    staticClass: "progress"
+  }, [_c('el-progress', {
+    attrs: {
+      "text-inside": true,
+      "stroke-width": 18,
+      "percentage": _vm.updateProgress
+    }
+  }), _vm._v(" "), _c('div', {
+    staticClass: "message"
+  }, [_vm._v("正在下载文件，请稍候")])], 1) : (_vm.updateStatus == 2) ? _c('div', {
+    staticClass: "main"
+  }, [_c('div', {
+    staticClass: "title"
+  }, [_vm._v("下载完成")]), _vm._v(" "), _c('div', {
+    staticClass: "message"
+  }, [_vm._v("点击确定，将关闭程序并开始更新")]), _vm._v(" "), _c('div', {
+    staticClass: "button"
+  }, [_c('el-button', {
+    attrs: {
+      "type": "primary",
+      "disabled": _vm.startInstall
+    },
+    on: {
+      "click": _vm.quitAndInstall
+    }
+  }, [_vm._v("确认")])], 1)]) : _vm._e()
+},staticRenderFns: []}
+
+/***/ }),
+/* 166 */
+/***/ (function(module, exports) {
+
+module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
+  return _c('div', {
+    staticClass: "main"
+  }, [(_vm.canUpdate) ? _c('Update') : (_vm.showMessage) ? _c('Message') : _vm._e()], 1)
+},staticRenderFns: []}
+
+/***/ }),
+/* 167 */
 /***/ (function(module, exports) {
 
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
@@ -58765,82 +58841,6 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 },staticRenderFns: []}
 
 /***/ }),
-/* 166 */
-/***/ (function(module, exports) {
-
-module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
-  return (_vm.updateStatus == 0) ? _c('div', {
-    staticClass: "main"
-  }, [_c('div', {
-    staticClass: "title"
-  }, [_vm._v("Flychat客户端升级")]), _vm._v(" "), _c('div', {
-    staticClass: "message"
-  }, [_vm._v("检测到新版本"), _c('a', {
-    staticStyle: {
-      "color": "#2196f3"
-    },
-    attrs: {
-      "href": "javascript:;"
-    },
-    on: {
-      "click": _vm.openUpdateDetial
-    }
-  }, [_vm._v("(查看更新内容)")]), _vm._v("，是否更新")]), _vm._v(" "), _c('div', {
-    staticClass: "button"
-  }, [_c('el-button', {
-    attrs: {
-      "type": "primary"
-    },
-    on: {
-      "click": _vm.confirmUpdate
-    }
-  }, [_vm._v("确认升级")]), _vm._v(" "), _c('el-button', {
-    attrs: {
-      "type": "danger"
-    },
-    on: {
-      "click": _vm.cancelUpdate
-    }
-  }, [_vm._v("取消")])], 1)]) : (_vm.updateStatus == 1) ? _c('div', {
-    staticClass: "progress"
-  }, [_c('el-progress', {
-    attrs: {
-      "text-inside": true,
-      "stroke-width": 18,
-      "percentage": _vm.updateProgress
-    }
-  }), _vm._v(" "), _c('div', {
-    staticClass: "message"
-  }, [_vm._v("正在下载文件，请稍候")])], 1) : (_vm.updateStatus == 2) ? _c('div', {
-    staticClass: "main"
-  }, [_c('div', {
-    staticClass: "title"
-  }, [_vm._v("下载完成")]), _vm._v(" "), _c('div', {
-    staticClass: "message"
-  }, [_vm._v("点击确定，将关闭程序并开始更新")]), _vm._v(" "), _c('div', {
-    staticClass: "button"
-  }, [_c('el-button', {
-    attrs: {
-      "type": "primary",
-      "disabled": _vm.startInstall
-    },
-    on: {
-      "click": _vm.quitAndInstall
-    }
-  }, [_vm._v("确认")])], 1)]) : _vm._e()
-},staticRenderFns: []}
-
-/***/ }),
-/* 167 */
-/***/ (function(module, exports) {
-
-module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
-  return _c('div', {
-    staticClass: "main"
-  }, [(_vm.canUpdate) ? _c('Update') : (_vm.showMessage) ? _c('Message') : _vm._e()], 1)
-},staticRenderFns: []}
-
-/***/ }),
 /* 168 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -58851,7 +58851,7 @@ var content = __webpack_require__(161);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("10db828c", content, true);
+var update = __webpack_require__(46)("8f9af96e", content, true);
 
 /***/ }),
 /* 169 */
@@ -58864,7 +58864,7 @@ var content = __webpack_require__(162);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("5a041a40", content, true);
+var update = __webpack_require__(46)("16ce3758", content, true);
 
 /***/ }),
 /* 170 */
@@ -58910,7 +58910,7 @@ var content = __webpack_require__(160);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(172)("683afc25", content, true, {});
+var update = __webpack_require__(172)("2c0d461a", content, true, {});
 
 /***/ }),
 /* 172 */
@@ -59188,13 +59188,13 @@ module.exports = __webpack_amd_options__;
 
 
 /* styles */
-__webpack_require__(185)
+__webpack_require__(184)
 
 var Component = __webpack_require__(25)(
   /* script */
   null,
   /* template */
-  __webpack_require__(183),
+  __webpack_require__(182),
   /* scopeId */
   null,
   /* cssModules */
@@ -59269,8 +59269,7 @@ new _vue2.default((0, _extends3.default)({
 
 /***/ }),
 /* 179 */,
-/* 180 */,
-/* 181 */
+/* 180 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(24)();
@@ -59284,8 +59283,8 @@ exports.push([module.i, "body{margin:0}body,html{box-sizing:border-box}.main,bod
 
 
 /***/ }),
-/* 182 */,
-/* 183 */
+/* 181 */,
+/* 182 */
 /***/ (function(module, exports) {
 
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
@@ -59295,18 +59294,18 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
 },staticRenderFns: []}
 
 /***/ }),
-/* 184 */,
-/* 185 */
+/* 183 */,
+/* 184 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // style-loader: Adds some css to the DOM by adding a <style> tag
 
 // load the styles
-var content = __webpack_require__(181);
+var content = __webpack_require__(180);
 if(typeof content === 'string') content = [[module.i, content, '']];
 if(content.locals) module.exports = content.locals;
 // add the styles to the DOM
-var update = __webpack_require__(46)("3d9ed024", content, true);
+var update = __webpack_require__(46)("6aceb744", content, true);
 
 /***/ })
 /******/ ]);
