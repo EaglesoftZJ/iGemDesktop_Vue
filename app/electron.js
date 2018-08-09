@@ -715,8 +715,15 @@ ipcMain.on('message-change', function (event, arg) {
   if ((!mainWindow.isVisible() || !mainWindow.isFocused()) && currentMsg && currentMsgKey !== currentMsg['sortKey']) {
     // console.log(123, 'blinkTray');
     blinkTray();
+    var text = currentMsg.content.text;
+    console.log('currentMsg', currentMsg.content);
+    if (currentMsg.content.content === 'customJson' && currentMsg.content.operation === 'revert') {
+      text = JSON.parse(currentMsg.content.text).text;
+      console.log('currentMsg', text)
+    }
     notification.loadCurrentMessage({
-      text: currentMsg.content.text,
+      text: text,
+      operation: currentMsg.content.operation,
       title: currentMsg.sender.title,
       id: currentMsg.sender.peer.key,
       content: currentMsg.content.content,
