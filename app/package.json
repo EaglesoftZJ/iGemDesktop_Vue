@@ -1,7 +1,7 @@
 {
   "name": "FlyChat",
   "description": "易舸软件即时通讯项目",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "author": "n1ghtw1sh <116516842@qq.com>",
   "main": "electron.js",
   "dependencies": {
