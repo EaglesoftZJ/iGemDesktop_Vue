@@ -58257,7 +58257,8 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
     },
     detialInfo() {
       var info = '';
-      if (this.data.current.content == 'text') {
+      console.log('current', this.data.current);
+      if (this.data.current.content == 'text' || this.data.current.operation === 'revert') {
         info = this.data.current.text;
       } else if (this.data.current.content == 'document') {
         info = '发送了文件 ' + this.data.current.fileName;

@@ -1,7 +1,7 @@
 {
   "name": "FlyChat",
   "description": "易舸即时通讯软件",
-  "version": "1.0.9",
+  "version": "1.1.1",
   "author": "eaglesoft.cn",
   "scripts": {
     "postinstall": "cd app && npm i",
