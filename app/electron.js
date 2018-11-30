@@ -287,7 +287,7 @@ function createWindow() {
       item.setSavePath(savePath);
     } else {
       item.cancel()
-      mainWindow.webContents.send('downloadCancelled');
+      mainWindow && mainWindow.webContents.send('downloadCancelled');
       return;
     }
     item.on('updated', function (e, state) {
@@ -300,11 +300,11 @@ function createWindow() {
 
     item.on('done', function (e, state) {
       if (state == "completed") {
-        mainWindow.webContents.send('downloadCompleted', item);
+        mainWindow && mainWindow.webContents.send('downloadCompleted', item);
         item.info.autoOpen && shell.openItem(savePath);
         console.log("Download successfully");
       } else {
-        mainWindow.webContents.send('downloadCancelled');
+        mainWindow && mainWindow.webContents.send('downloadCancelled');
         console.log("Download is cancelled or interrupted that can't be resumed");
       }
     })
@@ -349,7 +349,17 @@ function createWindow() {
       submenu: [
         { label: "关于", selector: "orderFrontStandardAboutPanel:" },
         { type: "separator" },
-        { label: "退出", accelerator: "Command+Q", click: function () { notification.stop(); app.exit(0); } }
+        { label: "退出", accelerator: "Command+Q", click: function () { 
+          willQuitApp = true;
+          notification.stop();
+          notification = null;
+          update = null;
+          updateWindow = null;
+          notificationWindow = null;
+          updateDetialWindow = null;
+          app.exit(0); 
+        } 
+      }
       ]
     }, {
       label: "编辑",
@@ -468,8 +478,8 @@ function createTray() {
     {
       label: '注销',
       click() {
-        mainWindow.webContents.send('setLoggedOut');
-        mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
+        mainWindow && mainWindow.webContents.send('setLoggedOut');
+        mainWindow && mainWindow.webContents.executeJavaScript('localStorage.clear();location.reload();');
       }
     },
     // {
@@ -483,7 +493,13 @@ function createTray() {
     {
       label: '退出',
       click() {
+        willQuitApp = true;
         notification.stop();
+        notification = null;
+        update = null;
+        updateWindow = null;
+        notificationWindow = null;
+        updateDetialWindow = null;
         app.exit(0);
       }
     },
@@ -684,6 +700,7 @@ ipcMain.on('dialog-switch', function (event, arg) {
     var currentAvatar = info.avatar;
     var currentPlaceholder = info.placeholder;
     var currentName = info.name;
+    notificationWindow &&
     notificationWindow.webContents.send('update-current-dailog', { currentDialog, currentType, currentAvatar, currentPlaceholder, currentName });
 
   }
@@ -742,7 +759,7 @@ ipcMain.on('quitAndInstall', function (event, confirm) {
 });
 
 ipcMain.on('logged-in', function (event, arg) {
-  mainWindow.webContents.send('loginStore', elctronConfig.get('login'))
+  mainWindow && mainWindow.webContents.send('loginStore', elctronConfig.get('login'))
   console.log('logged-in', elctronConfig.get('login'));
 });
 
@@ -752,11 +769,13 @@ ipcMain.on('setLoginStore', function (event, arg) {
 });
 
 ipcMain.on('getDialogStore', function (event, arg) {
-  mainWindow.webContents.send('dialogStore', elctronConfig.get('dialog'));
+  console.log('getDialogStore=========================', elctronConfig.get('dialog'));
+  mainWindow && mainWindow.webContents.send('dialogStore', elctronConfig.get('dialog'));
 })
 
 ipcMain.on('setDialogStore', function (event, arg) {
   elctronConfig.set('dialog.' + arg.key, arg.value);
+  // elctronConfig.delete('dialog');
 })
 
 
@@ -789,7 +808,7 @@ var inMainTimes = 0;
 ipcMain.on('recodeInMain', function (event, arg) {
   inMainTimes++;
   console.log('inMainTimes', inMainTimes, inLoginTimes);
-  mainWindow.webContents.send('inMainTimes', { main: inMainTimes, login: inLoginTimes });
+  mainWindow && mainWindow.webContents.send('inMainTimes', { main: inMainTimes, login: inLoginTimes });
 });
 
 // 记录主窗口进入login次数
