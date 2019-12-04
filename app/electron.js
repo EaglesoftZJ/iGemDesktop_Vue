@@ -402,6 +402,8 @@ function hideWindow() {
   }
 }
 
+app.setAsDefaultProtocolClient('flychat');
+
 app.on('open-file', (e, path) => {
   // dialog.showErrorBox('openFile', path);
 });
