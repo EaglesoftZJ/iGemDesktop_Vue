@@ -77,13 +77,22 @@ function createWindow() {
   /**
    * Initial window options
    */
-    
+    const args = [];
+    // if (!app.isPackaged) {
+    //   // 如果是开发阶段，需要把我们的脚本的绝对路径加入参数中
+    //   args.push(path.resolve(process.argv[1]));
+    // }
+    // 加一个 `--` 以确保后面的参数不被 Electron 处理
+    args.push('--');
+    app.setAsDefaultProtocolClient('flychat', process.execPath, args);
     // 单实例判断
     const isSecondInstance = app.makeSingleInstance((commandLine, workingDirectory) => {
         // Someone tried to run a second instance, we should focus our window.
+        console.log('commandLine', commandLine);
         if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore()
-            mainWindow.focus();
+          if (mainWindow.isMinimized()) mainWindow.restore()
+          showWindow();
+              // mainWindow.focus();
         }
     })
     
@@ -406,6 +415,15 @@ app.setAsDefaultProtocolClient('flychat');
 
 app.on('open-file', (e, path) => {
   // dialog.showErrorBox('openFile', path);
+});
+
+// mac端监听伪协议打开应用
+app.on('open-url', (e, path) => {
+  // && !mainWindow.isVisible()
+  console.log('open-url', path);
+  if (mainWindow) {
+    showWindow();
+  }
 });
 
 app.once('ready', createWindow);
