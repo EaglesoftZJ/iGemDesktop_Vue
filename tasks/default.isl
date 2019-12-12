@@ -1,5 +1,4 @@
-; *** Inno Setup version 5.5.3+ Chinese (Simplified) messages ***
-;   By Qiming Li (qiming at clault.com)
+; *** Inno Setup version 5.5.3+ English messages ***
 ;
 ; To download user-contributed translations of this file, go to:
 ;   http://www.jrsoftware.org/files/istrans/
@@ -12,12 +11,12 @@
 [LangOptions]
 ; The following three entries are very important. Be sure to read and 
 ; understand the '[LangOptions] section' topic in the help file.
-LanguageName=<4E2D><6587><FF08><7B80><4F53><FF09>
-LanguageID=$0804
-LanguageCodePage=936
+LanguageName=English
+LanguageID=$0409
+LanguageCodePage=0
 ; If the language you are translating to requires special font faces or
 ; sizes, uncomment any of the following entries and change them accordingly.
-DialogFontName=宋体
+;DialogFontName=
 ;DialogFontSize=8
 ;WelcomeFontName=Verdana
 ;WelcomeFontSize=12
@@ -29,311 +28,309 @@ DialogFontName=宋体
 [Messages]
 
 ; *** Application titles
-SetupAppTitle=安装向导
-SetupWindowTitle=安装向导 - %1
-UninstallAppTitle=卸载向导
-UninstallAppFullTitle=%1卸载向导
+SetupAppTitle=Setup
+SetupWindowTitle=Setup - %1
+UninstallAppTitle=Uninstall
+UninstallAppFullTitle=%1 Uninstall
 
 ; *** Misc. common
-InformationTitle=信息
-ConfirmTitle=确认
-ErrorTitle=错误
+InformationTitle=Information
+ConfirmTitle=Confirm
+ErrorTitle=Error
 
 ; *** SetupLdr messages
-SetupLdrStartupMessage=安装向导将在您的电脑上安装%1。确定要继续吗？
-LdrCannotCreateTemp=无法创建临时文件。安装已终止
-LdrCannotExecTemp=无法运行临时文件夹中的文件。安装已终止
+SetupLdrStartupMessage=This will install %1. Do you wish to continue?
+LdrCannotCreateTemp=Unable to create a temporary file. Setup aborted
+LdrCannotExecTemp=Unable to execute file in the temporary directory. Setup aborted
 
 ; *** Startup error messages
-LastErrorMessage=%1.%n%n错误 %2: %3
-SetupFileMissing=安装目录中缺失文件%1。请解决该问题，或重新获取一份程序拷贝。
-SetupFileCorrupt=安装文件已被损坏。请重新获取一份程序拷贝。
-SetupFileCorruptOrWrongVer=安装文件已被损坏，或与本安装向导版本不兼容。请解决该问题，或重新获取一份程序拷贝。
-InvalidParameter=无效命令行参数：%n%n%1
-SetupAlreadyRunning=安装程序已经运行。
-WindowsVersionNotSupported=程序不支持您电脑上运行的Windows版本。
-WindowsServicePackRequired=程序要求%1 Service Pack %2或更新版本。
-NotOnThisPlatform=程序不可在%1上运行。
-OnlyOnThisPlatform=程序必须在%1上运行。
-OnlyOnTheseArchitectures=程序只能在为以下处理器架构所设计的Windows版本上安装：%n%n%1
-MissingWOW64APIs=您所使用的Windows版本没有包含进行64位安装所需的功能。请安装Service Pack %1解决此问题。
-WinVersionTooLowError=程序要求%2版本或以上的%1。
-WinVersionTooHighError=程序不可安装的%2或更高版本的%1上。
-AdminPrivilegesRequired=您必须登录为管理员才能安装此程序。
-PowerUserPrivilegesRequired=您必须登录为管理员或高权限用户才能安装此程序。
-SetupAppRunningError=安装向导检测到%1正在运行。%n%n请关闭其所有窗口并点击“确定”继续，或点击“取消”退出安装。
-UninstallAppRunningError=卸载向导检测到%1正在运行。%n%n请关闭其所有窗口，然后点击“确定”继续，或点击“取消”退出。
+LastErrorMessage=%1.%n%nError %2: %3
+SetupFileMissing=The file %1 is missing from the installation directory. Please correct the problem or obtain a new copy of the program.
+SetupFileCorrupt=The setup files are corrupted. Please obtain a new copy of the program.
+SetupFileCorruptOrWrongVer=The setup files are corrupted, or are incompatible with this version of Setup. Please correct the problem or obtain a new copy of the program.
+InvalidParameter=An invalid parameter was passed on the command line:%n%n%1
+SetupAlreadyRunning=Setup is already running.
+WindowsVersionNotSupported=This program does not support the version of Windows your computer is running.
+WindowsServicePackRequired=This program requires %1 Service Pack %2 or later.
+NotOnThisPlatform=This program will not run on %1.
+OnlyOnThisPlatform=This program must be run on %1.
+OnlyOnTheseArchitectures=This program can only be installed on versions of Windows designed for the following processor architectures:%n%n%1
+MissingWOW64APIs=The version of Windows you are running does not include functionality required by Setup to perform a 64-bit installation. To correct this problem, please install Service Pack %1.
+WinVersionTooLowError=This program requires %1 version %2 or later.
+WinVersionTooHighError=This program cannot be installed on %1 version %2 or later.
+AdminPrivilegesRequired=You must be logged in as an administrator when installing this program.
+PowerUserPrivilegesRequired=You must be logged in as an administrator or as a member of the Power Users group when installing this program.
+SetupAppRunningError=Setup has detected that %1 is currently running.%n%nPlease close all instances of it now, then click OK to continue, or Cancel to exit.
+UninstallAppRunningError=Uninstall has detected that %1 is currently running.%n%nPlease close all instances of it now, then click OK to continue, or Cancel to exit.
 
 ; *** Misc. errors
-ErrorCreatingDir=安装向导无法创建文件夹“%1”
-ErrorTooManyFilesInDir=由于文件夹“%1”中文件过多，无法在其中创建文件
+ErrorCreatingDir=Setup was unable to create the directory "%1"
+ErrorTooManyFilesInDir=Unable to create a file in the directory "%1" because it contains too many files
 
 ; *** Setup common messages
-ExitSetupTitle=退出安装向导
-ExitSetupMessage=安装尚未完成。如果现在退出，程序将不会被安装。 %n%n您可以下次再运行安装向导来完成程序的安装。%n%n确定退出安装向导吗？
-AboutSetupMenuItem=关于安装向导(&A)…
-AboutSetupTitle=关于安装向导
-AboutSetupMessage=%1版本%2%n%3%n%n%1主页：%n%4
+ExitSetupTitle=Exit Setup
+ExitSetupMessage=Setup is not complete. If you exit now, the program will not be installed.%n%nYou may run Setup again at another time to complete the installation.%n%nExit Setup?
+AboutSetupMenuItem=&About Setup...
+AboutSetupTitle=About Setup
+AboutSetupMessage=%1 version %2%n%3%n%n%1 home page:%n%4
 AboutSetupNote=
 TranslatorNote=
 
 ; *** Buttons
-ButtonBack=< 上一步(&B)
-ButtonNext=下一步(&N) >
-ButtonInstall=安装(&I)
-ButtonOK=确定
-ButtonCancel=取消
-ButtonYes=是(&Y)
-ButtonYesToAll=全选是(&A)
-ButtonNo=否(&N)
-ButtonNoToAll=全选否(&O)
-ButtonFinish=结束(&F)
-ButtonBrowse=浏览(&B)…
-ButtonWizardBrowse=浏览(&R)…
-ButtonNewFolder=创建文件夹(&M)
+ButtonBack=< &Back
+ButtonNext=&Next >
+ButtonInstall=&Install
+ButtonOK=OK
+ButtonCancel=Cancel
+ButtonYes=&Yes
+ButtonYesToAll=Yes to &All
+ButtonNo=&No
+ButtonNoToAll=N&o to All
+ButtonFinish=&Finish
+ButtonBrowse=&Browse...
+ButtonWizardBrowse=B&rowse...
+ButtonNewFolder=&Make New Folder
 
 ; *** "Select Language" dialog messages
-SelectLanguageTitle=选择语言
-SelectLanguageLabel=选择安装时使用语言：
+SelectLanguageTitle=Select Setup Language
+SelectLanguageLabel=Select the language to use during the installation:
 
 ; *** Common wizard text
-ClickNext=点击“下一步”继续，或“取消”退出安装向导。
+ClickNext=Click Next to continue, or Cancel to exit Setup.
 BeveledLabel=
-BrowseDialogTitle=浏览选择文件夹
-BrowseDialogLabel=在以下列表中选取一个文件夹，并点击“确定”。
-NewFolderName=新建文件夹
+BrowseDialogTitle=Browse For Folder
+BrowseDialogLabel=Select a folder in the list below, then click OK.
+NewFolderName=New Folder
 
 ; *** "Welcome" wizard page
-WelcomeLabel1=欢迎使用[name]安装向导
-WelcomeLabel2=本向导将在您的电脑上安装[name/ver]%n%n建议您在继续之前关闭其他所有应用程序。
+WelcomeLabel1=Welcome to the [name] Setup Wizard
+WelcomeLabel2=This will install [name/ver] on your computer.%n%nIt is recommended that you close all other applications before continuing.
 
 ; *** "Password" wizard page
-WizardPassword=密码
-PasswordLabel1=本安装程序由密码保护。
-PasswordLabel3=请输入密码，并点击“下一步”。密码区分大小写。
-PasswordEditLabel=密码(&P)：
-IncorrectPassword=您输入的密码不正确。请重试。
+WizardPassword=Password
+PasswordLabel1=This installation is password protected.
+PasswordLabel3=Please provide the password, then click Next to continue. Passwords are case-sensitive.
+PasswordEditLabel=&Password:
+IncorrectPassword=The password you entered is not correct. Please try again.
 
 ; *** "License Agreement" wizard page
-WizardLicense=许可协议
-LicenseLabel=请阅读以下重要信息，然后再进入下一步。
-LicenseLabel3=请阅读以下许可协议。您必须接受此协议的条款，然后才能继续安装。
-LicenseAccepted=我接受协议(&A)
-LicenseNotAccepted=我不接受协议(&D)
+WizardLicense=License Agreement
+LicenseLabel=Please read the following important information before continuing.
+LicenseLabel3=Please read the following License Agreement. You must accept the terms of this agreement before continuing with the installation.
+LicenseAccepted=I &accept the agreement
+LicenseNotAccepted=I &do not accept the agreement
 
 ; *** "Information" wizard pages
-WizardInfoBefore=信息
-InfoBeforeLabel=请阅读以下重要信息再进入下一步。
-InfoBeforeClickLabel=准备好继续安装后，点击“下一步”。
-WizardInfoAfter=信息
-InfoAfterLabel=请阅读以下重要信息再进入下一步。
-InfoAfterClickLabel=准备好继续安装后，点击“下一步”。
+WizardInfoBefore=Information
+InfoBeforeLabel=Please read the following important information before continuing.
+InfoBeforeClickLabel=When you are ready to continue with Setup, click Next.
+WizardInfoAfter=Information
+InfoAfterLabel=Please read the following important information before continuing.
+InfoAfterClickLabel=When you are ready to continue with Setup, click Next.
 
 ; *** "User Information" wizard page
-WizardUserInfo=用户信息
-UserInfoDesc=请输入您的信息
-UserInfoName=用户名称(&U)：
-UserInfoOrg=机构名称(&O)：
-UserInfoSerial=序列号码(&S)：
-UserInfoNameRequired=必须输入用户名
+WizardUserInfo=User Information
+UserInfoDesc=Please enter your information.
+UserInfoName=&User Name:
+UserInfoOrg=&Organization:
+UserInfoSerial=&Serial Number:
+UserInfoNameRequired=You must enter a name.
 
 ; *** "Select Destination Location" wizard page
-WizardSelectDir=选择安装位置
-SelectDirDesc=将[name]安装到何处？
-SelectDirLabel3=安装向导将把[name]安装到以下文件夹中。
-SelectDirBrowseLabel=点击“下一步”继续。如果您要选择不同的文件夹，请点击“浏览”。
-DiskSpaceMBLabel=必须至少有[mb]兆字节（MB）的闲置磁盘空间。
-CannotInstallToNetworkDrive=无法安装至网络驱动器。
-CannotInstallToUNCPath=无法安装至UNC路径。
-InvalidPath=您必须输入包括盘符的完整路径，例如：%n%nC:\应用程序%n%n或如下格式的UNC路径：%n%n\\服务器名\共享目录名
-InvalidDrive=您选择的驱动器或UNC共享不存在或不可访问。请另选一个。
-DiskSpaceWarningTitle=磁盘空间不足
-DiskSpaceWarning=必须至少有%1千字节（KB）的闲置空间才可安装，但所选驱动器仅有%2千字节（KB）可用空间。%n%n您确定要继续吗？
-DirNameTooLong=文件夹名称或路径太长。
-InvalidDirName=文件夹名称无效。
-BadDirName32=文件夹名称不能包含下列字符：%n%n%1
-DirExistsTitle=文件夹已存在
-DirExists=文件夹%n%n%1%n%n已存在。您确定要安装到该文件夹吗？
-DirDoesntExistTitle=文件夹不存在
-DirDoesntExist=文件夹%n%n%1%n%n不存在。您要创建该文件夹吗？
+WizardSelectDir=Select Destination Location
+SelectDirDesc=Where should [name] be installed?
+SelectDirLabel3=Setup will install [name] into the following folder.
+SelectDirBrowseLabel=To continue, click Next. If you would like to select a different folder, click Browse.
+DiskSpaceMBLabel=At least [mb] MB of free disk space is required.
+CannotInstallToNetworkDrive=Setup cannot install to a network drive.
+CannotInstallToUNCPath=Setup cannot install to a UNC path.
+InvalidPath=You must enter a full path with drive letter; for example:%n%nC:\APP%n%nor a UNC path in the form:%n%n\\server\share
+InvalidDrive=The drive or UNC share you selected does not exist or is not accessible. Please select another.
+DiskSpaceWarningTitle=Not Enough Disk Space
+DiskSpaceWarning=Setup requires at least %1 KB of free space to install, but the selected drive only has %2 KB available.%n%nDo you want to continue anyway?
+DirNameTooLong=The folder name or path is too long.
+InvalidDirName=The folder name is not valid.
+BadDirName32=Folder names cannot include any of the following characters:%n%n%1
+DirExistsTitle=Folder Exists
+DirExists=The folder:%n%n%1%n%nalready exists. Would you like to install to that folder anyway?
+DirDoesntExistTitle=Folder Does Not Exist
+DirDoesntExist=The folder:%n%n%1%n%ndoes not exist. Would you like the folder to be created?
 
 ; *** "Select Components" wizard page
-WizardSelectComponents=选择组件
-SelectComponentsDesc=要安装哪些组件？
-SelectComponentsLabel2=请选择要安装的组件，清除不要安装的组件。准备好后点击“下一步”。
-FullInstallation=全部安装
+WizardSelectComponents=Select Components
+SelectComponentsDesc=Which components should be installed?
+SelectComponentsLabel2=Select the components you want to install; clear the components you do not want to install. Click Next when you are ready to continue.
+FullInstallation=Full installation
 ; if possible don't translate 'Compact' as 'Minimal' (I mean 'Minimal' in your language)
-CompactInstallation=简洁安装
-CustomInstallation=自定义安装
-NoUninstallWarningTitle=组件已存在
-NoUninstallWarning=安装向导检测到已经安装下列组件：%n%n%1%n%n取消选定不会卸载这些组件。%n%n您确定要继续安装吗？
-ComponentSize1=%1千字节（KB）
-ComponentSize2=%1兆字节（MB）
-ComponentsDiskSpaceMBLabel=目前所选组件要求至少[mb]兆字节（MB）磁盘空间。
+CompactInstallation=Compact installation
+CustomInstallation=Custom installation
+NoUninstallWarningTitle=Components Exist
+NoUninstallWarning=Setup has detected that the following components are already installed on your computer:%n%n%1%n%nDeselecting these components will not uninstall them.%n%nWould you like to continue anyway?
+ComponentSize1=%1 KB
+ComponentSize2=%1 MB
+ComponentsDiskSpaceMBLabel=Current selection requires at least [mb] MB of disk space.
 
 ; *** "Select Additional Tasks" wizard page
-WizardSelectTasks=选择附加任务
-SelectTasksDesc=要执行哪些附加任务？
-SelectTasksLabel2=请选择安装[name]时需要执行的附加任务，然后点击“下一步”。
+WizardSelectTasks=Select Additional Tasks
+SelectTasksDesc=Which additional tasks should be performed?
+SelectTasksLabel2=Select the additional tasks you would like Setup to perform while installing [name], then click Next.
 
 ; *** "Select Start Menu Folder" wizard page
-WizardSelectProgramGroup=选择开始菜单文件夹
-SelectStartMenuFolderDesc=把程序快捷方式放到哪里？
-SelectStartMenuFolderLabel3=安装向导将在以下开始菜单文件夹中创建程序快捷方式。
-SelectStartMenuFolderBrowseLabel=点击“下一步”继续。如要选择另一个文件夹，点击“浏览”。
-MustEnterGroupName=您必须输入文件夹名称
-GroupNameTooLong=文件夹名称或路径太长。
-InvalidGroupName=文件夹名称无效。
-BadGroupName=文件夹名称不能包含下列字符：%n%n%1
-NoProgramGroupCheck2=不要创建开始菜单文件夹(&D)
+WizardSelectProgramGroup=Select Start Menu Folder
+SelectStartMenuFolderDesc=Where should Setup place the program's shortcuts?
+SelectStartMenuFolderLabel3=Setup will create the program's shortcuts in the following Start Menu folder.
+SelectStartMenuFolderBrowseLabel=To continue, click Next. If you would like to select a different folder, click Browse.
+MustEnterGroupName=You must enter a folder name.
+GroupNameTooLong=The folder name or path is too long.
+InvalidGroupName=The folder name is not valid.
+BadGroupName=The folder name cannot include any of the following characters:%n%n%1
+NoProgramGroupCheck2=&Don't create a Start Menu folder
 
 ; *** "Ready to Install" wizard page
-WizardReady=安装准备完毕
-ReadyLabel1=安装向导已准备完毕，将开始在您的电脑上安装[name]。
-ReadyLabel2a=点击“安装”开始安装。如要确认或更改设置请点击“上一步”。
-ReadyLabel2b=点击“安装”开始安装。
-ReadyMemoUserInfo=用户信息：
-ReadyMemoDir=安装位置：
-ReadyMemoType=安装类型：
-ReadyMemoComponents=所选组件：
-ReadyMemoGroup=开始菜单文件夹：
-ReadyMemoTasks=附加任务：
+WizardReady=Ready to Install
+ReadyLabel1=Setup is now ready to begin installing [name] on your computer.
+ReadyLabel2a=Click Install to continue with the installation, or click Back if you want to review or change any settings.
+ReadyLabel2b=Click Install to continue with the installation.
+ReadyMemoUserInfo=User information:
+ReadyMemoDir=Destination location:
+ReadyMemoType=Setup type:
+ReadyMemoComponents=Selected components:
+ReadyMemoGroup=Start Menu folder:
+ReadyMemoTasks=Additional tasks:
 
 ; *** "Preparing to Install" wizard page
-WizardPreparing=准备安装
-PreparingDesc=安装向导正在准备在您的电脑上安装[name]。
-PreviousInstallNotCompleted=上次程序安装/卸载未能完成。您需要重启电脑来完成上次安装。%n%n电脑重启之后，请重新运行安装向导来安装[name]。 
-CannotContinue=安装无法继续。请点击“取消”退出。
-ApplicationsFound=安装向导需要更新的文件被下列应用程序占用。建议允许安装向导自动关闭这些应用程序。
-ApplicationsFound2=安装向导需要更新的文件被下列应用程序占用。建议允许安装向导自动关闭这些应用程序。安装完成后，安装向导将尝试重新启动这些应用程序。 
-CloseApplications=自动关闭应用程序(&A)
-DontCloseApplications=不自动关闭应用程序(&D)
-ErrorCloseApplications=安装向导无法自动关闭所有的应用程序。在进入下一步之前，建议您关闭那些占用安装向导需要更新文件的应用程序。
+WizardPreparing=Preparing to Install
+PreparingDesc=Setup is preparing to install [name] on your computer.
+PreviousInstallNotCompleted=The installation/removal of a previous program was not completed. You will need to restart your computer to complete that installation.%n%nAfter restarting your computer, run Setup again to complete the installation of [name].
+CannotContinue=Setup cannot continue. Please click Cancel to exit.
+ApplicationsFound=The following applications are using files that need to be updated by Setup. It is recommended that you allow Setup to automatically close these applications.
+ApplicationsFound2=The following applications are using files that need to be updated by Setup. It is recommended that you allow Setup to automatically close these applications. After the installation has completed, Setup will attempt to restart the applications.
+CloseApplications=&Automatically close the applications
+DontCloseApplications=&Do not close the applications
+ErrorCloseApplications=Setup was unable to automatically close all applications. It is recommended that you close all applications using files that need to be updated by Setup before continuing.
 
 ; *** "Installing" wizard page
-WizardInstalling=正在安装
-InstallingLabel=请稍候，安装向导正在您的电脑上安装[name]。
+WizardInstalling=Installing
+InstallingLabel=Please wait while Setup installs [name] on your computer.
 
 ; *** "Setup Completed" wizard page
-FinishedHeadingLabel=[name]安装完成
-FinishedLabelNoIcons=安装向导已在您的电脑上安装[name]。
-FinishedLabel=安装向导已在您的电脑上安装[name]。可以通过已安装的快捷方式来打开此应用程序。
-ClickFinish=点击“结束”退出安装。
-FinishedRestartLabel=为了完成[name]的安装，安装向导必须重启您的电脑。要立即重启吗？
-FinishedRestartMessage=为了完成[name]的安装，安装向导必须重启您的电脑。%n%n要立即重启吗？
-ShowReadmeCheck=是，我要阅读自述文件
-YesRadio=是，立即重启电脑(&Y)
-NoRadio=否，稍后我再重启电脑(&N)
+FinishedHeadingLabel=Completing the [name] Setup Wizard
+FinishedLabelNoIcons=Setup has finished installing [name] on your computer.
+FinishedLabel=Setup has finished installing [name] on your computer. The application may be launched by selecting the installed shortcuts.
+ClickFinish=Click Finish to exit Setup.
+FinishedRestartLabel=To complete the installation of [name], Setup must restart your computer. Would you like to restart now?
+FinishedRestartMessage=To complete the installation of [name], Setup must restart your computer.%n%nWould you like to restart now?
+ShowReadmeCheck=Yes, I would like to view the README file
+YesRadio=&Yes, restart the computer now
+NoRadio=&No, I will restart the computer later
 ; used for example as 'Run MyProg.exe'
-RunEntryExec=运行%1
+RunEntryExec=Run %1
 ; used for example as 'View Readme.txt'
-RunEntryShellExec=查阅%1
+RunEntryShellExec=View %1
 
 ; *** "Setup Needs the Next Disk" stuff
-ChangeDiskTitle=安装向导需要下一张磁盘
-SelectDiskLabel2=请插入磁盘%1 并点击“确定”。%n%n如果该磁盘中的文件并不在以下所示文件夹中，请输入正确的路径或点击“浏览”。
-PathLabel=路径(&P)：
-FileNotInDir2=文件“%1”不在“%2”中。请插入正确的磁盘或选择其它文件夹。
-SelectDirectoryLabel=请指定下一张磁盘的位置。
+ChangeDiskTitle=Setup Needs the Next Disk
+SelectDiskLabel2=Please insert Disk %1 and click OK.%n%nIf the files on this disk can be found in a folder other than the one displayed below, enter the correct path or click Browse.
+PathLabel=&Path:
+FileNotInDir2=The file "%1" could not be located in "%2". Please insert the correct disk or select another folder.
+SelectDirectoryLabel=Please specify the location of the next disk.
 
 ; *** Installation phase messages
-SetupAborted=安装未能完成。%n%n请解决问题后再重新运行安装向导。
-EntryAbortRetryIgnore=点击“重试”重新尝试，点击“忽略”继续安装，或点击“中止”取消安装。
+SetupAborted=Setup was not completed.%n%nPlease correct the problem and run Setup again.
+EntryAbortRetryIgnore=Click Retry to try again, Ignore to proceed anyway, or Abort to cancel installation.
 
 ; *** Installation status messages
-StatusClosingApplications=正在关闭应用程序…
-StatusCreateDirs=正在创建文件夹…
-StatusExtractFiles=正在取出文件…
-StatusCreateIcons=正在创建快捷方式…
-StatusCreateIniEntries=正在创建INI条目…
-StatusCreateRegistryEntries=正在创建注册表条目…
-StatusRegisterFiles=正在创建注册表项目…
-StatusSavingUninstall=正在保存卸载信息…
-StatusRunProgram=正在结束安装…
-StatusRestartingApplications=正在重启应用程序…
-StatusRollback=正在撤销更改…
+StatusClosingApplications=Closing applications...
+StatusCreateDirs=Creating directories...
+StatusExtractFiles=Extracting files...
+StatusCreateIcons=Creating shortcuts...
+StatusCreateIniEntries=Creating INI entries...
+StatusCreateRegistryEntries=Creating registry entries...
+StatusRegisterFiles=Registering files...
+StatusSavingUninstall=Saving uninstall information...
+StatusRunProgram=Finishing installation...
+StatusRestartingApplications=Restarting applications...
+StatusRollback=Rolling back changes...
 
 ; *** Misc. errors
-ErrorInternal2=内部错误：%1
-ErrorFunctionFailedNoCode=%1失败
-ErrorFunctionFailed=%1失败，错误码%2
-ErrorFunctionFailedWithMessage=%1失败，错误码%2。%n%3
-ErrorExecutingProgram=无法运行程序：%n%1
+ErrorInternal2=Internal error: %1
+ErrorFunctionFailedNoCode=%1 failed
+ErrorFunctionFailed=%1 failed; code %2
+ErrorFunctionFailedWithMessage=%1 failed; code %2.%n%3
+ErrorExecutingProgram=Unable to execute file:%n%1
 
 ; *** Registry errors
-ErrorRegOpenKey=打开注册表键时出错：%n%1\%2
-ErrorRegCreateKey=创建注册表键时出错：%n%1\%2
-ErrorRegWriteKey=写入注册表键时出错：%n%1\%2
+ErrorRegOpenKey=Error opening registry key:%n%1\%2
+ErrorRegCreateKey=Error creating registry key:%n%1\%2
+ErrorRegWriteKey=Error writing to registry key:%n%1\%2
 
 ; *** INI errors
-ErrorIniEntry=在文件“%1”中创建INI条目时出错。
+ErrorIniEntry=Error creating INI entry in file "%1".
 
 ; *** File copying errors
-FileAbortRetryIgnore=点击“重试”重新尝试，点击“忽略”跳过此文件（不推荐这样做），或点击“中止”取消安装。
-FileAbortRetryIgnore2=点击“重试”重新尝试，点击“忽略”继续安装（不推荐这样做），或点击“中止”取消安装。
-SourceIsCorrupted=源文件已损坏
-SourceDoesntExist=源文件“%1”不存在
-ExistingFileReadOnly=现有文件被标记为只读。%n%n点击“重试”移除其只读属性并重新尝试，点击“忽略”跳过此文件，或点击“中止”取消安装。
-ErrorReadingExistingDest=读取现有文件时出错：
-FileExists=文件已存在。%n%n让安装向导覆盖它吗？
-ExistingFileNewer=现有文件比安装向导试图安装的还要新。建议保留现有文件。%n%n您要保留现有文件吗？
-ErrorChangingAttr=更改现有文件属性时出错：
-ErrorCreatingTemp=在目的文件夹中创建文件时出错：
-ErrorReadingSource=读取源文件时出错：
-ErrorCopying=复制文件时出错：
-ErrorReplacingExistingFile=替换现有文件时出错：
-ErrorRestartReplace=重启替换失败：
-ErrorRenamingTemp=为目的文件夹中文件重命名时出错：
-ErrorRegisterServer=无法注册动态库或控件（DLL/OCX）：%1
-ErrorRegSvr32Failed=运行RegSvr32失败，其返回值为：%1
-ErrorRegisterTypeLib=无法注册类型库：%1
+FileAbortRetryIgnore=Click Retry to try again, Ignore to skip this file (not recommended), or Abort to cancel installation.
+FileAbortRetryIgnore2=Click Retry to try again, Ignore to proceed anyway (not recommended), or Abort to cancel installation.
+SourceIsCorrupted=The source file is corrupted
+SourceDoesntExist=The source file "%1" does not exist
+ExistingFileReadOnly=The existing file is marked as read-only.%n%nClick Retry to remove the read-only attribute and try again, Ignore to skip this file, or Abort to cancel installation.
+ErrorReadingExistingDest=An error occurred while trying to read the existing file:
+FileExists=The file already exists.%n%nWould you like Setup to overwrite it?
+ExistingFileNewer=The existing file is newer than the one Setup is trying to install. It is recommended that you keep the existing file.%n%nDo you want to keep the existing file?
+ErrorChangingAttr=An error occurred while trying to change the attributes of the existing file:
+ErrorCreatingTemp=An error occurred while trying to create a file in the destination directory:
+ErrorReadingSource=An error occurred while trying to read the source file:
+ErrorCopying=An error occurred while trying to copy a file:
+ErrorReplacingExistingFile=An error occurred while trying to replace the existing file:
+ErrorRestartReplace=RestartReplace failed:
+ErrorRenamingTemp=An error occurred while trying to rename a file in the destination directory:
+ErrorRegisterServer=Unable to register the DLL/OCX: %1
+ErrorRegSvr32Failed=RegSvr32 failed with exit code %1
+ErrorRegisterTypeLib=Unable to register the type library: %1
 
 ; *** Post-installation errors
-ErrorOpeningReadme=打开自述文件时出错。
-ErrorRestartingComputer=安装向导无法重启电脑。请手动重启。
+ErrorOpeningReadme=An error occurred while trying to open the README file.
+ErrorRestartingComputer=Setup was unable to restart the computer. Please do this manually.
 
 ; *** Uninstaller messages
-UninstallNotFound=文件“%1”不存在。无法卸载。
-UninstallOpenError=无法打开文件“%1”。无法卸载
-UninstallUnsupportedVer=此版本的卸载向导无法识别卸载日志文件“%1”的格式。无法卸载
-UninstallUnknownEntry=在卸载日志中遇到未知条目 (%1)
-ConfirmUninstall=您是否确定要完全删除%1及其所有组件？
-UninstallOnlyOnWin64=此安装只能在64位Windows上卸载。
-OnlyAdminCanUninstall=此安装只能由具备管理员权限的用户卸载。
-UninstallStatusLabel=请稍候，正在删除%1。
-UninstalledAll=已成功地从您的电脑中删除%1。
-UninstalledMost=%1卸载完毕。%n%n某些项目无法在卸载过程中删除。可以手动删除这些项目。
-UninstalledAndNeedsRestart=若要完成%1的卸载，必须重启电脑。%n%n要立即重启吗？
-UninstallDataCorrupted=文件“%1”已损坏。无法卸载
+UninstallNotFound=File "%1" does not exist. Cannot uninstall.
+UninstallOpenError=File "%1" could not be opened. Cannot uninstall
+UninstallUnsupportedVer=The uninstall log file "%1" is in a format not recognized by this version of the uninstaller. Cannot uninstall
+UninstallUnknownEntry=An unknown entry (%1) was encountered in the uninstall log
+ConfirmUninstall=Are you sure you want to completely remove %1 and all of its components?
+UninstallOnlyOnWin64=This installation can only be uninstalled on 64-bit Windows.
+OnlyAdminCanUninstall=This installation can only be uninstalled by a user with administrative privileges.
+UninstallStatusLabel=Please wait while %1 is removed from your computer.
+UninstalledAll=%1 was successfully removed from your computer.
+UninstalledMost=%1 uninstall complete.%n%nSome elements could not be removed. These can be removed manually.
+UninstalledAndNeedsRestart=To complete the uninstallation of %1, your computer must be restarted.%n%nWould you like to restart now?
+UninstallDataCorrupted="%1" file is corrupted. Cannot uninstall
 
 ; *** Uninstallation phase messages
-ConfirmDeleteSharedFileTitle=删除共享文件吗？
-ConfirmDeleteSharedFile2=系统显示没有任何程序使用以下共享文件。要删除该共享文件吗？%n%n如果有程序使用该文件，当它被删除后这些程序可能无法正常运行。如果不确定，请选择“否”。留下该文件不会对系统造成任何危害。
-SharedFileNameLabel=文件名：
-SharedFileLocationLabel=位置：
-WizardUninstalling=卸载状态
-StatusUninstalling=正在卸载%1…
+ConfirmDeleteSharedFileTitle=Remove Shared File?
+ConfirmDeleteSharedFile2=The system indicates that the following shared file is no longer in use by any programs. Would you like for Uninstall to remove this shared file?%n%nIf any programs are still using this file and it is removed, those programs may not function properly. If you are unsure, choose No. Leaving the file on your system will not cause any harm.
+SharedFileNameLabel=File name:
+SharedFileLocationLabel=Location:
+WizardUninstalling=Uninstall Status
+StatusUninstalling=Uninstalling %1...
 
 ; *** Shutdown block reasons
-ShutdownBlockReasonInstallingApp=正在安装%1。
-ShutdownBlockReasonUninstallingApp=正在卸载%1。
+ShutdownBlockReasonInstallingApp=Installing %1.
+ShutdownBlockReasonUninstallingApp=Uninstalling %1.
 
 ; The custom messages below aren't used by Setup itself, but if you make
 ; use of them in your scripts, you'll want to translate them.
 
 [CustomMessages]
 
-NameAndVersion=%1版本%2
-AdditionalIcons=附加快捷方式：
-CreateDesktopIcon=创建桌面快捷方式(&D)
-CreateQuickLaunchIcon=创建快速启动栏快捷方式(&Q)
-ProgramOnTheWeb=%1网站
-UninstallProgram=卸载%1
-LaunchProgram=运行%1
-AssocFileExtension=将%1与%2文件扩展名关联(&A)
-AssocingFileExtension=正在将%1与%2文件扩展名关联…
-AutoStartProgramGroupDescription=启动：
-AutoStartProgram=自动启动%1
-AddonHostProgramNotFound=在您所选文件夹中找不到%1。%n%n是否仍然继续？
-CreateStartmenuIcon=创建开始菜单
-CreateStartupIcon=开机自动启动
+NameAndVersion=%1 version %2
+AdditionalIcons=Additional shortcuts:
+CreateDesktopIcon=Create a &desktop shortcut
+CreateQuickLaunchIcon=Create a &Quick Launch shortcut
+ProgramOnTheWeb=%1 on the Web
+UninstallProgram=Uninstall %1
+LaunchProgram=Launch %1
+AssocFileExtension=&Associate %1 with the %2 file extension
+AssocingFileExtension=Associating %1 with the %2 file extension...
+AutoStartProgramGroupDescription=Startup:
+AutoStartProgram=Automatically start %1
+AddonHostProgramNotFound=%1 could not be located in the folder you selected.%n%nDo you want to continue anyway?

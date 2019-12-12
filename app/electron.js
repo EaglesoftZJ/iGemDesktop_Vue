@@ -78,6 +78,7 @@ function createWindow() {
    * Initial window options
    */
     const args = [];
+    // 调试使用，打包的时候注释
     // if (!app.isPackaged) {
     //   // 如果是开发阶段，需要把我们的脚本的绝对路径加入参数中
     //   args.push(path.resolve(process.argv[1]));
@@ -91,6 +92,7 @@ function createWindow() {
         console.log('commandLine', commandLine);
         if (mainWindow) {
           if (mainWindow.isMinimized()) mainWindow.restore()
+          getIdByProtocol(commandLine.slice(-1)[0]); // 对第二个实例伪协议打开的处理
           showWindow();
               // mainWindow.focus();
         }
@@ -100,7 +102,6 @@ function createWindow() {
         app.quit();
         return;
     }
-
 
   mainWindow = new BrowserWindow({
     minHeight: 700,
@@ -411,8 +412,6 @@ function hideWindow() {
   }
 }
 
-app.setAsDefaultProtocolClient('flychat');
-
 app.on('open-file', (e, path) => {
   // dialog.showErrorBox('openFile', path);
 });
@@ -422,6 +421,7 @@ app.on('open-url', (e, path) => {
   // && !mainWindow.isVisible()
   console.log('open-url', path);
   if (mainWindow) {
+    getIdByProtocol(path); // 对第二个实例伪协议打开的处理
     showWindow();
   }
 });
@@ -564,6 +564,18 @@ function blinkTray() {
 function stopBlinkTray() {
   blinkTrayFlag = false;
   // console.log(321, blinkTrayFlag);
+}
+
+// 通过协议自动标记当前聊天对象id
+function getIdByProtocol(protocol) {
+  if(/^flychat:\/\/(\w+)\/(\d+)$/.test(protocol)) {
+    const type = RegExp.$1; // 处理类型
+    const UID = RegExp.$2; // 处理用户id
+    console.log('getIdByProtocol', type, UID);
+    if (type === 'chat' && UID) {
+      currentUID = 'u' + UID;
+    }
+  }
 }
 
 ipcMain.on('new-messages-show', function (event, arg) {

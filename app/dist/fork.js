@@ -70,38 +70,5684 @@
 /* 0 */
 /***/ (function(module, exports, __webpack_require__) {
 
-eval("/* WEBPACK VAR INJECTION */(function(module) {(function (global, factory) {\n   true ? factory(exports) :\n  typeof define === 'function' && define.amd ? define(['exports'], factory) :\n  (factory((global.async = global.async || {})));\n}(this, (function (exports) { 'use strict';\n\nfunction slice(arrayLike, start) {\n    start = start|0;\n    var newLen = Math.max(arrayLike.length - start, 0);\n    var newArr = Array(newLen);\n    for(var idx = 0; idx < newLen; idx++)  {\n        newArr[idx] = arrayLike[start + idx];\n    }\n    return newArr;\n}\n\n/**\n * Creates a continuation function with some arguments already applied.\n *\n * Useful as a shorthand when combined with other control flow functions. Any\n * arguments passed to the returned function are added to the arguments\n * originally passed to apply.\n *\n * @name apply\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {Function} fn - The function you want to eventually apply all\n * arguments to. Invokes with (arguments...).\n * @param {...*} arguments... - Any number of arguments to automatically apply\n * when the continuation is called.\n * @returns {Function} the partially-applied function\n * @example\n *\n * // using apply\n * async.parallel([\n *     async.apply(fs.writeFile, 'testfile1', 'test1'),\n *     async.apply(fs.writeFile, 'testfile2', 'test2')\n * ]);\n *\n *\n * // the same process without using apply\n * async.parallel([\n *     function(callback) {\n *         fs.writeFile('testfile1', 'test1', callback);\n *     },\n *     function(callback) {\n *         fs.writeFile('testfile2', 'test2', callback);\n *     }\n * ]);\n *\n * // It's possible to pass any number of additional arguments when calling the\n * // continuation:\n *\n * node> var fn = async.apply(sys.puts, 'one');\n * node> fn('two', 'three');\n * one\n * two\n * three\n */\nvar apply = function(fn/*, ...args*/) {\n    var args = slice(arguments, 1);\n    return function(/*callArgs*/) {\n        var callArgs = slice(arguments);\n        return fn.apply(null, args.concat(callArgs));\n    };\n};\n\nvar initialParams = function (fn) {\n    return function (/*...args, callback*/) {\n        var args = slice(arguments);\n        var callback = args.pop();\n        fn.call(this, args, callback);\n    };\n};\n\n/**\n * Checks if `value` is the\n * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)\n * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)\n *\n * @static\n * @memberOf _\n * @since 0.1.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is an object, else `false`.\n * @example\n *\n * _.isObject({});\n * // => true\n *\n * _.isObject([1, 2, 3]);\n * // => true\n *\n * _.isObject(_.noop);\n * // => true\n *\n * _.isObject(null);\n * // => false\n */\nfunction isObject(value) {\n  var type = typeof value;\n  return value != null && (type == 'object' || type == 'function');\n}\n\nvar hasSetImmediate = typeof setImmediate === 'function' && setImmediate;\nvar hasNextTick = typeof process === 'object' && typeof process.nextTick === 'function';\n\nfunction fallback(fn) {\n    setTimeout(fn, 0);\n}\n\nfunction wrap(defer) {\n    return function (fn/*, ...args*/) {\n        var args = slice(arguments, 1);\n        defer(function () {\n            fn.apply(null, args);\n        });\n    };\n}\n\nvar _defer;\n\nif (hasSetImmediate) {\n    _defer = setImmediate;\n} else if (hasNextTick) {\n    _defer = process.nextTick;\n} else {\n    _defer = fallback;\n}\n\nvar setImmediate$1 = wrap(_defer);\n\n/**\n * Take a sync function and make it async, passing its return value to a\n * callback. This is useful for plugging sync functions into a waterfall,\n * series, or other async functions. Any arguments passed to the generated\n * function will be passed to the wrapped function (except for the final\n * callback argument). Errors thrown will be passed to the callback.\n *\n * If the function passed to `asyncify` returns a Promise, that promises's\n * resolved/rejected state will be used to call the callback, rather than simply\n * the synchronous return value.\n *\n * This also means you can asyncify ES2017 `async` functions.\n *\n * @name asyncify\n * @static\n * @memberOf module:Utils\n * @method\n * @alias wrapSync\n * @category Util\n * @param {Function} func - The synchronous function, or Promise-returning\n * function to convert to an {@link AsyncFunction}.\n * @returns {AsyncFunction} An asynchronous wrapper of the `func`. To be\n * invoked with `(args..., callback)`.\n * @example\n *\n * // passing a regular synchronous function\n * async.waterfall([\n *     async.apply(fs.readFile, filename, \"utf8\"),\n *     async.asyncify(JSON.parse),\n *     function (data, next) {\n *         // data is the result of parsing the text.\n *         // If there was a parsing error, it would have been caught.\n *     }\n * ], callback);\n *\n * // passing a function returning a promise\n * async.waterfall([\n *     async.apply(fs.readFile, filename, \"utf8\"),\n *     async.asyncify(function (contents) {\n *         return db.model.create(contents);\n *     }),\n *     function (model, next) {\n *         // `model` is the instantiated model object.\n *         // If there was an error, this function would be skipped.\n *     }\n * ], callback);\n *\n * // es2017 example, though `asyncify` is not needed if your JS environment\n * // supports async functions out of the box\n * var q = async.queue(async.asyncify(async function(file) {\n *     var intermediateStep = await processFile(file);\n *     return await somePromise(intermediateStep)\n * }));\n *\n * q.push(files);\n */\nfunction asyncify(func) {\n    return initialParams(function (args, callback) {\n        var result;\n        try {\n            result = func.apply(this, args);\n        } catch (e) {\n            return callback(e);\n        }\n        // if result is Promise object\n        if (isObject(result) && typeof result.then === 'function') {\n            result.then(function(value) {\n                invokeCallback(callback, null, value);\n            }, function(err) {\n                invokeCallback(callback, err.message ? err : new Error(err));\n            });\n        } else {\n            callback(null, result);\n        }\n    });\n}\n\nfunction invokeCallback(callback, error, value) {\n    try {\n        callback(error, value);\n    } catch (e) {\n        setImmediate$1(rethrow, e);\n    }\n}\n\nfunction rethrow(error) {\n    throw error;\n}\n\nvar supportsSymbol = typeof Symbol === 'function';\n\nfunction isAsync(fn) {\n    return supportsSymbol && fn[Symbol.toStringTag] === 'AsyncFunction';\n}\n\nfunction wrapAsync(asyncFn) {\n    return isAsync(asyncFn) ? asyncify(asyncFn) : asyncFn;\n}\n\nfunction applyEach$1(eachfn) {\n    return function(fns/*, ...args*/) {\n        var args = slice(arguments, 1);\n        var go = initialParams(function(args, callback) {\n            var that = this;\n            return eachfn(fns, function (fn, cb) {\n                wrapAsync(fn).apply(that, args.concat(cb));\n            }, callback);\n        });\n        if (args.length) {\n            return go.apply(this, args);\n        }\n        else {\n            return go;\n        }\n    };\n}\n\n/** Detect free variable `global` from Node.js. */\nvar freeGlobal = typeof global == 'object' && global && global.Object === Object && global;\n\n/** Detect free variable `self`. */\nvar freeSelf = typeof self == 'object' && self && self.Object === Object && self;\n\n/** Used as a reference to the global object. */\nvar root = freeGlobal || freeSelf || Function('return this')();\n\n/** Built-in value references. */\nvar Symbol$1 = root.Symbol;\n\n/** Used for built-in method references. */\nvar objectProto = Object.prototype;\n\n/** Used to check objects for own properties. */\nvar hasOwnProperty = objectProto.hasOwnProperty;\n\n/**\n * Used to resolve the\n * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)\n * of values.\n */\nvar nativeObjectToString = objectProto.toString;\n\n/** Built-in value references. */\nvar symToStringTag$1 = Symbol$1 ? Symbol$1.toStringTag : undefined;\n\n/**\n * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.\n *\n * @private\n * @param {*} value The value to query.\n * @returns {string} Returns the raw `toStringTag`.\n */\nfunction getRawTag(value) {\n  var isOwn = hasOwnProperty.call(value, symToStringTag$1),\n      tag = value[symToStringTag$1];\n\n  try {\n    value[symToStringTag$1] = undefined;\n    var unmasked = true;\n  } catch (e) {}\n\n  var result = nativeObjectToString.call(value);\n  if (unmasked) {\n    if (isOwn) {\n      value[symToStringTag$1] = tag;\n    } else {\n      delete value[symToStringTag$1];\n    }\n  }\n  return result;\n}\n\n/** Used for built-in method references. */\nvar objectProto$1 = Object.prototype;\n\n/**\n * Used to resolve the\n * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)\n * of values.\n */\nvar nativeObjectToString$1 = objectProto$1.toString;\n\n/**\n * Converts `value` to a string using `Object.prototype.toString`.\n *\n * @private\n * @param {*} value The value to convert.\n * @returns {string} Returns the converted string.\n */\nfunction objectToString(value) {\n  return nativeObjectToString$1.call(value);\n}\n\n/** `Object#toString` result references. */\nvar nullTag = '[object Null]';\nvar undefinedTag = '[object Undefined]';\n\n/** Built-in value references. */\nvar symToStringTag = Symbol$1 ? Symbol$1.toStringTag : undefined;\n\n/**\n * The base implementation of `getTag` without fallbacks for buggy environments.\n *\n * @private\n * @param {*} value The value to query.\n * @returns {string} Returns the `toStringTag`.\n */\nfunction baseGetTag(value) {\n  if (value == null) {\n    return value === undefined ? undefinedTag : nullTag;\n  }\n  return (symToStringTag && symToStringTag in Object(value))\n    ? getRawTag(value)\n    : objectToString(value);\n}\n\n/** `Object#toString` result references. */\nvar asyncTag = '[object AsyncFunction]';\nvar funcTag = '[object Function]';\nvar genTag = '[object GeneratorFunction]';\nvar proxyTag = '[object Proxy]';\n\n/**\n * Checks if `value` is classified as a `Function` object.\n *\n * @static\n * @memberOf _\n * @since 0.1.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a function, else `false`.\n * @example\n *\n * _.isFunction(_);\n * // => true\n *\n * _.isFunction(/abc/);\n * // => false\n */\nfunction isFunction(value) {\n  if (!isObject(value)) {\n    return false;\n  }\n  // The use of `Object#toString` avoids issues with the `typeof` operator\n  // in Safari 9 which returns 'object' for typed arrays and other constructors.\n  var tag = baseGetTag(value);\n  return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;\n}\n\n/** Used as references for various `Number` constants. */\nvar MAX_SAFE_INTEGER = 9007199254740991;\n\n/**\n * Checks if `value` is a valid array-like length.\n *\n * **Note:** This method is loosely based on\n * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).\n *\n * @static\n * @memberOf _\n * @since 4.0.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.\n * @example\n *\n * _.isLength(3);\n * // => true\n *\n * _.isLength(Number.MIN_VALUE);\n * // => false\n *\n * _.isLength(Infinity);\n * // => false\n *\n * _.isLength('3');\n * // => false\n */\nfunction isLength(value) {\n  return typeof value == 'number' &&\n    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;\n}\n\n/**\n * Checks if `value` is array-like. A value is considered array-like if it's\n * not a function and has a `value.length` that's an integer greater than or\n * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.\n *\n * @static\n * @memberOf _\n * @since 4.0.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is array-like, else `false`.\n * @example\n *\n * _.isArrayLike([1, 2, 3]);\n * // => true\n *\n * _.isArrayLike(document.body.children);\n * // => true\n *\n * _.isArrayLike('abc');\n * // => true\n *\n * _.isArrayLike(_.noop);\n * // => false\n */\nfunction isArrayLike(value) {\n  return value != null && isLength(value.length) && !isFunction(value);\n}\n\n// A temporary value used to identify if the loop should be broken.\n// See #1064, #1293\nvar breakLoop = {};\n\n/**\n * This method returns `undefined`.\n *\n * @static\n * @memberOf _\n * @since 2.3.0\n * @category Util\n * @example\n *\n * _.times(2, _.noop);\n * // => [undefined, undefined]\n */\nfunction noop() {\n  // No operation performed.\n}\n\nfunction once(fn) {\n    return function () {\n        if (fn === null) return;\n        var callFn = fn;\n        fn = null;\n        callFn.apply(this, arguments);\n    };\n}\n\nvar iteratorSymbol = typeof Symbol === 'function' && Symbol.iterator;\n\nvar getIterator = function (coll) {\n    return iteratorSymbol && coll[iteratorSymbol] && coll[iteratorSymbol]();\n};\n\n/**\n * The base implementation of `_.times` without support for iteratee shorthands\n * or max array length checks.\n *\n * @private\n * @param {number} n The number of times to invoke `iteratee`.\n * @param {Function} iteratee The function invoked per iteration.\n * @returns {Array} Returns the array of results.\n */\nfunction baseTimes(n, iteratee) {\n  var index = -1,\n      result = Array(n);\n\n  while (++index < n) {\n    result[index] = iteratee(index);\n  }\n  return result;\n}\n\n/**\n * Checks if `value` is object-like. A value is object-like if it's not `null`\n * and has a `typeof` result of \"object\".\n *\n * @static\n * @memberOf _\n * @since 4.0.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is object-like, else `false`.\n * @example\n *\n * _.isObjectLike({});\n * // => true\n *\n * _.isObjectLike([1, 2, 3]);\n * // => true\n *\n * _.isObjectLike(_.noop);\n * // => false\n *\n * _.isObjectLike(null);\n * // => false\n */\nfunction isObjectLike(value) {\n  return value != null && typeof value == 'object';\n}\n\n/** `Object#toString` result references. */\nvar argsTag = '[object Arguments]';\n\n/**\n * The base implementation of `_.isArguments`.\n *\n * @private\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is an `arguments` object,\n */\nfunction baseIsArguments(value) {\n  return isObjectLike(value) && baseGetTag(value) == argsTag;\n}\n\n/** Used for built-in method references. */\nvar objectProto$3 = Object.prototype;\n\n/** Used to check objects for own properties. */\nvar hasOwnProperty$2 = objectProto$3.hasOwnProperty;\n\n/** Built-in value references. */\nvar propertyIsEnumerable = objectProto$3.propertyIsEnumerable;\n\n/**\n * Checks if `value` is likely an `arguments` object.\n *\n * @static\n * @memberOf _\n * @since 0.1.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is an `arguments` object,\n *  else `false`.\n * @example\n *\n * _.isArguments(function() { return arguments; }());\n * // => true\n *\n * _.isArguments([1, 2, 3]);\n * // => false\n */\nvar isArguments = baseIsArguments(function() { return arguments; }()) ? baseIsArguments : function(value) {\n  return isObjectLike(value) && hasOwnProperty$2.call(value, 'callee') &&\n    !propertyIsEnumerable.call(value, 'callee');\n};\n\n/**\n * Checks if `value` is classified as an `Array` object.\n *\n * @static\n * @memberOf _\n * @since 0.1.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is an array, else `false`.\n * @example\n *\n * _.isArray([1, 2, 3]);\n * // => true\n *\n * _.isArray(document.body.children);\n * // => false\n *\n * _.isArray('abc');\n * // => false\n *\n * _.isArray(_.noop);\n * // => false\n */\nvar isArray = Array.isArray;\n\n/**\n * This method returns `false`.\n *\n * @static\n * @memberOf _\n * @since 4.13.0\n * @category Util\n * @returns {boolean} Returns `false`.\n * @example\n *\n * _.times(2, _.stubFalse);\n * // => [false, false]\n */\nfunction stubFalse() {\n  return false;\n}\n\n/** Detect free variable `exports`. */\nvar freeExports = typeof exports == 'object' && exports && !exports.nodeType && exports;\n\n/** Detect free variable `module`. */\nvar freeModule = freeExports && typeof module == 'object' && module && !module.nodeType && module;\n\n/** Detect the popular CommonJS extension `module.exports`. */\nvar moduleExports = freeModule && freeModule.exports === freeExports;\n\n/** Built-in value references. */\nvar Buffer = moduleExports ? root.Buffer : undefined;\n\n/* Built-in method references for those with the same name as other `lodash` methods. */\nvar nativeIsBuffer = Buffer ? Buffer.isBuffer : undefined;\n\n/**\n * Checks if `value` is a buffer.\n *\n * @static\n * @memberOf _\n * @since 4.3.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a buffer, else `false`.\n * @example\n *\n * _.isBuffer(new Buffer(2));\n * // => true\n *\n * _.isBuffer(new Uint8Array(2));\n * // => false\n */\nvar isBuffer = nativeIsBuffer || stubFalse;\n\n/** Used as references for various `Number` constants. */\nvar MAX_SAFE_INTEGER$1 = 9007199254740991;\n\n/** Used to detect unsigned integer values. */\nvar reIsUint = /^(?:0|[1-9]\\d*)$/;\n\n/**\n * Checks if `value` is a valid array-like index.\n *\n * @private\n * @param {*} value The value to check.\n * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.\n * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.\n */\nfunction isIndex(value, length) {\n  var type = typeof value;\n  length = length == null ? MAX_SAFE_INTEGER$1 : length;\n\n  return !!length &&\n    (type == 'number' ||\n      (type != 'symbol' && reIsUint.test(value))) &&\n        (value > -1 && value % 1 == 0 && value < length);\n}\n\n/** `Object#toString` result references. */\nvar argsTag$1 = '[object Arguments]';\nvar arrayTag = '[object Array]';\nvar boolTag = '[object Boolean]';\nvar dateTag = '[object Date]';\nvar errorTag = '[object Error]';\nvar funcTag$1 = '[object Function]';\nvar mapTag = '[object Map]';\nvar numberTag = '[object Number]';\nvar objectTag = '[object Object]';\nvar regexpTag = '[object RegExp]';\nvar setTag = '[object Set]';\nvar stringTag = '[object String]';\nvar weakMapTag = '[object WeakMap]';\n\nvar arrayBufferTag = '[object ArrayBuffer]';\nvar dataViewTag = '[object DataView]';\nvar float32Tag = '[object Float32Array]';\nvar float64Tag = '[object Float64Array]';\nvar int8Tag = '[object Int8Array]';\nvar int16Tag = '[object Int16Array]';\nvar int32Tag = '[object Int32Array]';\nvar uint8Tag = '[object Uint8Array]';\nvar uint8ClampedTag = '[object Uint8ClampedArray]';\nvar uint16Tag = '[object Uint16Array]';\nvar uint32Tag = '[object Uint32Array]';\n\n/** Used to identify `toStringTag` values of typed arrays. */\nvar typedArrayTags = {};\ntypedArrayTags[float32Tag] = typedArrayTags[float64Tag] =\ntypedArrayTags[int8Tag] = typedArrayTags[int16Tag] =\ntypedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =\ntypedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =\ntypedArrayTags[uint32Tag] = true;\ntypedArrayTags[argsTag$1] = typedArrayTags[arrayTag] =\ntypedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] =\ntypedArrayTags[dataViewTag] = typedArrayTags[dateTag] =\ntypedArrayTags[errorTag] = typedArrayTags[funcTag$1] =\ntypedArrayTags[mapTag] = typedArrayTags[numberTag] =\ntypedArrayTags[objectTag] = typedArrayTags[regexpTag] =\ntypedArrayTags[setTag] = typedArrayTags[stringTag] =\ntypedArrayTags[weakMapTag] = false;\n\n/**\n * The base implementation of `_.isTypedArray` without Node.js optimizations.\n *\n * @private\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.\n */\nfunction baseIsTypedArray(value) {\n  return isObjectLike(value) &&\n    isLength(value.length) && !!typedArrayTags[baseGetTag(value)];\n}\n\n/**\n * The base implementation of `_.unary` without support for storing metadata.\n *\n * @private\n * @param {Function} func The function to cap arguments for.\n * @returns {Function} Returns the new capped function.\n */\nfunction baseUnary(func) {\n  return function(value) {\n    return func(value);\n  };\n}\n\n/** Detect free variable `exports`. */\nvar freeExports$1 = typeof exports == 'object' && exports && !exports.nodeType && exports;\n\n/** Detect free variable `module`. */\nvar freeModule$1 = freeExports$1 && typeof module == 'object' && module && !module.nodeType && module;\n\n/** Detect the popular CommonJS extension `module.exports`. */\nvar moduleExports$1 = freeModule$1 && freeModule$1.exports === freeExports$1;\n\n/** Detect free variable `process` from Node.js. */\nvar freeProcess = moduleExports$1 && freeGlobal.process;\n\n/** Used to access faster Node.js helpers. */\nvar nodeUtil = (function() {\n  try {\n    // Use `util.types` for Node.js 10+.\n    var types = freeModule$1 && freeModule$1.require && freeModule$1.require('util').types;\n\n    if (types) {\n      return types;\n    }\n\n    // Legacy `process.binding('util')` for Node.js < 10.\n    return freeProcess && freeProcess.binding && freeProcess.binding('util');\n  } catch (e) {}\n}());\n\n/* Node.js helper references. */\nvar nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;\n\n/**\n * Checks if `value` is classified as a typed array.\n *\n * @static\n * @memberOf _\n * @since 3.0.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.\n * @example\n *\n * _.isTypedArray(new Uint8Array);\n * // => true\n *\n * _.isTypedArray([]);\n * // => false\n */\nvar isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;\n\n/** Used for built-in method references. */\nvar objectProto$2 = Object.prototype;\n\n/** Used to check objects for own properties. */\nvar hasOwnProperty$1 = objectProto$2.hasOwnProperty;\n\n/**\n * Creates an array of the enumerable property names of the array-like `value`.\n *\n * @private\n * @param {*} value The value to query.\n * @param {boolean} inherited Specify returning inherited property names.\n * @returns {Array} Returns the array of property names.\n */\nfunction arrayLikeKeys(value, inherited) {\n  var isArr = isArray(value),\n      isArg = !isArr && isArguments(value),\n      isBuff = !isArr && !isArg && isBuffer(value),\n      isType = !isArr && !isArg && !isBuff && isTypedArray(value),\n      skipIndexes = isArr || isArg || isBuff || isType,\n      result = skipIndexes ? baseTimes(value.length, String) : [],\n      length = result.length;\n\n  for (var key in value) {\n    if ((inherited || hasOwnProperty$1.call(value, key)) &&\n        !(skipIndexes && (\n           // Safari 9 has enumerable `arguments.length` in strict mode.\n           key == 'length' ||\n           // Node.js 0.10 has enumerable non-index properties on buffers.\n           (isBuff && (key == 'offset' || key == 'parent')) ||\n           // PhantomJS 2 has enumerable non-index properties on typed arrays.\n           (isType && (key == 'buffer' || key == 'byteLength' || key == 'byteOffset')) ||\n           // Skip index properties.\n           isIndex(key, length)\n        ))) {\n      result.push(key);\n    }\n  }\n  return result;\n}\n\n/** Used for built-in method references. */\nvar objectProto$5 = Object.prototype;\n\n/**\n * Checks if `value` is likely a prototype object.\n *\n * @private\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a prototype, else `false`.\n */\nfunction isPrototype(value) {\n  var Ctor = value && value.constructor,\n      proto = (typeof Ctor == 'function' && Ctor.prototype) || objectProto$5;\n\n  return value === proto;\n}\n\n/**\n * Creates a unary function that invokes `func` with its argument transformed.\n *\n * @private\n * @param {Function} func The function to wrap.\n * @param {Function} transform The argument transform.\n * @returns {Function} Returns the new function.\n */\nfunction overArg(func, transform) {\n  return function(arg) {\n    return func(transform(arg));\n  };\n}\n\n/* Built-in method references for those with the same name as other `lodash` methods. */\nvar nativeKeys = overArg(Object.keys, Object);\n\n/** Used for built-in method references. */\nvar objectProto$4 = Object.prototype;\n\n/** Used to check objects for own properties. */\nvar hasOwnProperty$3 = objectProto$4.hasOwnProperty;\n\n/**\n * The base implementation of `_.keys` which doesn't treat sparse arrays as dense.\n *\n * @private\n * @param {Object} object The object to query.\n * @returns {Array} Returns the array of property names.\n */\nfunction baseKeys(object) {\n  if (!isPrototype(object)) {\n    return nativeKeys(object);\n  }\n  var result = [];\n  for (var key in Object(object)) {\n    if (hasOwnProperty$3.call(object, key) && key != 'constructor') {\n      result.push(key);\n    }\n  }\n  return result;\n}\n\n/**\n * Creates an array of the own enumerable property names of `object`.\n *\n * **Note:** Non-object values are coerced to objects. See the\n * [ES spec](http://ecma-international.org/ecma-262/7.0/#sec-object.keys)\n * for more details.\n *\n * @static\n * @since 0.1.0\n * @memberOf _\n * @category Object\n * @param {Object} object The object to query.\n * @returns {Array} Returns the array of property names.\n * @example\n *\n * function Foo() {\n *   this.a = 1;\n *   this.b = 2;\n * }\n *\n * Foo.prototype.c = 3;\n *\n * _.keys(new Foo);\n * // => ['a', 'b'] (iteration order is not guaranteed)\n *\n * _.keys('hi');\n * // => ['0', '1']\n */\nfunction keys(object) {\n  return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);\n}\n\nfunction createArrayIterator(coll) {\n    var i = -1;\n    var len = coll.length;\n    return function next() {\n        return ++i < len ? {value: coll[i], key: i} : null;\n    }\n}\n\nfunction createES2015Iterator(iterator) {\n    var i = -1;\n    return function next() {\n        var item = iterator.next();\n        if (item.done)\n            return null;\n        i++;\n        return {value: item.value, key: i};\n    }\n}\n\nfunction createObjectIterator(obj) {\n    var okeys = keys(obj);\n    var i = -1;\n    var len = okeys.length;\n    return function next() {\n        var key = okeys[++i];\n        return i < len ? {value: obj[key], key: key} : null;\n    };\n}\n\nfunction iterator(coll) {\n    if (isArrayLike(coll)) {\n        return createArrayIterator(coll);\n    }\n\n    var iterator = getIterator(coll);\n    return iterator ? createES2015Iterator(iterator) : createObjectIterator(coll);\n}\n\nfunction onlyOnce(fn) {\n    return function() {\n        if (fn === null) throw new Error(\"Callback was already called.\");\n        var callFn = fn;\n        fn = null;\n        callFn.apply(this, arguments);\n    };\n}\n\nfunction _eachOfLimit(limit) {\n    return function (obj, iteratee, callback) {\n        callback = once(callback || noop);\n        if (limit <= 0 || !obj) {\n            return callback(null);\n        }\n        var nextElem = iterator(obj);\n        var done = false;\n        var running = 0;\n        var looping = false;\n\n        function iterateeCallback(err, value) {\n            running -= 1;\n            if (err) {\n                done = true;\n                callback(err);\n            }\n            else if (value === breakLoop || (done && running <= 0)) {\n                done = true;\n                return callback(null);\n            }\n            else if (!looping) {\n                replenish();\n            }\n        }\n\n        function replenish () {\n            looping = true;\n            while (running < limit && !done) {\n                var elem = nextElem();\n                if (elem === null) {\n                    done = true;\n                    if (running <= 0) {\n                        callback(null);\n                    }\n                    return;\n                }\n                running += 1;\n                iteratee(elem.value, elem.key, onlyOnce(iterateeCallback));\n            }\n            looping = false;\n        }\n\n        replenish();\n    };\n}\n\n/**\n * The same as [`eachOf`]{@link module:Collections.eachOf} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name eachOfLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.eachOf]{@link module:Collections.eachOf}\n * @alias forEachOfLimit\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async function to apply to each\n * item in `coll`. The `key` is the item's key, or index in the case of an\n * array.\n * Invoked with (item, key, callback).\n * @param {Function} [callback] - A callback which is called when all\n * `iteratee` functions have finished, or an error occurs. Invoked with (err).\n */\nfunction eachOfLimit(coll, limit, iteratee, callback) {\n    _eachOfLimit(limit)(coll, wrapAsync(iteratee), callback);\n}\n\nfunction doLimit(fn, limit) {\n    return function (iterable, iteratee, callback) {\n        return fn(iterable, limit, iteratee, callback);\n    };\n}\n\n// eachOf implementation optimized for array-likes\nfunction eachOfArrayLike(coll, iteratee, callback) {\n    callback = once(callback || noop);\n    var index = 0,\n        completed = 0,\n        length = coll.length;\n    if (length === 0) {\n        callback(null);\n    }\n\n    function iteratorCallback(err, value) {\n        if (err) {\n            callback(err);\n        } else if ((++completed === length) || value === breakLoop) {\n            callback(null);\n        }\n    }\n\n    for (; index < length; index++) {\n        iteratee(coll[index], index, onlyOnce(iteratorCallback));\n    }\n}\n\n// a generic version of eachOf which can handle array, object, and iterator cases.\nvar eachOfGeneric = doLimit(eachOfLimit, Infinity);\n\n/**\n * Like [`each`]{@link module:Collections.each}, except that it passes the key (or index) as the second argument\n * to the iteratee.\n *\n * @name eachOf\n * @static\n * @memberOf module:Collections\n * @method\n * @alias forEachOf\n * @category Collection\n * @see [async.each]{@link module:Collections.each}\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A function to apply to each\n * item in `coll`.\n * The `key` is the item's key, or index in the case of an array.\n * Invoked with (item, key, callback).\n * @param {Function} [callback] - A callback which is called when all\n * `iteratee` functions have finished, or an error occurs. Invoked with (err).\n * @example\n *\n * var obj = {dev: \"/dev.json\", test: \"/test.json\", prod: \"/prod.json\"};\n * var configs = {};\n *\n * async.forEachOf(obj, function (value, key, callback) {\n *     fs.readFile(__dirname + value, \"utf8\", function (err, data) {\n *         if (err) return callback(err);\n *         try {\n *             configs[key] = JSON.parse(data);\n *         } catch (e) {\n *             return callback(e);\n *         }\n *         callback();\n *     });\n * }, function (err) {\n *     if (err) console.error(err.message);\n *     // configs is now a map of JSON data\n *     doSomethingWith(configs);\n * });\n */\nvar eachOf = function(coll, iteratee, callback) {\n    var eachOfImplementation = isArrayLike(coll) ? eachOfArrayLike : eachOfGeneric;\n    eachOfImplementation(coll, wrapAsync(iteratee), callback);\n};\n\nfunction doParallel(fn) {\n    return function (obj, iteratee, callback) {\n        return fn(eachOf, obj, wrapAsync(iteratee), callback);\n    };\n}\n\nfunction _asyncMap(eachfn, arr, iteratee, callback) {\n    callback = callback || noop;\n    arr = arr || [];\n    var results = [];\n    var counter = 0;\n    var _iteratee = wrapAsync(iteratee);\n\n    eachfn(arr, function (value, _, callback) {\n        var index = counter++;\n        _iteratee(value, function (err, v) {\n            results[index] = v;\n            callback(err);\n        });\n    }, function (err) {\n        callback(err, results);\n    });\n}\n\n/**\n * Produces a new collection of values by mapping each value in `coll` through\n * the `iteratee` function. The `iteratee` is called with an item from `coll`\n * and a callback for when it has finished processing. Each of these callback\n * takes 2 arguments: an `error`, and the transformed item from `coll`. If\n * `iteratee` passes an error to its callback, the main `callback` (for the\n * `map` function) is immediately called with the error.\n *\n * Note, that since this function applies the `iteratee` to each item in\n * parallel, there is no guarantee that the `iteratee` functions will complete\n * in order. However, the results array will be in the same order as the\n * original `coll`.\n *\n * If `map` is passed an Object, the results will be an Array.  The results\n * will roughly be in the order of the original Objects' keys (but this can\n * vary across JavaScript engines).\n *\n * @name map\n * @static\n * @memberOf module:Collections\n * @method\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with the transformed item.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Results is an Array of the\n * transformed items from the `coll`. Invoked with (err, results).\n * @example\n *\n * async.map(['file1','file2','file3'], fs.stat, function(err, results) {\n *     // results is now an array of stats for each file\n * });\n */\nvar map = doParallel(_asyncMap);\n\n/**\n * Applies the provided arguments to each function in the array, calling\n * `callback` after all functions have completed. If you only provide the first\n * argument, `fns`, then it will return a function which lets you pass in the\n * arguments as if it were a single function call. If more arguments are\n * provided, `callback` is required while `args` is still optional.\n *\n * @name applyEach\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Array|Iterable|Object} fns - A collection of {@link AsyncFunction}s\n * to all call with the same arguments\n * @param {...*} [args] - any number of separate arguments to pass to the\n * function.\n * @param {Function} [callback] - the final argument should be the callback,\n * called when all functions have completed processing.\n * @returns {Function} - If only the first argument, `fns`, is provided, it will\n * return a function which lets you pass in the arguments as if it were a single\n * function call. The signature is `(..args, callback)`. If invoked with any\n * arguments, `callback` is required.\n * @example\n *\n * async.applyEach([enableSearch, updateSchema], 'bucket', callback);\n *\n * // partial application example:\n * async.each(\n *     buckets,\n *     async.applyEach([enableSearch, updateSchema]),\n *     callback\n * );\n */\nvar applyEach = applyEach$1(map);\n\nfunction doParallelLimit(fn) {\n    return function (obj, limit, iteratee, callback) {\n        return fn(_eachOfLimit(limit), obj, wrapAsync(iteratee), callback);\n    };\n}\n\n/**\n * The same as [`map`]{@link module:Collections.map} but runs a maximum of `limit` async operations at a time.\n *\n * @name mapLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.map]{@link module:Collections.map}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with the transformed item.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Results is an array of the\n * transformed items from the `coll`. Invoked with (err, results).\n */\nvar mapLimit = doParallelLimit(_asyncMap);\n\n/**\n * The same as [`map`]{@link module:Collections.map} but runs only a single async operation at a time.\n *\n * @name mapSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.map]{@link module:Collections.map}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with the transformed item.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Results is an array of the\n * transformed items from the `coll`. Invoked with (err, results).\n */\nvar mapSeries = doLimit(mapLimit, 1);\n\n/**\n * The same as [`applyEach`]{@link module:ControlFlow.applyEach} but runs only a single async operation at a time.\n *\n * @name applyEachSeries\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.applyEach]{@link module:ControlFlow.applyEach}\n * @category Control Flow\n * @param {Array|Iterable|Object} fns - A collection of {@link AsyncFunction}s to all\n * call with the same arguments\n * @param {...*} [args] - any number of separate arguments to pass to the\n * function.\n * @param {Function} [callback] - the final argument should be the callback,\n * called when all functions have completed processing.\n * @returns {Function} - If only the first argument is provided, it will return\n * a function which lets you pass in the arguments as if it were a single\n * function call.\n */\nvar applyEachSeries = applyEach$1(mapSeries);\n\n/**\n * A specialized version of `_.forEach` for arrays without support for\n * iteratee shorthands.\n *\n * @private\n * @param {Array} [array] The array to iterate over.\n * @param {Function} iteratee The function invoked per iteration.\n * @returns {Array} Returns `array`.\n */\nfunction arrayEach(array, iteratee) {\n  var index = -1,\n      length = array == null ? 0 : array.length;\n\n  while (++index < length) {\n    if (iteratee(array[index], index, array) === false) {\n      break;\n    }\n  }\n  return array;\n}\n\n/**\n * Creates a base function for methods like `_.forIn` and `_.forOwn`.\n *\n * @private\n * @param {boolean} [fromRight] Specify iterating from right to left.\n * @returns {Function} Returns the new base function.\n */\nfunction createBaseFor(fromRight) {\n  return function(object, iteratee, keysFunc) {\n    var index = -1,\n        iterable = Object(object),\n        props = keysFunc(object),\n        length = props.length;\n\n    while (length--) {\n      var key = props[fromRight ? length : ++index];\n      if (iteratee(iterable[key], key, iterable) === false) {\n        break;\n      }\n    }\n    return object;\n  };\n}\n\n/**\n * The base implementation of `baseForOwn` which iterates over `object`\n * properties returned by `keysFunc` and invokes `iteratee` for each property.\n * Iteratee functions may exit iteration early by explicitly returning `false`.\n *\n * @private\n * @param {Object} object The object to iterate over.\n * @param {Function} iteratee The function invoked per iteration.\n * @param {Function} keysFunc The function to get the keys of `object`.\n * @returns {Object} Returns `object`.\n */\nvar baseFor = createBaseFor();\n\n/**\n * The base implementation of `_.forOwn` without support for iteratee shorthands.\n *\n * @private\n * @param {Object} object The object to iterate over.\n * @param {Function} iteratee The function invoked per iteration.\n * @returns {Object} Returns `object`.\n */\nfunction baseForOwn(object, iteratee) {\n  return object && baseFor(object, iteratee, keys);\n}\n\n/**\n * The base implementation of `_.findIndex` and `_.findLastIndex` without\n * support for iteratee shorthands.\n *\n * @private\n * @param {Array} array The array to inspect.\n * @param {Function} predicate The function invoked per iteration.\n * @param {number} fromIndex The index to search from.\n * @param {boolean} [fromRight] Specify iterating from right to left.\n * @returns {number} Returns the index of the matched value, else `-1`.\n */\nfunction baseFindIndex(array, predicate, fromIndex, fromRight) {\n  var length = array.length,\n      index = fromIndex + (fromRight ? 1 : -1);\n\n  while ((fromRight ? index-- : ++index < length)) {\n    if (predicate(array[index], index, array)) {\n      return index;\n    }\n  }\n  return -1;\n}\n\n/**\n * The base implementation of `_.isNaN` without support for number objects.\n *\n * @private\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is `NaN`, else `false`.\n */\nfunction baseIsNaN(value) {\n  return value !== value;\n}\n\n/**\n * A specialized version of `_.indexOf` which performs strict equality\n * comparisons of values, i.e. `===`.\n *\n * @private\n * @param {Array} array The array to inspect.\n * @param {*} value The value to search for.\n * @param {number} fromIndex The index to search from.\n * @returns {number} Returns the index of the matched value, else `-1`.\n */\nfunction strictIndexOf(array, value, fromIndex) {\n  var index = fromIndex - 1,\n      length = array.length;\n\n  while (++index < length) {\n    if (array[index] === value) {\n      return index;\n    }\n  }\n  return -1;\n}\n\n/**\n * The base implementation of `_.indexOf` without `fromIndex` bounds checks.\n *\n * @private\n * @param {Array} array The array to inspect.\n * @param {*} value The value to search for.\n * @param {number} fromIndex The index to search from.\n * @returns {number} Returns the index of the matched value, else `-1`.\n */\nfunction baseIndexOf(array, value, fromIndex) {\n  return value === value\n    ? strictIndexOf(array, value, fromIndex)\n    : baseFindIndex(array, baseIsNaN, fromIndex);\n}\n\n/**\n * Determines the best order for running the {@link AsyncFunction}s in `tasks`, based on\n * their requirements. Each function can optionally depend on other functions\n * being completed first, and each function is run as soon as its requirements\n * are satisfied.\n *\n * If any of the {@link AsyncFunction}s pass an error to their callback, the `auto` sequence\n * will stop. Further tasks will not execute (so any other functions depending\n * on it will not run), and the main `callback` is immediately called with the\n * error.\n *\n * {@link AsyncFunction}s also receive an object containing the results of functions which\n * have completed so far as the first argument, if they have dependencies. If a\n * task function has no dependencies, it will only be passed a callback.\n *\n * @name auto\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Object} tasks - An object. Each of its properties is either a\n * function or an array of requirements, with the {@link AsyncFunction} itself the last item\n * in the array. The object's key of a property serves as the name of the task\n * defined by that property, i.e. can be used when specifying requirements for\n * other tasks. The function receives one or two arguments:\n * * a `results` object, containing the results of the previously executed\n *   functions, only passed if the task has any dependencies,\n * * a `callback(err, result)` function, which must be called when finished,\n *   passing an `error` (which can be `null`) and the result of the function's\n *   execution.\n * @param {number} [concurrency=Infinity] - An optional `integer` for\n * determining the maximum number of tasks that can be run in parallel. By\n * default, as many as possible.\n * @param {Function} [callback] - An optional callback which is called when all\n * the tasks have been completed. It receives the `err` argument if any `tasks`\n * pass an error to their callback. Results are always returned; however, if an\n * error occurs, no further `tasks` will be performed, and the results object\n * will only contain partial results. Invoked with (err, results).\n * @returns undefined\n * @example\n *\n * async.auto({\n *     // this function will just be passed a callback\n *     readData: async.apply(fs.readFile, 'data.txt', 'utf-8'),\n *     showData: ['readData', function(results, cb) {\n *         // results.readData is the file's contents\n *         // ...\n *     }]\n * }, callback);\n *\n * async.auto({\n *     get_data: function(callback) {\n *         console.log('in get_data');\n *         // async code to get some data\n *         callback(null, 'data', 'converted to array');\n *     },\n *     make_folder: function(callback) {\n *         console.log('in make_folder');\n *         // async code to create a directory to store a file in\n *         // this is run at the same time as getting the data\n *         callback(null, 'folder');\n *     },\n *     write_file: ['get_data', 'make_folder', function(results, callback) {\n *         console.log('in write_file', JSON.stringify(results));\n *         // once there is some data and the directory exists,\n *         // write the data to a file in the directory\n *         callback(null, 'filename');\n *     }],\n *     email_link: ['write_file', function(results, callback) {\n *         console.log('in email_link', JSON.stringify(results));\n *         // once the file is written let's email a link to it...\n *         // results.write_file contains the filename returned by write_file.\n *         callback(null, {'file':results.write_file, 'email':'user@example.com'});\n *     }]\n * }, function(err, results) {\n *     console.log('err = ', err);\n *     console.log('results = ', results);\n * });\n */\nvar auto = function (tasks, concurrency, callback) {\n    if (typeof concurrency === 'function') {\n        // concurrency is optional, shift the args.\n        callback = concurrency;\n        concurrency = null;\n    }\n    callback = once(callback || noop);\n    var keys$$1 = keys(tasks);\n    var numTasks = keys$$1.length;\n    if (!numTasks) {\n        return callback(null);\n    }\n    if (!concurrency) {\n        concurrency = numTasks;\n    }\n\n    var results = {};\n    var runningTasks = 0;\n    var hasError = false;\n\n    var listeners = Object.create(null);\n\n    var readyTasks = [];\n\n    // for cycle detection:\n    var readyToCheck = []; // tasks that have been identified as reachable\n    // without the possibility of returning to an ancestor task\n    var uncheckedDependencies = {};\n\n    baseForOwn(tasks, function (task, key) {\n        if (!isArray(task)) {\n            // no dependencies\n            enqueueTask(key, [task]);\n            readyToCheck.push(key);\n            return;\n        }\n\n        var dependencies = task.slice(0, task.length - 1);\n        var remainingDependencies = dependencies.length;\n        if (remainingDependencies === 0) {\n            enqueueTask(key, task);\n            readyToCheck.push(key);\n            return;\n        }\n        uncheckedDependencies[key] = remainingDependencies;\n\n        arrayEach(dependencies, function (dependencyName) {\n            if (!tasks[dependencyName]) {\n                throw new Error('async.auto task `' + key +\n                    '` has a non-existent dependency `' +\n                    dependencyName + '` in ' +\n                    dependencies.join(', '));\n            }\n            addListener(dependencyName, function () {\n                remainingDependencies--;\n                if (remainingDependencies === 0) {\n                    enqueueTask(key, task);\n                }\n            });\n        });\n    });\n\n    checkForDeadlocks();\n    processQueue();\n\n    function enqueueTask(key, task) {\n        readyTasks.push(function () {\n            runTask(key, task);\n        });\n    }\n\n    function processQueue() {\n        if (readyTasks.length === 0 && runningTasks === 0) {\n            return callback(null, results);\n        }\n        while(readyTasks.length && runningTasks < concurrency) {\n            var run = readyTasks.shift();\n            run();\n        }\n\n    }\n\n    function addListener(taskName, fn) {\n        var taskListeners = listeners[taskName];\n        if (!taskListeners) {\n            taskListeners = listeners[taskName] = [];\n        }\n\n        taskListeners.push(fn);\n    }\n\n    function taskComplete(taskName) {\n        var taskListeners = listeners[taskName] || [];\n        arrayEach(taskListeners, function (fn) {\n            fn();\n        });\n        processQueue();\n    }\n\n\n    function runTask(key, task) {\n        if (hasError) return;\n\n        var taskCallback = onlyOnce(function(err, result) {\n            runningTasks--;\n            if (arguments.length > 2) {\n                result = slice(arguments, 1);\n            }\n            if (err) {\n                var safeResults = {};\n                baseForOwn(results, function(val, rkey) {\n                    safeResults[rkey] = val;\n                });\n                safeResults[key] = result;\n                hasError = true;\n                listeners = Object.create(null);\n\n                callback(err, safeResults);\n            } else {\n                results[key] = result;\n                taskComplete(key);\n            }\n        });\n\n        runningTasks++;\n        var taskFn = wrapAsync(task[task.length - 1]);\n        if (task.length > 1) {\n            taskFn(results, taskCallback);\n        } else {\n            taskFn(taskCallback);\n        }\n    }\n\n    function checkForDeadlocks() {\n        // Kahn's algorithm\n        // https://en.wikipedia.org/wiki/Topological_sorting#Kahn.27s_algorithm\n        // http://connalle.blogspot.com/2013/10/topological-sortingkahn-algorithm.html\n        var currentTask;\n        var counter = 0;\n        while (readyToCheck.length) {\n            currentTask = readyToCheck.pop();\n            counter++;\n            arrayEach(getDependents(currentTask), function (dependent) {\n                if (--uncheckedDependencies[dependent] === 0) {\n                    readyToCheck.push(dependent);\n                }\n            });\n        }\n\n        if (counter !== numTasks) {\n            throw new Error(\n                'async.auto cannot execute tasks due to a recursive dependency'\n            );\n        }\n    }\n\n    function getDependents(taskName) {\n        var result = [];\n        baseForOwn(tasks, function (task, key) {\n            if (isArray(task) && baseIndexOf(task, taskName, 0) >= 0) {\n                result.push(key);\n            }\n        });\n        return result;\n    }\n};\n\n/**\n * A specialized version of `_.map` for arrays without support for iteratee\n * shorthands.\n *\n * @private\n * @param {Array} [array] The array to iterate over.\n * @param {Function} iteratee The function invoked per iteration.\n * @returns {Array} Returns the new mapped array.\n */\nfunction arrayMap(array, iteratee) {\n  var index = -1,\n      length = array == null ? 0 : array.length,\n      result = Array(length);\n\n  while (++index < length) {\n    result[index] = iteratee(array[index], index, array);\n  }\n  return result;\n}\n\n/** `Object#toString` result references. */\nvar symbolTag = '[object Symbol]';\n\n/**\n * Checks if `value` is classified as a `Symbol` primitive or object.\n *\n * @static\n * @memberOf _\n * @since 4.0.0\n * @category Lang\n * @param {*} value The value to check.\n * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.\n * @example\n *\n * _.isSymbol(Symbol.iterator);\n * // => true\n *\n * _.isSymbol('abc');\n * // => false\n */\nfunction isSymbol(value) {\n  return typeof value == 'symbol' ||\n    (isObjectLike(value) && baseGetTag(value) == symbolTag);\n}\n\n/** Used as references for various `Number` constants. */\nvar INFINITY = 1 / 0;\n\n/** Used to convert symbols to primitives and strings. */\nvar symbolProto = Symbol$1 ? Symbol$1.prototype : undefined;\nvar symbolToString = symbolProto ? symbolProto.toString : undefined;\n\n/**\n * The base implementation of `_.toString` which doesn't convert nullish\n * values to empty strings.\n *\n * @private\n * @param {*} value The value to process.\n * @returns {string} Returns the string.\n */\nfunction baseToString(value) {\n  // Exit early for strings to avoid a performance hit in some environments.\n  if (typeof value == 'string') {\n    return value;\n  }\n  if (isArray(value)) {\n    // Recursively convert values (susceptible to call stack limits).\n    return arrayMap(value, baseToString) + '';\n  }\n  if (isSymbol(value)) {\n    return symbolToString ? symbolToString.call(value) : '';\n  }\n  var result = (value + '');\n  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;\n}\n\n/**\n * The base implementation of `_.slice` without an iteratee call guard.\n *\n * @private\n * @param {Array} array The array to slice.\n * @param {number} [start=0] The start position.\n * @param {number} [end=array.length] The end position.\n * @returns {Array} Returns the slice of `array`.\n */\nfunction baseSlice(array, start, end) {\n  var index = -1,\n      length = array.length;\n\n  if (start < 0) {\n    start = -start > length ? 0 : (length + start);\n  }\n  end = end > length ? length : end;\n  if (end < 0) {\n    end += length;\n  }\n  length = start > end ? 0 : ((end - start) >>> 0);\n  start >>>= 0;\n\n  var result = Array(length);\n  while (++index < length) {\n    result[index] = array[index + start];\n  }\n  return result;\n}\n\n/**\n * Casts `array` to a slice if it's needed.\n *\n * @private\n * @param {Array} array The array to inspect.\n * @param {number} start The start position.\n * @param {number} [end=array.length] The end position.\n * @returns {Array} Returns the cast slice.\n */\nfunction castSlice(array, start, end) {\n  var length = array.length;\n  end = end === undefined ? length : end;\n  return (!start && end >= length) ? array : baseSlice(array, start, end);\n}\n\n/**\n * Used by `_.trim` and `_.trimEnd` to get the index of the last string symbol\n * that is not found in the character symbols.\n *\n * @private\n * @param {Array} strSymbols The string symbols to inspect.\n * @param {Array} chrSymbols The character symbols to find.\n * @returns {number} Returns the index of the last unmatched string symbol.\n */\nfunction charsEndIndex(strSymbols, chrSymbols) {\n  var index = strSymbols.length;\n\n  while (index-- && baseIndexOf(chrSymbols, strSymbols[index], 0) > -1) {}\n  return index;\n}\n\n/**\n * Used by `_.trim` and `_.trimStart` to get the index of the first string symbol\n * that is not found in the character symbols.\n *\n * @private\n * @param {Array} strSymbols The string symbols to inspect.\n * @param {Array} chrSymbols The character symbols to find.\n * @returns {number} Returns the index of the first unmatched string symbol.\n */\nfunction charsStartIndex(strSymbols, chrSymbols) {\n  var index = -1,\n      length = strSymbols.length;\n\n  while (++index < length && baseIndexOf(chrSymbols, strSymbols[index], 0) > -1) {}\n  return index;\n}\n\n/**\n * Converts an ASCII `string` to an array.\n *\n * @private\n * @param {string} string The string to convert.\n * @returns {Array} Returns the converted array.\n */\nfunction asciiToArray(string) {\n  return string.split('');\n}\n\n/** Used to compose unicode character classes. */\nvar rsAstralRange = '\\\\ud800-\\\\udfff';\nvar rsComboMarksRange = '\\\\u0300-\\\\u036f';\nvar reComboHalfMarksRange = '\\\\ufe20-\\\\ufe2f';\nvar rsComboSymbolsRange = '\\\\u20d0-\\\\u20ff';\nvar rsComboRange = rsComboMarksRange + reComboHalfMarksRange + rsComboSymbolsRange;\nvar rsVarRange = '\\\\ufe0e\\\\ufe0f';\n\n/** Used to compose unicode capture groups. */\nvar rsZWJ = '\\\\u200d';\n\n/** Used to detect strings with [zero-width joiners or code points from the astral planes](http://eev.ee/blog/2015/09/12/dark-corners-of-unicode/). */\nvar reHasUnicode = RegExp('[' + rsZWJ + rsAstralRange  + rsComboRange + rsVarRange + ']');\n\n/**\n * Checks if `string` contains Unicode symbols.\n *\n * @private\n * @param {string} string The string to inspect.\n * @returns {boolean} Returns `true` if a symbol is found, else `false`.\n */\nfunction hasUnicode(string) {\n  return reHasUnicode.test(string);\n}\n\n/** Used to compose unicode character classes. */\nvar rsAstralRange$1 = '\\\\ud800-\\\\udfff';\nvar rsComboMarksRange$1 = '\\\\u0300-\\\\u036f';\nvar reComboHalfMarksRange$1 = '\\\\ufe20-\\\\ufe2f';\nvar rsComboSymbolsRange$1 = '\\\\u20d0-\\\\u20ff';\nvar rsComboRange$1 = rsComboMarksRange$1 + reComboHalfMarksRange$1 + rsComboSymbolsRange$1;\nvar rsVarRange$1 = '\\\\ufe0e\\\\ufe0f';\n\n/** Used to compose unicode capture groups. */\nvar rsAstral = '[' + rsAstralRange$1 + ']';\nvar rsCombo = '[' + rsComboRange$1 + ']';\nvar rsFitz = '\\\\ud83c[\\\\udffb-\\\\udfff]';\nvar rsModifier = '(?:' + rsCombo + '|' + rsFitz + ')';\nvar rsNonAstral = '[^' + rsAstralRange$1 + ']';\nvar rsRegional = '(?:\\\\ud83c[\\\\udde6-\\\\uddff]){2}';\nvar rsSurrPair = '[\\\\ud800-\\\\udbff][\\\\udc00-\\\\udfff]';\nvar rsZWJ$1 = '\\\\u200d';\n\n/** Used to compose unicode regexes. */\nvar reOptMod = rsModifier + '?';\nvar rsOptVar = '[' + rsVarRange$1 + ']?';\nvar rsOptJoin = '(?:' + rsZWJ$1 + '(?:' + [rsNonAstral, rsRegional, rsSurrPair].join('|') + ')' + rsOptVar + reOptMod + ')*';\nvar rsSeq = rsOptVar + reOptMod + rsOptJoin;\nvar rsSymbol = '(?:' + [rsNonAstral + rsCombo + '?', rsCombo, rsRegional, rsSurrPair, rsAstral].join('|') + ')';\n\n/** Used to match [string symbols](https://mathiasbynens.be/notes/javascript-unicode). */\nvar reUnicode = RegExp(rsFitz + '(?=' + rsFitz + ')|' + rsSymbol + rsSeq, 'g');\n\n/**\n * Converts a Unicode `string` to an array.\n *\n * @private\n * @param {string} string The string to convert.\n * @returns {Array} Returns the converted array.\n */\nfunction unicodeToArray(string) {\n  return string.match(reUnicode) || [];\n}\n\n/**\n * Converts `string` to an array.\n *\n * @private\n * @param {string} string The string to convert.\n * @returns {Array} Returns the converted array.\n */\nfunction stringToArray(string) {\n  return hasUnicode(string)\n    ? unicodeToArray(string)\n    : asciiToArray(string);\n}\n\n/**\n * Converts `value` to a string. An empty string is returned for `null`\n * and `undefined` values. The sign of `-0` is preserved.\n *\n * @static\n * @memberOf _\n * @since 4.0.0\n * @category Lang\n * @param {*} value The value to convert.\n * @returns {string} Returns the converted string.\n * @example\n *\n * _.toString(null);\n * // => ''\n *\n * _.toString(-0);\n * // => '-0'\n *\n * _.toString([1, 2, 3]);\n * // => '1,2,3'\n */\nfunction toString(value) {\n  return value == null ? '' : baseToString(value);\n}\n\n/** Used to match leading and trailing whitespace. */\nvar reTrim = /^\\s+|\\s+$/g;\n\n/**\n * Removes leading and trailing whitespace or specified characters from `string`.\n *\n * @static\n * @memberOf _\n * @since 3.0.0\n * @category String\n * @param {string} [string=''] The string to trim.\n * @param {string} [chars=whitespace] The characters to trim.\n * @param- {Object} [guard] Enables use as an iteratee for methods like `_.map`.\n * @returns {string} Returns the trimmed string.\n * @example\n *\n * _.trim('  abc  ');\n * // => 'abc'\n *\n * _.trim('-_-abc-_-', '_-');\n * // => 'abc'\n *\n * _.map(['  foo  ', '  bar  '], _.trim);\n * // => ['foo', 'bar']\n */\nfunction trim(string, chars, guard) {\n  string = toString(string);\n  if (string && (guard || chars === undefined)) {\n    return string.replace(reTrim, '');\n  }\n  if (!string || !(chars = baseToString(chars))) {\n    return string;\n  }\n  var strSymbols = stringToArray(string),\n      chrSymbols = stringToArray(chars),\n      start = charsStartIndex(strSymbols, chrSymbols),\n      end = charsEndIndex(strSymbols, chrSymbols) + 1;\n\n  return castSlice(strSymbols, start, end).join('');\n}\n\nvar FN_ARGS = /^(?:async\\s+)?(function)?\\s*[^\\(]*\\(\\s*([^\\)]*)\\)/m;\nvar FN_ARG_SPLIT = /,/;\nvar FN_ARG = /(=.+)?(\\s*)$/;\nvar STRIP_COMMENTS = /((\\/\\/.*$)|(\\/\\*[\\s\\S]*?\\*\\/))/mg;\n\nfunction parseParams(func) {\n    func = func.toString().replace(STRIP_COMMENTS, '');\n    func = func.match(FN_ARGS)[2].replace(' ', '');\n    func = func ? func.split(FN_ARG_SPLIT) : [];\n    func = func.map(function (arg){\n        return trim(arg.replace(FN_ARG, ''));\n    });\n    return func;\n}\n\n/**\n * A dependency-injected version of the [async.auto]{@link module:ControlFlow.auto} function. Dependent\n * tasks are specified as parameters to the function, after the usual callback\n * parameter, with the parameter names matching the names of the tasks it\n * depends on. This can provide even more readable task graphs which can be\n * easier to maintain.\n *\n * If a final callback is specified, the task results are similarly injected,\n * specified as named parameters after the initial error parameter.\n *\n * The autoInject function is purely syntactic sugar and its semantics are\n * otherwise equivalent to [async.auto]{@link module:ControlFlow.auto}.\n *\n * @name autoInject\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.auto]{@link module:ControlFlow.auto}\n * @category Control Flow\n * @param {Object} tasks - An object, each of whose properties is an {@link AsyncFunction} of\n * the form 'func([dependencies...], callback). The object's key of a property\n * serves as the name of the task defined by that property, i.e. can be used\n * when specifying requirements for other tasks.\n * * The `callback` parameter is a `callback(err, result)` which must be called\n *   when finished, passing an `error` (which can be `null`) and the result of\n *   the function's execution. The remaining parameters name other tasks on\n *   which the task is dependent, and the results from those tasks are the\n *   arguments of those parameters.\n * @param {Function} [callback] - An optional callback which is called when all\n * the tasks have been completed. It receives the `err` argument if any `tasks`\n * pass an error to their callback, and a `results` object with any completed\n * task results, similar to `auto`.\n * @example\n *\n * //  The example from `auto` can be rewritten as follows:\n * async.autoInject({\n *     get_data: function(callback) {\n *         // async code to get some data\n *         callback(null, 'data', 'converted to array');\n *     },\n *     make_folder: function(callback) {\n *         // async code to create a directory to store a file in\n *         // this is run at the same time as getting the data\n *         callback(null, 'folder');\n *     },\n *     write_file: function(get_data, make_folder, callback) {\n *         // once there is some data and the directory exists,\n *         // write the data to a file in the directory\n *         callback(null, 'filename');\n *     },\n *     email_link: function(write_file, callback) {\n *         // once the file is written let's email a link to it...\n *         // write_file contains the filename returned by write_file.\n *         callback(null, {'file':write_file, 'email':'user@example.com'});\n *     }\n * }, function(err, results) {\n *     console.log('err = ', err);\n *     console.log('email_link = ', results.email_link);\n * });\n *\n * // If you are using a JS minifier that mangles parameter names, `autoInject`\n * // will not work with plain functions, since the parameter names will be\n * // collapsed to a single letter identifier.  To work around this, you can\n * // explicitly specify the names of the parameters your task function needs\n * // in an array, similar to Angular.js dependency injection.\n *\n * // This still has an advantage over plain `auto`, since the results a task\n * // depends on are still spread into arguments.\n * async.autoInject({\n *     //...\n *     write_file: ['get_data', 'make_folder', function(get_data, make_folder, callback) {\n *         callback(null, 'filename');\n *     }],\n *     email_link: ['write_file', function(write_file, callback) {\n *         callback(null, {'file':write_file, 'email':'user@example.com'});\n *     }]\n *     //...\n * }, function(err, results) {\n *     console.log('err = ', err);\n *     console.log('email_link = ', results.email_link);\n * });\n */\nfunction autoInject(tasks, callback) {\n    var newTasks = {};\n\n    baseForOwn(tasks, function (taskFn, key) {\n        var params;\n        var fnIsAsync = isAsync(taskFn);\n        var hasNoDeps =\n            (!fnIsAsync && taskFn.length === 1) ||\n            (fnIsAsync && taskFn.length === 0);\n\n        if (isArray(taskFn)) {\n            params = taskFn.slice(0, -1);\n            taskFn = taskFn[taskFn.length - 1];\n\n            newTasks[key] = params.concat(params.length > 0 ? newTask : taskFn);\n        } else if (hasNoDeps) {\n            // no dependencies, use the function as-is\n            newTasks[key] = taskFn;\n        } else {\n            params = parseParams(taskFn);\n            if (taskFn.length === 0 && !fnIsAsync && params.length === 0) {\n                throw new Error(\"autoInject task functions require explicit parameters.\");\n            }\n\n            // remove callback param\n            if (!fnIsAsync) params.pop();\n\n            newTasks[key] = params.concat(newTask);\n        }\n\n        function newTask(results, taskCb) {\n            var newArgs = arrayMap(params, function (name) {\n                return results[name];\n            });\n            newArgs.push(taskCb);\n            wrapAsync(taskFn).apply(null, newArgs);\n        }\n    });\n\n    auto(newTasks, callback);\n}\n\n// Simple doubly linked list (https://en.wikipedia.org/wiki/Doubly_linked_list) implementation\n// used for queues. This implementation assumes that the node provided by the user can be modified\n// to adjust the next and last properties. We implement only the minimal functionality\n// for queue support.\nfunction DLL() {\n    this.head = this.tail = null;\n    this.length = 0;\n}\n\nfunction setInitial(dll, node) {\n    dll.length = 1;\n    dll.head = dll.tail = node;\n}\n\nDLL.prototype.removeLink = function(node) {\n    if (node.prev) node.prev.next = node.next;\n    else this.head = node.next;\n    if (node.next) node.next.prev = node.prev;\n    else this.tail = node.prev;\n\n    node.prev = node.next = null;\n    this.length -= 1;\n    return node;\n};\n\nDLL.prototype.empty = function () {\n    while(this.head) this.shift();\n    return this;\n};\n\nDLL.prototype.insertAfter = function(node, newNode) {\n    newNode.prev = node;\n    newNode.next = node.next;\n    if (node.next) node.next.prev = newNode;\n    else this.tail = newNode;\n    node.next = newNode;\n    this.length += 1;\n};\n\nDLL.prototype.insertBefore = function(node, newNode) {\n    newNode.prev = node.prev;\n    newNode.next = node;\n    if (node.prev) node.prev.next = newNode;\n    else this.head = newNode;\n    node.prev = newNode;\n    this.length += 1;\n};\n\nDLL.prototype.unshift = function(node) {\n    if (this.head) this.insertBefore(this.head, node);\n    else setInitial(this, node);\n};\n\nDLL.prototype.push = function(node) {\n    if (this.tail) this.insertAfter(this.tail, node);\n    else setInitial(this, node);\n};\n\nDLL.prototype.shift = function() {\n    return this.head && this.removeLink(this.head);\n};\n\nDLL.prototype.pop = function() {\n    return this.tail && this.removeLink(this.tail);\n};\n\nDLL.prototype.toArray = function () {\n    var arr = Array(this.length);\n    var curr = this.head;\n    for(var idx = 0; idx < this.length; idx++) {\n        arr[idx] = curr.data;\n        curr = curr.next;\n    }\n    return arr;\n};\n\nDLL.prototype.remove = function (testFn) {\n    var curr = this.head;\n    while(!!curr) {\n        var next = curr.next;\n        if (testFn(curr)) {\n            this.removeLink(curr);\n        }\n        curr = next;\n    }\n    return this;\n};\n\nfunction queue(worker, concurrency, payload) {\n    if (concurrency == null) {\n        concurrency = 1;\n    }\n    else if(concurrency === 0) {\n        throw new Error('Concurrency must not be zero');\n    }\n\n    var _worker = wrapAsync(worker);\n    var numRunning = 0;\n    var workersList = [];\n\n    var processingScheduled = false;\n    function _insert(data, insertAtFront, callback) {\n        if (callback != null && typeof callback !== 'function') {\n            throw new Error('task callback must be a function');\n        }\n        q.started = true;\n        if (!isArray(data)) {\n            data = [data];\n        }\n        if (data.length === 0 && q.idle()) {\n            // call drain immediately if there are no tasks\n            return setImmediate$1(function() {\n                q.drain();\n            });\n        }\n\n        for (var i = 0, l = data.length; i < l; i++) {\n            var item = {\n                data: data[i],\n                callback: callback || noop\n            };\n\n            if (insertAtFront) {\n                q._tasks.unshift(item);\n            } else {\n                q._tasks.push(item);\n            }\n        }\n\n        if (!processingScheduled) {\n            processingScheduled = true;\n            setImmediate$1(function() {\n                processingScheduled = false;\n                q.process();\n            });\n        }\n    }\n\n    function _next(tasks) {\n        return function(err){\n            numRunning -= 1;\n\n            for (var i = 0, l = tasks.length; i < l; i++) {\n                var task = tasks[i];\n\n                var index = baseIndexOf(workersList, task, 0);\n                if (index === 0) {\n                    workersList.shift();\n                } else if (index > 0) {\n                    workersList.splice(index, 1);\n                }\n\n                task.callback.apply(task, arguments);\n\n                if (err != null) {\n                    q.error(err, task.data);\n                }\n            }\n\n            if (numRunning <= (q.concurrency - q.buffer) ) {\n                q.unsaturated();\n            }\n\n            if (q.idle()) {\n                q.drain();\n            }\n            q.process();\n        };\n    }\n\n    var isProcessing = false;\n    var q = {\n        _tasks: new DLL(),\n        concurrency: concurrency,\n        payload: payload,\n        saturated: noop,\n        unsaturated:noop,\n        buffer: concurrency / 4,\n        empty: noop,\n        drain: noop,\n        error: noop,\n        started: false,\n        paused: false,\n        push: function (data, callback) {\n            _insert(data, false, callback);\n        },\n        kill: function () {\n            q.drain = noop;\n            q._tasks.empty();\n        },\n        unshift: function (data, callback) {\n            _insert(data, true, callback);\n        },\n        remove: function (testFn) {\n            q._tasks.remove(testFn);\n        },\n        process: function () {\n            // Avoid trying to start too many processing operations. This can occur\n            // when callbacks resolve synchronously (#1267).\n            if (isProcessing) {\n                return;\n            }\n            isProcessing = true;\n            while(!q.paused && numRunning < q.concurrency && q._tasks.length){\n                var tasks = [], data = [];\n                var l = q._tasks.length;\n                if (q.payload) l = Math.min(l, q.payload);\n                for (var i = 0; i < l; i++) {\n                    var node = q._tasks.shift();\n                    tasks.push(node);\n                    workersList.push(node);\n                    data.push(node.data);\n                }\n\n                numRunning += 1;\n\n                if (q._tasks.length === 0) {\n                    q.empty();\n                }\n\n                if (numRunning === q.concurrency) {\n                    q.saturated();\n                }\n\n                var cb = onlyOnce(_next(tasks));\n                _worker(data, cb);\n            }\n            isProcessing = false;\n        },\n        length: function () {\n            return q._tasks.length;\n        },\n        running: function () {\n            return numRunning;\n        },\n        workersList: function () {\n            return workersList;\n        },\n        idle: function() {\n            return q._tasks.length + numRunning === 0;\n        },\n        pause: function () {\n            q.paused = true;\n        },\n        resume: function () {\n            if (q.paused === false) { return; }\n            q.paused = false;\n            setImmediate$1(q.process);\n        }\n    };\n    return q;\n}\n\n/**\n * A cargo of tasks for the worker function to complete. Cargo inherits all of\n * the same methods and event callbacks as [`queue`]{@link module:ControlFlow.queue}.\n * @typedef {Object} CargoObject\n * @memberOf module:ControlFlow\n * @property {Function} length - A function returning the number of items\n * waiting to be processed. Invoke like `cargo.length()`.\n * @property {number} payload - An `integer` for determining how many tasks\n * should be process per round. This property can be changed after a `cargo` is\n * created to alter the payload on-the-fly.\n * @property {Function} push - Adds `task` to the `queue`. The callback is\n * called once the `worker` has finished processing the task. Instead of a\n * single task, an array of `tasks` can be submitted. The respective callback is\n * used for every task in the list. Invoke like `cargo.push(task, [callback])`.\n * @property {Function} saturated - A callback that is called when the\n * `queue.length()` hits the concurrency and further tasks will be queued.\n * @property {Function} empty - A callback that is called when the last item\n * from the `queue` is given to a `worker`.\n * @property {Function} drain - A callback that is called when the last item\n * from the `queue` has returned from the `worker`.\n * @property {Function} idle - a function returning false if there are items\n * waiting or being processed, or true if not. Invoke like `cargo.idle()`.\n * @property {Function} pause - a function that pauses the processing of tasks\n * until `resume()` is called. Invoke like `cargo.pause()`.\n * @property {Function} resume - a function that resumes the processing of\n * queued tasks when the queue is paused. Invoke like `cargo.resume()`.\n * @property {Function} kill - a function that removes the `drain` callback and\n * empties remaining tasks from the queue forcing it to go idle. Invoke like `cargo.kill()`.\n */\n\n/**\n * Creates a `cargo` object with the specified payload. Tasks added to the\n * cargo will be processed altogether (up to the `payload` limit). If the\n * `worker` is in progress, the task is queued until it becomes available. Once\n * the `worker` has completed some tasks, each callback of those tasks is\n * called. Check out [these](https://camo.githubusercontent.com/6bbd36f4cf5b35a0f11a96dcd2e97711ffc2fb37/68747470733a2f2f662e636c6f75642e6769746875622e636f6d2f6173736574732f313637363837312f36383130382f62626330636662302d356632392d313165322d393734662d3333393763363464633835382e676966) [animations](https://camo.githubusercontent.com/f4810e00e1c5f5f8addbe3e9f49064fd5d102699/68747470733a2f2f662e636c6f75642e6769746875622e636f6d2f6173736574732f313637363837312f36383130312f38346339323036362d356632392d313165322d383134662d3964336430323431336266642e676966)\n * for how `cargo` and `queue` work.\n *\n * While [`queue`]{@link module:ControlFlow.queue} passes only one task to one of a group of workers\n * at a time, cargo passes an array of tasks to a single worker, repeating\n * when the worker is finished.\n *\n * @name cargo\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.queue]{@link module:ControlFlow.queue}\n * @category Control Flow\n * @param {AsyncFunction} worker - An asynchronous function for processing an array\n * of queued tasks. Invoked with `(tasks, callback)`.\n * @param {number} [payload=Infinity] - An optional `integer` for determining\n * how many tasks should be processed per round; if omitted, the default is\n * unlimited.\n * @returns {module:ControlFlow.CargoObject} A cargo object to manage the tasks. Callbacks can\n * attached as certain properties to listen for specific events during the\n * lifecycle of the cargo and inner queue.\n * @example\n *\n * // create a cargo object with payload 2\n * var cargo = async.cargo(function(tasks, callback) {\n *     for (var i=0; i<tasks.length; i++) {\n *         console.log('hello ' + tasks[i].name);\n *     }\n *     callback();\n * }, 2);\n *\n * // add some items\n * cargo.push({name: 'foo'}, function(err) {\n *     console.log('finished processing foo');\n * });\n * cargo.push({name: 'bar'}, function(err) {\n *     console.log('finished processing bar');\n * });\n * cargo.push({name: 'baz'}, function(err) {\n *     console.log('finished processing baz');\n * });\n */\nfunction cargo(worker, payload) {\n    return queue(worker, 1, payload);\n}\n\n/**\n * The same as [`eachOf`]{@link module:Collections.eachOf} but runs only a single async operation at a time.\n *\n * @name eachOfSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.eachOf]{@link module:Collections.eachOf}\n * @alias forEachOfSeries\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * Invoked with (item, key, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Invoked with (err).\n */\nvar eachOfSeries = doLimit(eachOfLimit, 1);\n\n/**\n * Reduces `coll` into a single value using an async `iteratee` to return each\n * successive step. `memo` is the initial state of the reduction. This function\n * only operates in series.\n *\n * For performance reasons, it may make sense to split a call to this function\n * into a parallel map, and then use the normal `Array.prototype.reduce` on the\n * results. This function is for situations where each step in the reduction\n * needs to be async; if you can get the data before reducing it, then it's\n * probably a good idea to do so.\n *\n * @name reduce\n * @static\n * @memberOf module:Collections\n * @method\n * @alias inject\n * @alias foldl\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {*} memo - The initial state of the reduction.\n * @param {AsyncFunction} iteratee - A function applied to each item in the\n * array to produce the next step in the reduction.\n * The `iteratee` should complete with the next state of the reduction.\n * If the iteratee complete with an error, the reduction is stopped and the\n * main `callback` is immediately called with the error.\n * Invoked with (memo, item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Result is the reduced value. Invoked with\n * (err, result).\n * @example\n *\n * async.reduce([1,2,3], 0, function(memo, item, callback) {\n *     // pointless async:\n *     process.nextTick(function() {\n *         callback(null, memo + item)\n *     });\n * }, function(err, result) {\n *     // result is now equal to the last value of memo, which is 6\n * });\n */\nfunction reduce(coll, memo, iteratee, callback) {\n    callback = once(callback || noop);\n    var _iteratee = wrapAsync(iteratee);\n    eachOfSeries(coll, function(x, i, callback) {\n        _iteratee(memo, x, function(err, v) {\n            memo = v;\n            callback(err);\n        });\n    }, function(err) {\n        callback(err, memo);\n    });\n}\n\n/**\n * Version of the compose function that is more natural to read. Each function\n * consumes the return value of the previous function. It is the equivalent of\n * [compose]{@link module:ControlFlow.compose} with the arguments reversed.\n *\n * Each function is executed with the `this` binding of the composed function.\n *\n * @name seq\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.compose]{@link module:ControlFlow.compose}\n * @category Control Flow\n * @param {...AsyncFunction} functions - the asynchronous functions to compose\n * @returns {Function} a function that composes the `functions` in order\n * @example\n *\n * // Requires lodash (or underscore), express3 and dresende's orm2.\n * // Part of an app, that fetches cats of the logged user.\n * // This example uses `seq` function to avoid overnesting and error\n * // handling clutter.\n * app.get('/cats', function(request, response) {\n *     var User = request.models.User;\n *     async.seq(\n *         _.bind(User.get, User),  // 'User.get' has signature (id, callback(err, data))\n *         function(user, fn) {\n *             user.getCats(fn);      // 'getCats' has signature (callback(err, data))\n *         }\n *     )(req.session.user_id, function (err, cats) {\n *         if (err) {\n *             console.error(err);\n *             response.json({ status: 'error', message: err.message });\n *         } else {\n *             response.json({ status: 'ok', message: 'Cats found', data: cats });\n *         }\n *     });\n * });\n */\nfunction seq(/*...functions*/) {\n    var _functions = arrayMap(arguments, wrapAsync);\n    return function(/*...args*/) {\n        var args = slice(arguments);\n        var that = this;\n\n        var cb = args[args.length - 1];\n        if (typeof cb == 'function') {\n            args.pop();\n        } else {\n            cb = noop;\n        }\n\n        reduce(_functions, args, function(newargs, fn, cb) {\n            fn.apply(that, newargs.concat(function(err/*, ...nextargs*/) {\n                var nextargs = slice(arguments, 1);\n                cb(err, nextargs);\n            }));\n        },\n        function(err, results) {\n            cb.apply(that, [err].concat(results));\n        });\n    };\n}\n\n/**\n * Creates a function which is a composition of the passed asynchronous\n * functions. Each function consumes the return value of the function that\n * follows. Composing functions `f()`, `g()`, and `h()` would produce the result\n * of `f(g(h()))`, only this version uses callbacks to obtain the return values.\n *\n * Each function is executed with the `this` binding of the composed function.\n *\n * @name compose\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {...AsyncFunction} functions - the asynchronous functions to compose\n * @returns {Function} an asynchronous function that is the composed\n * asynchronous `functions`\n * @example\n *\n * function add1(n, callback) {\n *     setTimeout(function () {\n *         callback(null, n + 1);\n *     }, 10);\n * }\n *\n * function mul3(n, callback) {\n *     setTimeout(function () {\n *         callback(null, n * 3);\n *     }, 10);\n * }\n *\n * var add1mul3 = async.compose(mul3, add1);\n * add1mul3(4, function (err, result) {\n *     // result now equals 15\n * });\n */\nvar compose = function(/*...args*/) {\n    return seq.apply(null, slice(arguments).reverse());\n};\n\nvar _concat = Array.prototype.concat;\n\n/**\n * The same as [`concat`]{@link module:Collections.concat} but runs a maximum of `limit` async operations at a time.\n *\n * @name concatLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.concat]{@link module:Collections.concat}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - A function to apply to each item in `coll`,\n * which should use an array as its result. Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished, or an error occurs. Results is an array\n * containing the concatenated results of the `iteratee` function. Invoked with\n * (err, results).\n */\nvar concatLimit = function(coll, limit, iteratee, callback) {\n    callback = callback || noop;\n    var _iteratee = wrapAsync(iteratee);\n    mapLimit(coll, limit, function(val, callback) {\n        _iteratee(val, function(err /*, ...args*/) {\n            if (err) return callback(err);\n            return callback(null, slice(arguments, 1));\n        });\n    }, function(err, mapResults) {\n        var result = [];\n        for (var i = 0; i < mapResults.length; i++) {\n            if (mapResults[i]) {\n                result = _concat.apply(result, mapResults[i]);\n            }\n        }\n\n        return callback(err, result);\n    });\n};\n\n/**\n * Applies `iteratee` to each item in `coll`, concatenating the results. Returns\n * the concatenated list. The `iteratee`s are called in parallel, and the\n * results are concatenated as they return. There is no guarantee that the\n * results array will be returned in the original order of `coll` passed to the\n * `iteratee` function.\n *\n * @name concat\n * @static\n * @memberOf module:Collections\n * @method\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A function to apply to each item in `coll`,\n * which should use an array as its result. Invoked with (item, callback).\n * @param {Function} [callback(err)] - A callback which is called after all the\n * `iteratee` functions have finished, or an error occurs. Results is an array\n * containing the concatenated results of the `iteratee` function. Invoked with\n * (err, results).\n * @example\n *\n * async.concat(['dir1','dir2','dir3'], fs.readdir, function(err, files) {\n *     // files is now a list of filenames that exist in the 3 directories\n * });\n */\nvar concat = doLimit(concatLimit, Infinity);\n\n/**\n * The same as [`concat`]{@link module:Collections.concat} but runs only a single async operation at a time.\n *\n * @name concatSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.concat]{@link module:Collections.concat}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A function to apply to each item in `coll`.\n * The iteratee should complete with an array an array of results.\n * Invoked with (item, callback).\n * @param {Function} [callback(err)] - A callback which is called after all the\n * `iteratee` functions have finished, or an error occurs. Results is an array\n * containing the concatenated results of the `iteratee` function. Invoked with\n * (err, results).\n */\nvar concatSeries = doLimit(concatLimit, 1);\n\n/**\n * Returns a function that when called, calls-back with the values provided.\n * Useful as the first function in a [`waterfall`]{@link module:ControlFlow.waterfall}, or for plugging values in to\n * [`auto`]{@link module:ControlFlow.auto}.\n *\n * @name constant\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {...*} arguments... - Any number of arguments to automatically invoke\n * callback with.\n * @returns {AsyncFunction} Returns a function that when invoked, automatically\n * invokes the callback with the previous given arguments.\n * @example\n *\n * async.waterfall([\n *     async.constant(42),\n *     function (value, next) {\n *         // value === 42\n *     },\n *     //...\n * ], callback);\n *\n * async.waterfall([\n *     async.constant(filename, \"utf8\"),\n *     fs.readFile,\n *     function (fileData, next) {\n *         //...\n *     }\n *     //...\n * ], callback);\n *\n * async.auto({\n *     hostname: async.constant(\"https://server.net/\"),\n *     port: findFreePort,\n *     launchServer: [\"hostname\", \"port\", function (options, cb) {\n *         startServer(options, cb);\n *     }],\n *     //...\n * }, callback);\n */\nvar constant = function(/*...values*/) {\n    var values = slice(arguments);\n    var args = [null].concat(values);\n    return function (/*...ignoredArgs, callback*/) {\n        var callback = arguments[arguments.length - 1];\n        return callback.apply(this, args);\n    };\n};\n\n/**\n * This method returns the first argument it receives.\n *\n * @static\n * @since 0.1.0\n * @memberOf _\n * @category Util\n * @param {*} value Any value.\n * @returns {*} Returns `value`.\n * @example\n *\n * var object = { 'a': 1 };\n *\n * console.log(_.identity(object) === object);\n * // => true\n */\nfunction identity(value) {\n  return value;\n}\n\nfunction _createTester(check, getResult) {\n    return function(eachfn, arr, iteratee, cb) {\n        cb = cb || noop;\n        var testPassed = false;\n        var testResult;\n        eachfn(arr, function(value, _, callback) {\n            iteratee(value, function(err, result) {\n                if (err) {\n                    callback(err);\n                } else if (check(result) && !testResult) {\n                    testPassed = true;\n                    testResult = getResult(true, value);\n                    callback(null, breakLoop);\n                } else {\n                    callback();\n                }\n            });\n        }, function(err) {\n            if (err) {\n                cb(err);\n            } else {\n                cb(null, testPassed ? testResult : getResult(false));\n            }\n        });\n    };\n}\n\nfunction _findGetResult(v, x) {\n    return x;\n}\n\n/**\n * Returns the first value in `coll` that passes an async truth test. The\n * `iteratee` is applied in parallel, meaning the first iteratee to return\n * `true` will fire the detect `callback` with that result. That means the\n * result might not be the first item in the original `coll` (in terms of order)\n * that passes the test.\n\n * If order within the original `coll` is important, then look at\n * [`detectSeries`]{@link module:Collections.detectSeries}.\n *\n * @name detect\n * @static\n * @memberOf module:Collections\n * @method\n * @alias find\n * @category Collections\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A truth test to apply to each item in `coll`.\n * The iteratee must complete with a boolean value as its result.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called as soon as any\n * iteratee returns `true`, or after all the `iteratee` functions have finished.\n * Result will be the first item in the array that passes the truth test\n * (iteratee) or the value `undefined` if none passed. Invoked with\n * (err, result).\n * @example\n *\n * async.detect(['file1','file2','file3'], function(filePath, callback) {\n *     fs.access(filePath, function(err) {\n *         callback(null, !err)\n *     });\n * }, function(err, result) {\n *     // result now equals the first file in the list that exists\n * });\n */\nvar detect = doParallel(_createTester(identity, _findGetResult));\n\n/**\n * The same as [`detect`]{@link module:Collections.detect} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name detectLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.detect]{@link module:Collections.detect}\n * @alias findLimit\n * @category Collections\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - A truth test to apply to each item in `coll`.\n * The iteratee must complete with a boolean value as its result.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called as soon as any\n * iteratee returns `true`, or after all the `iteratee` functions have finished.\n * Result will be the first item in the array that passes the truth test\n * (iteratee) or the value `undefined` if none passed. Invoked with\n * (err, result).\n */\nvar detectLimit = doParallelLimit(_createTester(identity, _findGetResult));\n\n/**\n * The same as [`detect`]{@link module:Collections.detect} but runs only a single async operation at a time.\n *\n * @name detectSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.detect]{@link module:Collections.detect}\n * @alias findSeries\n * @category Collections\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A truth test to apply to each item in `coll`.\n * The iteratee must complete with a boolean value as its result.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called as soon as any\n * iteratee returns `true`, or after all the `iteratee` functions have finished.\n * Result will be the first item in the array that passes the truth test\n * (iteratee) or the value `undefined` if none passed. Invoked with\n * (err, result).\n */\nvar detectSeries = doLimit(detectLimit, 1);\n\nfunction consoleFunc(name) {\n    return function (fn/*, ...args*/) {\n        var args = slice(arguments, 1);\n        args.push(function (err/*, ...args*/) {\n            var args = slice(arguments, 1);\n            if (typeof console === 'object') {\n                if (err) {\n                    if (console.error) {\n                        console.error(err);\n                    }\n                } else if (console[name]) {\n                    arrayEach(args, function (x) {\n                        console[name](x);\n                    });\n                }\n            }\n        });\n        wrapAsync(fn).apply(null, args);\n    };\n}\n\n/**\n * Logs the result of an [`async` function]{@link AsyncFunction} to the\n * `console` using `console.dir` to display the properties of the resulting object.\n * Only works in Node.js or in browsers that support `console.dir` and\n * `console.error` (such as FF and Chrome).\n * If multiple arguments are returned from the async function,\n * `console.dir` is called on each argument in order.\n *\n * @name dir\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {AsyncFunction} function - The function you want to eventually apply\n * all arguments to.\n * @param {...*} arguments... - Any number of arguments to apply to the function.\n * @example\n *\n * // in a module\n * var hello = function(name, callback) {\n *     setTimeout(function() {\n *         callback(null, {hello: name});\n *     }, 1000);\n * };\n *\n * // in the node repl\n * node> async.dir(hello, 'world');\n * {hello: 'world'}\n */\nvar dir = consoleFunc('dir');\n\n/**\n * The post-check version of [`during`]{@link module:ControlFlow.during}. To reflect the difference in\n * the order of operations, the arguments `test` and `fn` are switched.\n *\n * Also a version of [`doWhilst`]{@link module:ControlFlow.doWhilst} with asynchronous `test` function.\n * @name doDuring\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.during]{@link module:ControlFlow.during}\n * @category Control Flow\n * @param {AsyncFunction} fn - An async function which is called each time\n * `test` passes. Invoked with (callback).\n * @param {AsyncFunction} test - asynchronous truth test to perform before each\n * execution of `fn`. Invoked with (...args, callback), where `...args` are the\n * non-error args from the previous callback of `fn`.\n * @param {Function} [callback] - A callback which is called after the test\n * function has failed and repeated execution of `fn` has stopped. `callback`\n * will be passed an error if one occurred, otherwise `null`.\n */\nfunction doDuring(fn, test, callback) {\n    callback = onlyOnce(callback || noop);\n    var _fn = wrapAsync(fn);\n    var _test = wrapAsync(test);\n\n    function next(err/*, ...args*/) {\n        if (err) return callback(err);\n        var args = slice(arguments, 1);\n        args.push(check);\n        _test.apply(this, args);\n    }\n\n    function check(err, truth) {\n        if (err) return callback(err);\n        if (!truth) return callback(null);\n        _fn(next);\n    }\n\n    check(null, true);\n\n}\n\n/**\n * The post-check version of [`whilst`]{@link module:ControlFlow.whilst}. To reflect the difference in\n * the order of operations, the arguments `test` and `iteratee` are switched.\n *\n * `doWhilst` is to `whilst` as `do while` is to `while` in plain JavaScript.\n *\n * @name doWhilst\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.whilst]{@link module:ControlFlow.whilst}\n * @category Control Flow\n * @param {AsyncFunction} iteratee - A function which is called each time `test`\n * passes. Invoked with (callback).\n * @param {Function} test - synchronous truth test to perform after each\n * execution of `iteratee`. Invoked with any non-error callback results of\n * `iteratee`.\n * @param {Function} [callback] - A callback which is called after the test\n * function has failed and repeated execution of `iteratee` has stopped.\n * `callback` will be passed an error and any arguments passed to the final\n * `iteratee`'s callback. Invoked with (err, [results]);\n */\nfunction doWhilst(iteratee, test, callback) {\n    callback = onlyOnce(callback || noop);\n    var _iteratee = wrapAsync(iteratee);\n    var next = function(err/*, ...args*/) {\n        if (err) return callback(err);\n        var args = slice(arguments, 1);\n        if (test.apply(this, args)) return _iteratee(next);\n        callback.apply(null, [null].concat(args));\n    };\n    _iteratee(next);\n}\n\n/**\n * Like ['doWhilst']{@link module:ControlFlow.doWhilst}, except the `test` is inverted. Note the\n * argument ordering differs from `until`.\n *\n * @name doUntil\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.doWhilst]{@link module:ControlFlow.doWhilst}\n * @category Control Flow\n * @param {AsyncFunction} iteratee - An async function which is called each time\n * `test` fails. Invoked with (callback).\n * @param {Function} test - synchronous truth test to perform after each\n * execution of `iteratee`. Invoked with any non-error callback results of\n * `iteratee`.\n * @param {Function} [callback] - A callback which is called after the test\n * function has passed and repeated execution of `iteratee` has stopped. `callback`\n * will be passed an error and any arguments passed to the final `iteratee`'s\n * callback. Invoked with (err, [results]);\n */\nfunction doUntil(iteratee, test, callback) {\n    doWhilst(iteratee, function() {\n        return !test.apply(this, arguments);\n    }, callback);\n}\n\n/**\n * Like [`whilst`]{@link module:ControlFlow.whilst}, except the `test` is an asynchronous function that\n * is passed a callback in the form of `function (err, truth)`. If error is\n * passed to `test` or `fn`, the main callback is immediately called with the\n * value of the error.\n *\n * @name during\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.whilst]{@link module:ControlFlow.whilst}\n * @category Control Flow\n * @param {AsyncFunction} test - asynchronous truth test to perform before each\n * execution of `fn`. Invoked with (callback).\n * @param {AsyncFunction} fn - An async function which is called each time\n * `test` passes. Invoked with (callback).\n * @param {Function} [callback] - A callback which is called after the test\n * function has failed and repeated execution of `fn` has stopped. `callback`\n * will be passed an error, if one occurred, otherwise `null`.\n * @example\n *\n * var count = 0;\n *\n * async.during(\n *     function (callback) {\n *         return callback(null, count < 5);\n *     },\n *     function (callback) {\n *         count++;\n *         setTimeout(callback, 1000);\n *     },\n *     function (err) {\n *         // 5 seconds have passed\n *     }\n * );\n */\nfunction during(test, fn, callback) {\n    callback = onlyOnce(callback || noop);\n    var _fn = wrapAsync(fn);\n    var _test = wrapAsync(test);\n\n    function next(err) {\n        if (err) return callback(err);\n        _test(check);\n    }\n\n    function check(err, truth) {\n        if (err) return callback(err);\n        if (!truth) return callback(null);\n        _fn(next);\n    }\n\n    _test(check);\n}\n\nfunction _withoutIndex(iteratee) {\n    return function (value, index, callback) {\n        return iteratee(value, callback);\n    };\n}\n\n/**\n * Applies the function `iteratee` to each item in `coll`, in parallel.\n * The `iteratee` is called with an item from the list, and a callback for when\n * it has finished. If the `iteratee` passes an error to its `callback`, the\n * main `callback` (for the `each` function) is immediately called with the\n * error.\n *\n * Note, that since this function applies `iteratee` to each item in parallel,\n * there is no guarantee that the iteratee functions will complete in order.\n *\n * @name each\n * @static\n * @memberOf module:Collections\n * @method\n * @alias forEach\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to\n * each item in `coll`. Invoked with (item, callback).\n * The array index is not passed to the iteratee.\n * If you need the index, use `eachOf`.\n * @param {Function} [callback] - A callback which is called when all\n * `iteratee` functions have finished, or an error occurs. Invoked with (err).\n * @example\n *\n * // assuming openFiles is an array of file names and saveFile is a function\n * // to save the modified contents of that file:\n *\n * async.each(openFiles, saveFile, function(err){\n *   // if any of the saves produced an error, err would equal that error\n * });\n *\n * // assuming openFiles is an array of file names\n * async.each(openFiles, function(file, callback) {\n *\n *     // Perform operation on file here.\n *     console.log('Processing file ' + file);\n *\n *     if( file.length > 32 ) {\n *       console.log('This file name is too long');\n *       callback('File name too long');\n *     } else {\n *       // Do work to process file here\n *       console.log('File processed');\n *       callback();\n *     }\n * }, function(err) {\n *     // if any of the file processing produced an error, err would equal that error\n *     if( err ) {\n *       // One of the iterations produced an error.\n *       // All processing will now stop.\n *       console.log('A file failed to process');\n *     } else {\n *       console.log('All files have been processed successfully');\n *     }\n * });\n */\nfunction eachLimit(coll, iteratee, callback) {\n    eachOf(coll, _withoutIndex(wrapAsync(iteratee)), callback);\n}\n\n/**\n * The same as [`each`]{@link module:Collections.each} but runs a maximum of `limit` async operations at a time.\n *\n * @name eachLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.each]{@link module:Collections.each}\n * @alias forEachLimit\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The array index is not passed to the iteratee.\n * If you need the index, use `eachOfLimit`.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called when all\n * `iteratee` functions have finished, or an error occurs. Invoked with (err).\n */\nfunction eachLimit$1(coll, limit, iteratee, callback) {\n    _eachOfLimit(limit)(coll, _withoutIndex(wrapAsync(iteratee)), callback);\n}\n\n/**\n * The same as [`each`]{@link module:Collections.each} but runs only a single async operation at a time.\n *\n * @name eachSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.each]{@link module:Collections.each}\n * @alias forEachSeries\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to each\n * item in `coll`.\n * The array index is not passed to the iteratee.\n * If you need the index, use `eachOfSeries`.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called when all\n * `iteratee` functions have finished, or an error occurs. Invoked with (err).\n */\nvar eachSeries = doLimit(eachLimit$1, 1);\n\n/**\n * Wrap an async function and ensure it calls its callback on a later tick of\n * the event loop.  If the function already calls its callback on a next tick,\n * no extra deferral is added. This is useful for preventing stack overflows\n * (`RangeError: Maximum call stack size exceeded`) and generally keeping\n * [Zalgo](http://blog.izs.me/post/59142742143/designing-apis-for-asynchrony)\n * contained. ES2017 `async` functions are returned as-is -- they are immune\n * to Zalgo's corrupting influences, as they always resolve on a later tick.\n *\n * @name ensureAsync\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {AsyncFunction} fn - an async function, one that expects a node-style\n * callback as its last argument.\n * @returns {AsyncFunction} Returns a wrapped function with the exact same call\n * signature as the function passed in.\n * @example\n *\n * function sometimesAsync(arg, callback) {\n *     if (cache[arg]) {\n *         return callback(null, cache[arg]); // this would be synchronous!!\n *     } else {\n *         doSomeIO(arg, callback); // this IO would be asynchronous\n *     }\n * }\n *\n * // this has a risk of stack overflows if many results are cached in a row\n * async.mapSeries(args, sometimesAsync, done);\n *\n * // this will defer sometimesAsync's callback if necessary,\n * // preventing stack overflows\n * async.mapSeries(args, async.ensureAsync(sometimesAsync), done);\n */\nfunction ensureAsync(fn) {\n    if (isAsync(fn)) return fn;\n    return initialParams(function (args, callback) {\n        var sync = true;\n        args.push(function () {\n            var innerArgs = arguments;\n            if (sync) {\n                setImmediate$1(function () {\n                    callback.apply(null, innerArgs);\n                });\n            } else {\n                callback.apply(null, innerArgs);\n            }\n        });\n        fn.apply(this, args);\n        sync = false;\n    });\n}\n\nfunction notId(v) {\n    return !v;\n}\n\n/**\n * Returns `true` if every element in `coll` satisfies an async test. If any\n * iteratee call returns `false`, the main `callback` is immediately called.\n *\n * @name every\n * @static\n * @memberOf module:Collections\n * @method\n * @alias all\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async truth test to apply to each item\n * in the collection in parallel.\n * The iteratee must complete with a boolean result value.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Result will be either `true` or `false`\n * depending on the values of the async tests. Invoked with (err, result).\n * @example\n *\n * async.every(['file1','file2','file3'], function(filePath, callback) {\n *     fs.access(filePath, function(err) {\n *         callback(null, !err)\n *     });\n * }, function(err, result) {\n *     // if result is true then every file exists\n * });\n */\nvar every = doParallel(_createTester(notId, notId));\n\n/**\n * The same as [`every`]{@link module:Collections.every} but runs a maximum of `limit` async operations at a time.\n *\n * @name everyLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.every]{@link module:Collections.every}\n * @alias allLimit\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async truth test to apply to each item\n * in the collection in parallel.\n * The iteratee must complete with a boolean result value.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Result will be either `true` or `false`\n * depending on the values of the async tests. Invoked with (err, result).\n */\nvar everyLimit = doParallelLimit(_createTester(notId, notId));\n\n/**\n * The same as [`every`]{@link module:Collections.every} but runs only a single async operation at a time.\n *\n * @name everySeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.every]{@link module:Collections.every}\n * @alias allSeries\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async truth test to apply to each item\n * in the collection in series.\n * The iteratee must complete with a boolean result value.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Result will be either `true` or `false`\n * depending on the values of the async tests. Invoked with (err, result).\n */\nvar everySeries = doLimit(everyLimit, 1);\n\n/**\n * The base implementation of `_.property` without support for deep paths.\n *\n * @private\n * @param {string} key The key of the property to get.\n * @returns {Function} Returns the new accessor function.\n */\nfunction baseProperty(key) {\n  return function(object) {\n    return object == null ? undefined : object[key];\n  };\n}\n\nfunction filterArray(eachfn, arr, iteratee, callback) {\n    var truthValues = new Array(arr.length);\n    eachfn(arr, function (x, index, callback) {\n        iteratee(x, function (err, v) {\n            truthValues[index] = !!v;\n            callback(err);\n        });\n    }, function (err) {\n        if (err) return callback(err);\n        var results = [];\n        for (var i = 0; i < arr.length; i++) {\n            if (truthValues[i]) results.push(arr[i]);\n        }\n        callback(null, results);\n    });\n}\n\nfunction filterGeneric(eachfn, coll, iteratee, callback) {\n    var results = [];\n    eachfn(coll, function (x, index, callback) {\n        iteratee(x, function (err, v) {\n            if (err) {\n                callback(err);\n            } else {\n                if (v) {\n                    results.push({index: index, value: x});\n                }\n                callback();\n            }\n        });\n    }, function (err) {\n        if (err) {\n            callback(err);\n        } else {\n            callback(null, arrayMap(results.sort(function (a, b) {\n                return a.index - b.index;\n            }), baseProperty('value')));\n        }\n    });\n}\n\nfunction _filter(eachfn, coll, iteratee, callback) {\n    var filter = isArrayLike(coll) ? filterArray : filterGeneric;\n    filter(eachfn, coll, wrapAsync(iteratee), callback || noop);\n}\n\n/**\n * Returns a new array of all the values in `coll` which pass an async truth\n * test. This operation is performed in parallel, but the results array will be\n * in the same order as the original.\n *\n * @name filter\n * @static\n * @memberOf module:Collections\n * @method\n * @alias select\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {Function} iteratee - A truth test to apply to each item in `coll`.\n * The `iteratee` is passed a `callback(err, truthValue)`, which must be called\n * with a boolean argument once it has completed. Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Invoked with (err, results).\n * @example\n *\n * async.filter(['file1','file2','file3'], function(filePath, callback) {\n *     fs.access(filePath, function(err) {\n *         callback(null, !err)\n *     });\n * }, function(err, results) {\n *     // results now equals an array of the existing files\n * });\n */\nvar filter = doParallel(_filter);\n\n/**\n * The same as [`filter`]{@link module:Collections.filter} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name filterLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.filter]{@link module:Collections.filter}\n * @alias selectLimit\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {Function} iteratee - A truth test to apply to each item in `coll`.\n * The `iteratee` is passed a `callback(err, truthValue)`, which must be called\n * with a boolean argument once it has completed. Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Invoked with (err, results).\n */\nvar filterLimit = doParallelLimit(_filter);\n\n/**\n * The same as [`filter`]{@link module:Collections.filter} but runs only a single async operation at a time.\n *\n * @name filterSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.filter]{@link module:Collections.filter}\n * @alias selectSeries\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {Function} iteratee - A truth test to apply to each item in `coll`.\n * The `iteratee` is passed a `callback(err, truthValue)`, which must be called\n * with a boolean argument once it has completed. Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Invoked with (err, results)\n */\nvar filterSeries = doLimit(filterLimit, 1);\n\n/**\n * Calls the asynchronous function `fn` with a callback parameter that allows it\n * to call itself again, in series, indefinitely.\n\n * If an error is passed to the callback then `errback` is called with the\n * error, and execution stops, otherwise it will never be called.\n *\n * @name forever\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {AsyncFunction} fn - an async function to call repeatedly.\n * Invoked with (next).\n * @param {Function} [errback] - when `fn` passes an error to it's callback,\n * this function will be called, and execution stops. Invoked with (err).\n * @example\n *\n * async.forever(\n *     function(next) {\n *         // next is suitable for passing to things that need a callback(err [, whatever]);\n *         // it will result in this function being called again.\n *     },\n *     function(err) {\n *         // if next is called with a value in its first parameter, it will appear\n *         // in here as 'err', and execution will stop.\n *     }\n * );\n */\nfunction forever(fn, errback) {\n    var done = onlyOnce(errback || noop);\n    var task = wrapAsync(ensureAsync(fn));\n\n    function next(err) {\n        if (err) return done(err);\n        task(next);\n    }\n    next();\n}\n\n/**\n * The same as [`groupBy`]{@link module:Collections.groupBy} but runs a maximum of `limit` async operations at a time.\n *\n * @name groupByLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.groupBy]{@link module:Collections.groupBy}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with a `key` to group the value under.\n * Invoked with (value, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Result is an `Object` whoses\n * properties are arrays of values which returned the corresponding key.\n */\nvar groupByLimit = function(coll, limit, iteratee, callback) {\n    callback = callback || noop;\n    var _iteratee = wrapAsync(iteratee);\n    mapLimit(coll, limit, function(val, callback) {\n        _iteratee(val, function(err, key) {\n            if (err) return callback(err);\n            return callback(null, {key: key, val: val});\n        });\n    }, function(err, mapResults) {\n        var result = {};\n        // from MDN, handle object having an `hasOwnProperty` prop\n        var hasOwnProperty = Object.prototype.hasOwnProperty;\n\n        for (var i = 0; i < mapResults.length; i++) {\n            if (mapResults[i]) {\n                var key = mapResults[i].key;\n                var val = mapResults[i].val;\n\n                if (hasOwnProperty.call(result, key)) {\n                    result[key].push(val);\n                } else {\n                    result[key] = [val];\n                }\n            }\n        }\n\n        return callback(err, result);\n    });\n};\n\n/**\n * Returns a new object, where each value corresponds to an array of items, from\n * `coll`, that returned the corresponding key. That is, the keys of the object\n * correspond to the values passed to the `iteratee` callback.\n *\n * Note: Since this function applies the `iteratee` to each item in parallel,\n * there is no guarantee that the `iteratee` functions will complete in order.\n * However, the values for each key in the `result` will be in the same order as\n * the original `coll`. For Objects, the values will roughly be in the order of\n * the original Objects' keys (but this can vary across JavaScript engines).\n *\n * @name groupBy\n * @static\n * @memberOf module:Collections\n * @method\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with a `key` to group the value under.\n * Invoked with (value, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Result is an `Object` whoses\n * properties are arrays of values which returned the corresponding key.\n * @example\n *\n * async.groupBy(['userId1', 'userId2', 'userId3'], function(userId, callback) {\n *     db.findById(userId, function(err, user) {\n *         if (err) return callback(err);\n *         return callback(null, user.age);\n *     });\n * }, function(err, result) {\n *     // result is object containing the userIds grouped by age\n *     // e.g. { 30: ['userId1', 'userId3'], 42: ['userId2']};\n * });\n */\nvar groupBy = doLimit(groupByLimit, Infinity);\n\n/**\n * The same as [`groupBy`]{@link module:Collections.groupBy} but runs only a single async operation at a time.\n *\n * @name groupBySeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.groupBy]{@link module:Collections.groupBy}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with a `key` to group the value under.\n * Invoked with (value, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. Result is an `Object` whoses\n * properties are arrays of values which returned the corresponding key.\n */\nvar groupBySeries = doLimit(groupByLimit, 1);\n\n/**\n * Logs the result of an `async` function to the `console`. Only works in\n * Node.js or in browsers that support `console.log` and `console.error` (such\n * as FF and Chrome). If multiple arguments are returned from the async\n * function, `console.log` is called on each argument in order.\n *\n * @name log\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {AsyncFunction} function - The function you want to eventually apply\n * all arguments to.\n * @param {...*} arguments... - Any number of arguments to apply to the function.\n * @example\n *\n * // in a module\n * var hello = function(name, callback) {\n *     setTimeout(function() {\n *         callback(null, 'hello ' + name);\n *     }, 1000);\n * };\n *\n * // in the node repl\n * node> async.log(hello, 'world');\n * 'hello world'\n */\nvar log = consoleFunc('log');\n\n/**\n * The same as [`mapValues`]{@link module:Collections.mapValues} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name mapValuesLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.mapValues]{@link module:Collections.mapValues}\n * @category Collection\n * @param {Object} obj - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - A function to apply to each value and key\n * in `coll`.\n * The iteratee should complete with the transformed value as its result.\n * Invoked with (value, key, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. `result` is a new object consisting\n * of each key from `obj`, with each transformed value on the right-hand side.\n * Invoked with (err, result).\n */\nfunction mapValuesLimit(obj, limit, iteratee, callback) {\n    callback = once(callback || noop);\n    var newObj = {};\n    var _iteratee = wrapAsync(iteratee);\n    eachOfLimit(obj, limit, function(val, key, next) {\n        _iteratee(val, key, function (err, result) {\n            if (err) return next(err);\n            newObj[key] = result;\n            next();\n        });\n    }, function (err) {\n        callback(err, newObj);\n    });\n}\n\n/**\n * A relative of [`map`]{@link module:Collections.map}, designed for use with objects.\n *\n * Produces a new Object by mapping each value of `obj` through the `iteratee`\n * function. The `iteratee` is called each `value` and `key` from `obj` and a\n * callback for when it has finished processing. Each of these callbacks takes\n * two arguments: an `error`, and the transformed item from `obj`. If `iteratee`\n * passes an error to its callback, the main `callback` (for the `mapValues`\n * function) is immediately called with the error.\n *\n * Note, the order of the keys in the result is not guaranteed.  The keys will\n * be roughly in the order they complete, (but this is very engine-specific)\n *\n * @name mapValues\n * @static\n * @memberOf module:Collections\n * @method\n * @category Collection\n * @param {Object} obj - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A function to apply to each value and key\n * in `coll`.\n * The iteratee should complete with the transformed value as its result.\n * Invoked with (value, key, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. `result` is a new object consisting\n * of each key from `obj`, with each transformed value on the right-hand side.\n * Invoked with (err, result).\n * @example\n *\n * async.mapValues({\n *     f1: 'file1',\n *     f2: 'file2',\n *     f3: 'file3'\n * }, function (file, key, callback) {\n *   fs.stat(file, callback);\n * }, function(err, result) {\n *     // result is now a map of stats for each file, e.g.\n *     // {\n *     //     f1: [stats for file1],\n *     //     f2: [stats for file2],\n *     //     f3: [stats for file3]\n *     // }\n * });\n */\n\nvar mapValues = doLimit(mapValuesLimit, Infinity);\n\n/**\n * The same as [`mapValues`]{@link module:Collections.mapValues} but runs only a single async operation at a time.\n *\n * @name mapValuesSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.mapValues]{@link module:Collections.mapValues}\n * @category Collection\n * @param {Object} obj - A collection to iterate over.\n * @param {AsyncFunction} iteratee - A function to apply to each value and key\n * in `coll`.\n * The iteratee should complete with the transformed value as its result.\n * Invoked with (value, key, callback).\n * @param {Function} [callback] - A callback which is called when all `iteratee`\n * functions have finished, or an error occurs. `result` is a new object consisting\n * of each key from `obj`, with each transformed value on the right-hand side.\n * Invoked with (err, result).\n */\nvar mapValuesSeries = doLimit(mapValuesLimit, 1);\n\nfunction has(obj, key) {\n    return key in obj;\n}\n\n/**\n * Caches the results of an async function. When creating a hash to store\n * function results against, the callback is omitted from the hash and an\n * optional hash function can be used.\n *\n * If no hash function is specified, the first argument is used as a hash key,\n * which may work reasonably if it is a string or a data type that converts to a\n * distinct string. Note that objects and arrays will not behave reasonably.\n * Neither will cases where the other arguments are significant. In such cases,\n * specify your own hash function.\n *\n * The cache of results is exposed as the `memo` property of the function\n * returned by `memoize`.\n *\n * @name memoize\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {AsyncFunction} fn - The async function to proxy and cache results from.\n * @param {Function} hasher - An optional function for generating a custom hash\n * for storing results. It has all the arguments applied to it apart from the\n * callback, and must be synchronous.\n * @returns {AsyncFunction} a memoized version of `fn`\n * @example\n *\n * var slow_fn = function(name, callback) {\n *     // do something\n *     callback(null, result);\n * };\n * var fn = async.memoize(slow_fn);\n *\n * // fn can now be used as if it were slow_fn\n * fn('some name', function() {\n *     // callback\n * });\n */\nfunction memoize(fn, hasher) {\n    var memo = Object.create(null);\n    var queues = Object.create(null);\n    hasher = hasher || identity;\n    var _fn = wrapAsync(fn);\n    var memoized = initialParams(function memoized(args, callback) {\n        var key = hasher.apply(null, args);\n        if (has(memo, key)) {\n            setImmediate$1(function() {\n                callback.apply(null, memo[key]);\n            });\n        } else if (has(queues, key)) {\n            queues[key].push(callback);\n        } else {\n            queues[key] = [callback];\n            _fn.apply(null, args.concat(function(/*args*/) {\n                var args = slice(arguments);\n                memo[key] = args;\n                var q = queues[key];\n                delete queues[key];\n                for (var i = 0, l = q.length; i < l; i++) {\n                    q[i].apply(null, args);\n                }\n            }));\n        }\n    });\n    memoized.memo = memo;\n    memoized.unmemoized = fn;\n    return memoized;\n}\n\n/**\n * Calls `callback` on a later loop around the event loop. In Node.js this just\n * calls `process.nextTick`.  In the browser it will use `setImmediate` if\n * available, otherwise `setTimeout(callback, 0)`, which means other higher\n * priority events may precede the execution of `callback`.\n *\n * This is used internally for browser-compatibility purposes.\n *\n * @name nextTick\n * @static\n * @memberOf module:Utils\n * @method\n * @see [async.setImmediate]{@link module:Utils.setImmediate}\n * @category Util\n * @param {Function} callback - The function to call on a later loop around\n * the event loop. Invoked with (args...).\n * @param {...*} args... - any number of additional arguments to pass to the\n * callback on the next tick.\n * @example\n *\n * var call_order = [];\n * async.nextTick(function() {\n *     call_order.push('two');\n *     // call_order now equals ['one','two']\n * });\n * call_order.push('one');\n *\n * async.setImmediate(function (a, b, c) {\n *     // a, b, and c equal 1, 2, and 3\n * }, 1, 2, 3);\n */\nvar _defer$1;\n\nif (hasNextTick) {\n    _defer$1 = process.nextTick;\n} else if (hasSetImmediate) {\n    _defer$1 = setImmediate;\n} else {\n    _defer$1 = fallback;\n}\n\nvar nextTick = wrap(_defer$1);\n\nfunction _parallel(eachfn, tasks, callback) {\n    callback = callback || noop;\n    var results = isArrayLike(tasks) ? [] : {};\n\n    eachfn(tasks, function (task, key, callback) {\n        wrapAsync(task)(function (err, result) {\n            if (arguments.length > 2) {\n                result = slice(arguments, 1);\n            }\n            results[key] = result;\n            callback(err);\n        });\n    }, function (err) {\n        callback(err, results);\n    });\n}\n\n/**\n * Run the `tasks` collection of functions in parallel, without waiting until\n * the previous function has completed. If any of the functions pass an error to\n * its callback, the main `callback` is immediately called with the value of the\n * error. Once the `tasks` have completed, the results are passed to the final\n * `callback` as an array.\n *\n * **Note:** `parallel` is about kicking-off I/O tasks in parallel, not about\n * parallel execution of code.  If your tasks do not use any timers or perform\n * any I/O, they will actually be executed in series.  Any synchronous setup\n * sections for each task will happen one after the other.  JavaScript remains\n * single-threaded.\n *\n * **Hint:** Use [`reflect`]{@link module:Utils.reflect} to continue the\n * execution of other tasks when a task fails.\n *\n * It is also possible to use an object instead of an array. Each property will\n * be run as a function and the results will be passed to the final `callback`\n * as an object instead of an array. This can be a more readable way of handling\n * results from {@link async.parallel}.\n *\n * @name parallel\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Array|Iterable|Object} tasks - A collection of\n * [async functions]{@link AsyncFunction} to run.\n * Each async function can complete with any number of optional `result` values.\n * @param {Function} [callback] - An optional callback to run once all the\n * functions have completed successfully. This function gets a results array\n * (or object) containing all the result arguments passed to the task callbacks.\n * Invoked with (err, results).\n *\n * @example\n * async.parallel([\n *     function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'one');\n *         }, 200);\n *     },\n *     function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'two');\n *         }, 100);\n *     }\n * ],\n * // optional callback\n * function(err, results) {\n *     // the results array will equal ['one','two'] even though\n *     // the second function had a shorter timeout.\n * });\n *\n * // an example using an object instead of an array\n * async.parallel({\n *     one: function(callback) {\n *         setTimeout(function() {\n *             callback(null, 1);\n *         }, 200);\n *     },\n *     two: function(callback) {\n *         setTimeout(function() {\n *             callback(null, 2);\n *         }, 100);\n *     }\n * }, function(err, results) {\n *     // results is now equals to: {one: 1, two: 2}\n * });\n */\nfunction parallelLimit(tasks, callback) {\n    _parallel(eachOf, tasks, callback);\n}\n\n/**\n * The same as [`parallel`]{@link module:ControlFlow.parallel} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name parallelLimit\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.parallel]{@link module:ControlFlow.parallel}\n * @category Control Flow\n * @param {Array|Iterable|Object} tasks - A collection of\n * [async functions]{@link AsyncFunction} to run.\n * Each async function can complete with any number of optional `result` values.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {Function} [callback] - An optional callback to run once all the\n * functions have completed successfully. This function gets a results array\n * (or object) containing all the result arguments passed to the task callbacks.\n * Invoked with (err, results).\n */\nfunction parallelLimit$1(tasks, limit, callback) {\n    _parallel(_eachOfLimit(limit), tasks, callback);\n}\n\n/**\n * A queue of tasks for the worker function to complete.\n * @typedef {Object} QueueObject\n * @memberOf module:ControlFlow\n * @property {Function} length - a function returning the number of items\n * waiting to be processed. Invoke with `queue.length()`.\n * @property {boolean} started - a boolean indicating whether or not any\n * items have been pushed and processed by the queue.\n * @property {Function} running - a function returning the number of items\n * currently being processed. Invoke with `queue.running()`.\n * @property {Function} workersList - a function returning the array of items\n * currently being processed. Invoke with `queue.workersList()`.\n * @property {Function} idle - a function returning false if there are items\n * waiting or being processed, or true if not. Invoke with `queue.idle()`.\n * @property {number} concurrency - an integer for determining how many `worker`\n * functions should be run in parallel. This property can be changed after a\n * `queue` is created to alter the concurrency on-the-fly.\n * @property {Function} push - add a new task to the `queue`. Calls `callback`\n * once the `worker` has finished processing the task. Instead of a single task,\n * a `tasks` array can be submitted. The respective callback is used for every\n * task in the list. Invoke with `queue.push(task, [callback])`,\n * @property {Function} unshift - add a new task to the front of the `queue`.\n * Invoke with `queue.unshift(task, [callback])`.\n * @property {Function} remove - remove items from the queue that match a test\n * function.  The test function will be passed an object with a `data` property,\n * and a `priority` property, if this is a\n * [priorityQueue]{@link module:ControlFlow.priorityQueue} object.\n * Invoked with `queue.remove(testFn)`, where `testFn` is of the form\n * `function ({data, priority}) {}` and returns a Boolean.\n * @property {Function} saturated - a callback that is called when the number of\n * running workers hits the `concurrency` limit, and further tasks will be\n * queued.\n * @property {Function} unsaturated - a callback that is called when the number\n * of running workers is less than the `concurrency` & `buffer` limits, and\n * further tasks will not be queued.\n * @property {number} buffer - A minimum threshold buffer in order to say that\n * the `queue` is `unsaturated`.\n * @property {Function} empty - a callback that is called when the last item\n * from the `queue` is given to a `worker`.\n * @property {Function} drain - a callback that is called when the last item\n * from the `queue` has returned from the `worker`.\n * @property {Function} error - a callback that is called when a task errors.\n * Has the signature `function(error, task)`.\n * @property {boolean} paused - a boolean for determining whether the queue is\n * in a paused state.\n * @property {Function} pause - a function that pauses the processing of tasks\n * until `resume()` is called. Invoke with `queue.pause()`.\n * @property {Function} resume - a function that resumes the processing of\n * queued tasks when the queue is paused. Invoke with `queue.resume()`.\n * @property {Function} kill - a function that removes the `drain` callback and\n * empties remaining tasks from the queue forcing it to go idle. No more tasks\n * should be pushed to the queue after calling this function. Invoke with `queue.kill()`.\n */\n\n/**\n * Creates a `queue` object with the specified `concurrency`. Tasks added to the\n * `queue` are processed in parallel (up to the `concurrency` limit). If all\n * `worker`s are in progress, the task is queued until one becomes available.\n * Once a `worker` completes a `task`, that `task`'s callback is called.\n *\n * @name queue\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {AsyncFunction} worker - An async function for processing a queued task.\n * If you want to handle errors from an individual task, pass a callback to\n * `q.push()`. Invoked with (task, callback).\n * @param {number} [concurrency=1] - An `integer` for determining how many\n * `worker` functions should be run in parallel.  If omitted, the concurrency\n * defaults to `1`.  If the concurrency is `0`, an error is thrown.\n * @returns {module:ControlFlow.QueueObject} A queue object to manage the tasks. Callbacks can\n * attached as certain properties to listen for specific events during the\n * lifecycle of the queue.\n * @example\n *\n * // create a queue object with concurrency 2\n * var q = async.queue(function(task, callback) {\n *     console.log('hello ' + task.name);\n *     callback();\n * }, 2);\n *\n * // assign a callback\n * q.drain = function() {\n *     console.log('all items have been processed');\n * };\n *\n * // add some items to the queue\n * q.push({name: 'foo'}, function(err) {\n *     console.log('finished processing foo');\n * });\n * q.push({name: 'bar'}, function (err) {\n *     console.log('finished processing bar');\n * });\n *\n * // add some items to the queue (batch-wise)\n * q.push([{name: 'baz'},{name: 'bay'},{name: 'bax'}], function(err) {\n *     console.log('finished processing item');\n * });\n *\n * // add some items to the front of the queue\n * q.unshift({name: 'bar'}, function (err) {\n *     console.log('finished processing bar');\n * });\n */\nvar queue$1 = function (worker, concurrency) {\n    var _worker = wrapAsync(worker);\n    return queue(function (items, cb) {\n        _worker(items[0], cb);\n    }, concurrency, 1);\n};\n\n/**\n * The same as [async.queue]{@link module:ControlFlow.queue} only tasks are assigned a priority and\n * completed in ascending priority order.\n *\n * @name priorityQueue\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.queue]{@link module:ControlFlow.queue}\n * @category Control Flow\n * @param {AsyncFunction} worker - An async function for processing a queued task.\n * If you want to handle errors from an individual task, pass a callback to\n * `q.push()`.\n * Invoked with (task, callback).\n * @param {number} concurrency - An `integer` for determining how many `worker`\n * functions should be run in parallel.  If omitted, the concurrency defaults to\n * `1`.  If the concurrency is `0`, an error is thrown.\n * @returns {module:ControlFlow.QueueObject} A priorityQueue object to manage the tasks. There are two\n * differences between `queue` and `priorityQueue` objects:\n * * `push(task, priority, [callback])` - `priority` should be a number. If an\n *   array of `tasks` is given, all tasks will be assigned the same priority.\n * * The `unshift` method was removed.\n */\nvar priorityQueue = function(worker, concurrency) {\n    // Start with a normal queue\n    var q = queue$1(worker, concurrency);\n\n    // Override push to accept second parameter representing priority\n    q.push = function(data, priority, callback) {\n        if (callback == null) callback = noop;\n        if (typeof callback !== 'function') {\n            throw new Error('task callback must be a function');\n        }\n        q.started = true;\n        if (!isArray(data)) {\n            data = [data];\n        }\n        if (data.length === 0) {\n            // call drain immediately if there are no tasks\n            return setImmediate$1(function() {\n                q.drain();\n            });\n        }\n\n        priority = priority || 0;\n        var nextNode = q._tasks.head;\n        while (nextNode && priority >= nextNode.priority) {\n            nextNode = nextNode.next;\n        }\n\n        for (var i = 0, l = data.length; i < l; i++) {\n            var item = {\n                data: data[i],\n                priority: priority,\n                callback: callback\n            };\n\n            if (nextNode) {\n                q._tasks.insertBefore(nextNode, item);\n            } else {\n                q._tasks.push(item);\n            }\n        }\n        setImmediate$1(q.process);\n    };\n\n    // Remove unshift function\n    delete q.unshift;\n\n    return q;\n};\n\n/**\n * Runs the `tasks` array of functions in parallel, without waiting until the\n * previous function has completed. Once any of the `tasks` complete or pass an\n * error to its callback, the main `callback` is immediately called. It's\n * equivalent to `Promise.race()`.\n *\n * @name race\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Array} tasks - An array containing [async functions]{@link AsyncFunction}\n * to run. Each function can complete with an optional `result` value.\n * @param {Function} callback - A callback to run once any of the functions have\n * completed. This function gets an error or result from the first function that\n * completed. Invoked with (err, result).\n * @returns undefined\n * @example\n *\n * async.race([\n *     function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'one');\n *         }, 200);\n *     },\n *     function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'two');\n *         }, 100);\n *     }\n * ],\n * // main callback\n * function(err, result) {\n *     // the result will be equal to 'two' as it finishes earlier\n * });\n */\nfunction race(tasks, callback) {\n    callback = once(callback || noop);\n    if (!isArray(tasks)) return callback(new TypeError('First argument to race must be an array of functions'));\n    if (!tasks.length) return callback();\n    for (var i = 0, l = tasks.length; i < l; i++) {\n        wrapAsync(tasks[i])(callback);\n    }\n}\n\n/**\n * Same as [`reduce`]{@link module:Collections.reduce}, only operates on `array` in reverse order.\n *\n * @name reduceRight\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.reduce]{@link module:Collections.reduce}\n * @alias foldr\n * @category Collection\n * @param {Array} array - A collection to iterate over.\n * @param {*} memo - The initial state of the reduction.\n * @param {AsyncFunction} iteratee - A function applied to each item in the\n * array to produce the next step in the reduction.\n * The `iteratee` should complete with the next state of the reduction.\n * If the iteratee complete with an error, the reduction is stopped and the\n * main `callback` is immediately called with the error.\n * Invoked with (memo, item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Result is the reduced value. Invoked with\n * (err, result).\n */\nfunction reduceRight (array, memo, iteratee, callback) {\n    var reversed = slice(array).reverse();\n    reduce(reversed, memo, iteratee, callback);\n}\n\n/**\n * Wraps the async function in another function that always completes with a\n * result object, even when it errors.\n *\n * The result object has either the property `error` or `value`.\n *\n * @name reflect\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {AsyncFunction} fn - The async function you want to wrap\n * @returns {Function} - A function that always passes null to it's callback as\n * the error. The second argument to the callback will be an `object` with\n * either an `error` or a `value` property.\n * @example\n *\n * async.parallel([\n *     async.reflect(function(callback) {\n *         // do some stuff ...\n *         callback(null, 'one');\n *     }),\n *     async.reflect(function(callback) {\n *         // do some more stuff but error ...\n *         callback('bad stuff happened');\n *     }),\n *     async.reflect(function(callback) {\n *         // do some more stuff ...\n *         callback(null, 'two');\n *     })\n * ],\n * // optional callback\n * function(err, results) {\n *     // values\n *     // results[0].value = 'one'\n *     // results[1].error = 'bad stuff happened'\n *     // results[2].value = 'two'\n * });\n */\nfunction reflect(fn) {\n    var _fn = wrapAsync(fn);\n    return initialParams(function reflectOn(args, reflectCallback) {\n        args.push(function callback(error, cbArg) {\n            if (error) {\n                reflectCallback(null, { error: error });\n            } else {\n                var value;\n                if (arguments.length <= 2) {\n                    value = cbArg;\n                } else {\n                    value = slice(arguments, 1);\n                }\n                reflectCallback(null, { value: value });\n            }\n        });\n\n        return _fn.apply(this, args);\n    });\n}\n\n/**\n * A helper function that wraps an array or an object of functions with `reflect`.\n *\n * @name reflectAll\n * @static\n * @memberOf module:Utils\n * @method\n * @see [async.reflect]{@link module:Utils.reflect}\n * @category Util\n * @param {Array|Object|Iterable} tasks - The collection of\n * [async functions]{@link AsyncFunction} to wrap in `async.reflect`.\n * @returns {Array} Returns an array of async functions, each wrapped in\n * `async.reflect`\n * @example\n *\n * let tasks = [\n *     function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'one');\n *         }, 200);\n *     },\n *     function(callback) {\n *         // do some more stuff but error ...\n *         callback(new Error('bad stuff happened'));\n *     },\n *     function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'two');\n *         }, 100);\n *     }\n * ];\n *\n * async.parallel(async.reflectAll(tasks),\n * // optional callback\n * function(err, results) {\n *     // values\n *     // results[0].value = 'one'\n *     // results[1].error = Error('bad stuff happened')\n *     // results[2].value = 'two'\n * });\n *\n * // an example using an object instead of an array\n * let tasks = {\n *     one: function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'one');\n *         }, 200);\n *     },\n *     two: function(callback) {\n *         callback('two');\n *     },\n *     three: function(callback) {\n *         setTimeout(function() {\n *             callback(null, 'three');\n *         }, 100);\n *     }\n * };\n *\n * async.parallel(async.reflectAll(tasks),\n * // optional callback\n * function(err, results) {\n *     // values\n *     // results.one.value = 'one'\n *     // results.two.error = 'two'\n *     // results.three.value = 'three'\n * });\n */\nfunction reflectAll(tasks) {\n    var results;\n    if (isArray(tasks)) {\n        results = arrayMap(tasks, reflect);\n    } else {\n        results = {};\n        baseForOwn(tasks, function(task, key) {\n            results[key] = reflect.call(this, task);\n        });\n    }\n    return results;\n}\n\nfunction reject$1(eachfn, arr, iteratee, callback) {\n    _filter(eachfn, arr, function(value, cb) {\n        iteratee(value, function(err, v) {\n            cb(err, !v);\n        });\n    }, callback);\n}\n\n/**\n * The opposite of [`filter`]{@link module:Collections.filter}. Removes values that pass an `async` truth test.\n *\n * @name reject\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.filter]{@link module:Collections.filter}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {Function} iteratee - An async truth test to apply to each item in\n * `coll`.\n * The should complete with a boolean value as its `result`.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Invoked with (err, results).\n * @example\n *\n * async.reject(['file1','file2','file3'], function(filePath, callback) {\n *     fs.access(filePath, function(err) {\n *         callback(null, !err)\n *     });\n * }, function(err, results) {\n *     // results now equals an array of missing files\n *     createFiles(results);\n * });\n */\nvar reject = doParallel(reject$1);\n\n/**\n * The same as [`reject`]{@link module:Collections.reject} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name rejectLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.reject]{@link module:Collections.reject}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {Function} iteratee - An async truth test to apply to each item in\n * `coll`.\n * The should complete with a boolean value as its `result`.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Invoked with (err, results).\n */\nvar rejectLimit = doParallelLimit(reject$1);\n\n/**\n * The same as [`reject`]{@link module:Collections.reject} but runs only a single async operation at a time.\n *\n * @name rejectSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.reject]{@link module:Collections.reject}\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {Function} iteratee - An async truth test to apply to each item in\n * `coll`.\n * The should complete with a boolean value as its `result`.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Invoked with (err, results).\n */\nvar rejectSeries = doLimit(rejectLimit, 1);\n\n/**\n * Creates a function that returns `value`.\n *\n * @static\n * @memberOf _\n * @since 2.4.0\n * @category Util\n * @param {*} value The value to return from the new function.\n * @returns {Function} Returns the new constant function.\n * @example\n *\n * var objects = _.times(2, _.constant({ 'a': 1 }));\n *\n * console.log(objects);\n * // => [{ 'a': 1 }, { 'a': 1 }]\n *\n * console.log(objects[0] === objects[1]);\n * // => true\n */\nfunction constant$1(value) {\n  return function() {\n    return value;\n  };\n}\n\n/**\n * Attempts to get a successful response from `task` no more than `times` times\n * before returning an error. If the task is successful, the `callback` will be\n * passed the result of the successful task. If all attempts fail, the callback\n * will be passed the error and result (if any) of the final attempt.\n *\n * @name retry\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @see [async.retryable]{@link module:ControlFlow.retryable}\n * @param {Object|number} [opts = {times: 5, interval: 0}| 5] - Can be either an\n * object with `times` and `interval` or a number.\n * * `times` - The number of attempts to make before giving up.  The default\n *   is `5`.\n * * `interval` - The time to wait between retries, in milliseconds.  The\n *   default is `0`. The interval may also be specified as a function of the\n *   retry count (see example).\n * * `errorFilter` - An optional synchronous function that is invoked on\n *   erroneous result. If it returns `true` the retry attempts will continue;\n *   if the function returns `false` the retry flow is aborted with the current\n *   attempt's error and result being returned to the final callback.\n *   Invoked with (err).\n * * If `opts` is a number, the number specifies the number of times to retry,\n *   with the default interval of `0`.\n * @param {AsyncFunction} task - An async function to retry.\n * Invoked with (callback).\n * @param {Function} [callback] - An optional callback which is called when the\n * task has succeeded, or after the final failed attempt. It receives the `err`\n * and `result` arguments of the last attempt at completing the `task`. Invoked\n * with (err, results).\n *\n * @example\n *\n * // The `retry` function can be used as a stand-alone control flow by passing\n * // a callback, as shown below:\n *\n * // try calling apiMethod 3 times\n * async.retry(3, apiMethod, function(err, result) {\n *     // do something with the result\n * });\n *\n * // try calling apiMethod 3 times, waiting 200 ms between each retry\n * async.retry({times: 3, interval: 200}, apiMethod, function(err, result) {\n *     // do something with the result\n * });\n *\n * // try calling apiMethod 10 times with exponential backoff\n * // (i.e. intervals of 100, 200, 400, 800, 1600, ... milliseconds)\n * async.retry({\n *   times: 10,\n *   interval: function(retryCount) {\n *     return 50 * Math.pow(2, retryCount);\n *   }\n * }, apiMethod, function(err, result) {\n *     // do something with the result\n * });\n *\n * // try calling apiMethod the default 5 times no delay between each retry\n * async.retry(apiMethod, function(err, result) {\n *     // do something with the result\n * });\n *\n * // try calling apiMethod only when error condition satisfies, all other\n * // errors will abort the retry control flow and return to final callback\n * async.retry({\n *   errorFilter: function(err) {\n *     return err.message === 'Temporary error'; // only retry on a specific error\n *   }\n * }, apiMethod, function(err, result) {\n *     // do something with the result\n * });\n *\n * // to retry individual methods that are not as reliable within other\n * // control flow functions, use the `retryable` wrapper:\n * async.auto({\n *     users: api.getUsers.bind(api),\n *     payments: async.retryable(3, api.getPayments.bind(api))\n * }, function(err, results) {\n *     // do something with the results\n * });\n *\n */\nfunction retry(opts, task, callback) {\n    var DEFAULT_TIMES = 5;\n    var DEFAULT_INTERVAL = 0;\n\n    var options = {\n        times: DEFAULT_TIMES,\n        intervalFunc: constant$1(DEFAULT_INTERVAL)\n    };\n\n    function parseTimes(acc, t) {\n        if (typeof t === 'object') {\n            acc.times = +t.times || DEFAULT_TIMES;\n\n            acc.intervalFunc = typeof t.interval === 'function' ?\n                t.interval :\n                constant$1(+t.interval || DEFAULT_INTERVAL);\n\n            acc.errorFilter = t.errorFilter;\n        } else if (typeof t === 'number' || typeof t === 'string') {\n            acc.times = +t || DEFAULT_TIMES;\n        } else {\n            throw new Error(\"Invalid arguments for async.retry\");\n        }\n    }\n\n    if (arguments.length < 3 && typeof opts === 'function') {\n        callback = task || noop;\n        task = opts;\n    } else {\n        parseTimes(options, opts);\n        callback = callback || noop;\n    }\n\n    if (typeof task !== 'function') {\n        throw new Error(\"Invalid arguments for async.retry\");\n    }\n\n    var _task = wrapAsync(task);\n\n    var attempt = 1;\n    function retryAttempt() {\n        _task(function(err) {\n            if (err && attempt++ < options.times &&\n                (typeof options.errorFilter != 'function' ||\n                    options.errorFilter(err))) {\n                setTimeout(retryAttempt, options.intervalFunc(attempt));\n            } else {\n                callback.apply(null, arguments);\n            }\n        });\n    }\n\n    retryAttempt();\n}\n\n/**\n * A close relative of [`retry`]{@link module:ControlFlow.retry}.  This method\n * wraps a task and makes it retryable, rather than immediately calling it\n * with retries.\n *\n * @name retryable\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.retry]{@link module:ControlFlow.retry}\n * @category Control Flow\n * @param {Object|number} [opts = {times: 5, interval: 0}| 5] - optional\n * options, exactly the same as from `retry`\n * @param {AsyncFunction} task - the asynchronous function to wrap.\n * This function will be passed any arguments passed to the returned wrapper.\n * Invoked with (...args, callback).\n * @returns {AsyncFunction} The wrapped function, which when invoked, will\n * retry on an error, based on the parameters specified in `opts`.\n * This function will accept the same parameters as `task`.\n * @example\n *\n * async.auto({\n *     dep1: async.retryable(3, getFromFlakyService),\n *     process: [\"dep1\", async.retryable(3, function (results, cb) {\n *         maybeProcessData(results.dep1, cb);\n *     })]\n * }, callback);\n */\nvar retryable = function (opts, task) {\n    if (!task) {\n        task = opts;\n        opts = null;\n    }\n    var _task = wrapAsync(task);\n    return initialParams(function (args, callback) {\n        function taskFn(cb) {\n            _task.apply(null, args.concat(cb));\n        }\n\n        if (opts) retry(opts, taskFn, callback);\n        else retry(taskFn, callback);\n\n    });\n};\n\n/**\n * Run the functions in the `tasks` collection in series, each one running once\n * the previous function has completed. If any functions in the series pass an\n * error to its callback, no more functions are run, and `callback` is\n * immediately called with the value of the error. Otherwise, `callback`\n * receives an array of results when `tasks` have completed.\n *\n * It is also possible to use an object instead of an array. Each property will\n * be run as a function, and the results will be passed to the final `callback`\n * as an object instead of an array. This can be a more readable way of handling\n *  results from {@link async.series}.\n *\n * **Note** that while many implementations preserve the order of object\n * properties, the [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/#sec-8.6)\n * explicitly states that\n *\n * > The mechanics and order of enumerating the properties is not specified.\n *\n * So if you rely on the order in which your series of functions are executed,\n * and want this to work on all platforms, consider using an array.\n *\n * @name series\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Array|Iterable|Object} tasks - A collection containing\n * [async functions]{@link AsyncFunction} to run in series.\n * Each function can complete with any number of optional `result` values.\n * @param {Function} [callback] - An optional callback to run once all the\n * functions have completed. This function gets a results array (or object)\n * containing all the result arguments passed to the `task` callbacks. Invoked\n * with (err, result).\n * @example\n * async.series([\n *     function(callback) {\n *         // do some stuff ...\n *         callback(null, 'one');\n *     },\n *     function(callback) {\n *         // do some more stuff ...\n *         callback(null, 'two');\n *     }\n * ],\n * // optional callback\n * function(err, results) {\n *     // results is now equal to ['one', 'two']\n * });\n *\n * async.series({\n *     one: function(callback) {\n *         setTimeout(function() {\n *             callback(null, 1);\n *         }, 200);\n *     },\n *     two: function(callback){\n *         setTimeout(function() {\n *             callback(null, 2);\n *         }, 100);\n *     }\n * }, function(err, results) {\n *     // results is now equal to: {one: 1, two: 2}\n * });\n */\nfunction series(tasks, callback) {\n    _parallel(eachOfSeries, tasks, callback);\n}\n\n/**\n * Returns `true` if at least one element in the `coll` satisfies an async test.\n * If any iteratee call returns `true`, the main `callback` is immediately\n * called.\n *\n * @name some\n * @static\n * @memberOf module:Collections\n * @method\n * @alias any\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async truth test to apply to each item\n * in the collections in parallel.\n * The iteratee should complete with a boolean `result` value.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called as soon as any\n * iteratee returns `true`, or after all the iteratee functions have finished.\n * Result will be either `true` or `false` depending on the values of the async\n * tests. Invoked with (err, result).\n * @example\n *\n * async.some(['file1','file2','file3'], function(filePath, callback) {\n *     fs.access(filePath, function(err) {\n *         callback(null, !err)\n *     });\n * }, function(err, result) {\n *     // if result is true then at least one of the files exists\n * });\n */\nvar some = doParallel(_createTester(Boolean, identity));\n\n/**\n * The same as [`some`]{@link module:Collections.some} but runs a maximum of `limit` async operations at a time.\n *\n * @name someLimit\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.some]{@link module:Collections.some}\n * @alias anyLimit\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - An async truth test to apply to each item\n * in the collections in parallel.\n * The iteratee should complete with a boolean `result` value.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called as soon as any\n * iteratee returns `true`, or after all the iteratee functions have finished.\n * Result will be either `true` or `false` depending on the values of the async\n * tests. Invoked with (err, result).\n */\nvar someLimit = doParallelLimit(_createTester(Boolean, identity));\n\n/**\n * The same as [`some`]{@link module:Collections.some} but runs only a single async operation at a time.\n *\n * @name someSeries\n * @static\n * @memberOf module:Collections\n * @method\n * @see [async.some]{@link module:Collections.some}\n * @alias anySeries\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async truth test to apply to each item\n * in the collections in series.\n * The iteratee should complete with a boolean `result` value.\n * Invoked with (item, callback).\n * @param {Function} [callback] - A callback which is called as soon as any\n * iteratee returns `true`, or after all the iteratee functions have finished.\n * Result will be either `true` or `false` depending on the values of the async\n * tests. Invoked with (err, result).\n */\nvar someSeries = doLimit(someLimit, 1);\n\n/**\n * Sorts a list by the results of running each `coll` value through an async\n * `iteratee`.\n *\n * @name sortBy\n * @static\n * @memberOf module:Collections\n * @method\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {AsyncFunction} iteratee - An async function to apply to each item in\n * `coll`.\n * The iteratee should complete with a value to use as the sort criteria as\n * its `result`.\n * Invoked with (item, callback).\n * @param {Function} callback - A callback which is called after all the\n * `iteratee` functions have finished, or an error occurs. Results is the items\n * from the original `coll` sorted by the values returned by the `iteratee`\n * calls. Invoked with (err, results).\n * @example\n *\n * async.sortBy(['file1','file2','file3'], function(file, callback) {\n *     fs.stat(file, function(err, stats) {\n *         callback(err, stats.mtime);\n *     });\n * }, function(err, results) {\n *     // results is now the original array of files sorted by\n *     // modified date\n * });\n *\n * // By modifying the callback parameter the\n * // sorting order can be influenced:\n *\n * // ascending order\n * async.sortBy([1,9,3,5], function(x, callback) {\n *     callback(null, x);\n * }, function(err,result) {\n *     // result callback\n * });\n *\n * // descending order\n * async.sortBy([1,9,3,5], function(x, callback) {\n *     callback(null, x*-1);    //<- x*-1 instead of x, turns the order around\n * }, function(err,result) {\n *     // result callback\n * });\n */\nfunction sortBy (coll, iteratee, callback) {\n    var _iteratee = wrapAsync(iteratee);\n    map(coll, function (x, callback) {\n        _iteratee(x, function (err, criteria) {\n            if (err) return callback(err);\n            callback(null, {value: x, criteria: criteria});\n        });\n    }, function (err, results) {\n        if (err) return callback(err);\n        callback(null, arrayMap(results.sort(comparator), baseProperty('value')));\n    });\n\n    function comparator(left, right) {\n        var a = left.criteria, b = right.criteria;\n        return a < b ? -1 : a > b ? 1 : 0;\n    }\n}\n\n/**\n * Sets a time limit on an asynchronous function. If the function does not call\n * its callback within the specified milliseconds, it will be called with a\n * timeout error. The code property for the error object will be `'ETIMEDOUT'`.\n *\n * @name timeout\n * @static\n * @memberOf module:Utils\n * @method\n * @category Util\n * @param {AsyncFunction} asyncFn - The async function to limit in time.\n * @param {number} milliseconds - The specified time limit.\n * @param {*} [info] - Any variable you want attached (`string`, `object`, etc)\n * to timeout Error for more information..\n * @returns {AsyncFunction} Returns a wrapped function that can be used with any\n * of the control flow functions.\n * Invoke this function with the same parameters as you would `asyncFunc`.\n * @example\n *\n * function myFunction(foo, callback) {\n *     doAsyncTask(foo, function(err, data) {\n *         // handle errors\n *         if (err) return callback(err);\n *\n *         // do some stuff ...\n *\n *         // return processed data\n *         return callback(null, data);\n *     });\n * }\n *\n * var wrapped = async.timeout(myFunction, 1000);\n *\n * // call `wrapped` as you would `myFunction`\n * wrapped({ bar: 'bar' }, function(err, data) {\n *     // if `myFunction` takes < 1000 ms to execute, `err`\n *     // and `data` will have their expected values\n *\n *     // else `err` will be an Error with the code 'ETIMEDOUT'\n * });\n */\nfunction timeout(asyncFn, milliseconds, info) {\n    var fn = wrapAsync(asyncFn);\n\n    return initialParams(function (args, callback) {\n        var timedOut = false;\n        var timer;\n\n        function timeoutCallback() {\n            var name = asyncFn.name || 'anonymous';\n            var error  = new Error('Callback function \"' + name + '\" timed out.');\n            error.code = 'ETIMEDOUT';\n            if (info) {\n                error.info = info;\n            }\n            timedOut = true;\n            callback(error);\n        }\n\n        args.push(function () {\n            if (!timedOut) {\n                callback.apply(null, arguments);\n                clearTimeout(timer);\n            }\n        });\n\n        // setup timer and call original function\n        timer = setTimeout(timeoutCallback, milliseconds);\n        fn.apply(null, args);\n    });\n}\n\n/* Built-in method references for those with the same name as other `lodash` methods. */\nvar nativeCeil = Math.ceil;\nvar nativeMax = Math.max;\n\n/**\n * The base implementation of `_.range` and `_.rangeRight` which doesn't\n * coerce arguments.\n *\n * @private\n * @param {number} start The start of the range.\n * @param {number} end The end of the range.\n * @param {number} step The value to increment or decrement by.\n * @param {boolean} [fromRight] Specify iterating from right to left.\n * @returns {Array} Returns the range of numbers.\n */\nfunction baseRange(start, end, step, fromRight) {\n  var index = -1,\n      length = nativeMax(nativeCeil((end - start) / (step || 1)), 0),\n      result = Array(length);\n\n  while (length--) {\n    result[fromRight ? length : ++index] = start;\n    start += step;\n  }\n  return result;\n}\n\n/**\n * The same as [times]{@link module:ControlFlow.times} but runs a maximum of `limit` async operations at a\n * time.\n *\n * @name timesLimit\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.times]{@link module:ControlFlow.times}\n * @category Control Flow\n * @param {number} count - The number of times to run the function.\n * @param {number} limit - The maximum number of async operations at a time.\n * @param {AsyncFunction} iteratee - The async function to call `n` times.\n * Invoked with the iteration index and a callback: (n, next).\n * @param {Function} callback - see [async.map]{@link module:Collections.map}.\n */\nfunction timeLimit(count, limit, iteratee, callback) {\n    var _iteratee = wrapAsync(iteratee);\n    mapLimit(baseRange(0, count, 1), limit, _iteratee, callback);\n}\n\n/**\n * Calls the `iteratee` function `n` times, and accumulates results in the same\n * manner you would use with [map]{@link module:Collections.map}.\n *\n * @name times\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.map]{@link module:Collections.map}\n * @category Control Flow\n * @param {number} n - The number of times to run the function.\n * @param {AsyncFunction} iteratee - The async function to call `n` times.\n * Invoked with the iteration index and a callback: (n, next).\n * @param {Function} callback - see {@link module:Collections.map}.\n * @example\n *\n * // Pretend this is some complicated async factory\n * var createUser = function(id, callback) {\n *     callback(null, {\n *         id: 'user' + id\n *     });\n * };\n *\n * // generate 5 users\n * async.times(5, function(n, next) {\n *     createUser(n, function(err, user) {\n *         next(err, user);\n *     });\n * }, function(err, users) {\n *     // we should now have 5 users\n * });\n */\nvar times = doLimit(timeLimit, Infinity);\n\n/**\n * The same as [times]{@link module:ControlFlow.times} but runs only a single async operation at a time.\n *\n * @name timesSeries\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.times]{@link module:ControlFlow.times}\n * @category Control Flow\n * @param {number} n - The number of times to run the function.\n * @param {AsyncFunction} iteratee - The async function to call `n` times.\n * Invoked with the iteration index and a callback: (n, next).\n * @param {Function} callback - see {@link module:Collections.map}.\n */\nvar timesSeries = doLimit(timeLimit, 1);\n\n/**\n * A relative of `reduce`.  Takes an Object or Array, and iterates over each\n * element in series, each step potentially mutating an `accumulator` value.\n * The type of the accumulator defaults to the type of collection passed in.\n *\n * @name transform\n * @static\n * @memberOf module:Collections\n * @method\n * @category Collection\n * @param {Array|Iterable|Object} coll - A collection to iterate over.\n * @param {*} [accumulator] - The initial state of the transform.  If omitted,\n * it will default to an empty Object or Array, depending on the type of `coll`\n * @param {AsyncFunction} iteratee - A function applied to each item in the\n * collection that potentially modifies the accumulator.\n * Invoked with (accumulator, item, key, callback).\n * @param {Function} [callback] - A callback which is called after all the\n * `iteratee` functions have finished. Result is the transformed accumulator.\n * Invoked with (err, result).\n * @example\n *\n * async.transform([1,2,3], function(acc, item, index, callback) {\n *     // pointless async:\n *     process.nextTick(function() {\n *         acc.push(item * 2)\n *         callback(null)\n *     });\n * }, function(err, result) {\n *     // result is now equal to [2, 4, 6]\n * });\n *\n * @example\n *\n * async.transform({a: 1, b: 2, c: 3}, function (obj, val, key, callback) {\n *     setImmediate(function () {\n *         obj[key] = val * 2;\n *         callback();\n *     })\n * }, function (err, result) {\n *     // result is equal to {a: 2, b: 4, c: 6}\n * })\n */\nfunction transform (coll, accumulator, iteratee, callback) {\n    if (arguments.length <= 3) {\n        callback = iteratee;\n        iteratee = accumulator;\n        accumulator = isArray(coll) ? [] : {};\n    }\n    callback = once(callback || noop);\n    var _iteratee = wrapAsync(iteratee);\n\n    eachOf(coll, function(v, k, cb) {\n        _iteratee(accumulator, v, k, cb);\n    }, function(err) {\n        callback(err, accumulator);\n    });\n}\n\n/**\n * It runs each task in series but stops whenever any of the functions were\n * successful. If one of the tasks were successful, the `callback` will be\n * passed the result of the successful task. If all tasks fail, the callback\n * will be passed the error and result (if any) of the final attempt.\n *\n * @name tryEach\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Array|Iterable|Object} tasks - A collection containing functions to\n * run, each function is passed a `callback(err, result)` it must call on\n * completion with an error `err` (which can be `null`) and an optional `result`\n * value.\n * @param {Function} [callback] - An optional callback which is called when one\n * of the tasks has succeeded, or all have failed. It receives the `err` and\n * `result` arguments of the last attempt at completing the `task`. Invoked with\n * (err, results).\n * @example\n * async.tryEach([\n *     function getDataFromFirstWebsite(callback) {\n *         // Try getting the data from the first website\n *         callback(err, data);\n *     },\n *     function getDataFromSecondWebsite(callback) {\n *         // First website failed,\n *         // Try getting the data from the backup website\n *         callback(err, data);\n *     }\n * ],\n * // optional callback\n * function(err, results) {\n *     Now do something with the data.\n * });\n *\n */\nfunction tryEach(tasks, callback) {\n    var error = null;\n    var result;\n    callback = callback || noop;\n    eachSeries(tasks, function(task, callback) {\n        wrapAsync(task)(function (err, res/*, ...args*/) {\n            if (arguments.length > 2) {\n                result = slice(arguments, 1);\n            } else {\n                result = res;\n            }\n            error = err;\n            callback(!err);\n        });\n    }, function () {\n        callback(error, result);\n    });\n}\n\n/**\n * Undoes a [memoize]{@link module:Utils.memoize}d function, reverting it to the original,\n * unmemoized form. Handy for testing.\n *\n * @name unmemoize\n * @static\n * @memberOf module:Utils\n * @method\n * @see [async.memoize]{@link module:Utils.memoize}\n * @category Util\n * @param {AsyncFunction} fn - the memoized function\n * @returns {AsyncFunction} a function that calls the original unmemoized function\n */\nfunction unmemoize(fn) {\n    return function () {\n        return (fn.unmemoized || fn).apply(null, arguments);\n    };\n}\n\n/**\n * Repeatedly call `iteratee`, while `test` returns `true`. Calls `callback` when\n * stopped, or an error occurs.\n *\n * @name whilst\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Function} test - synchronous truth test to perform before each\n * execution of `iteratee`. Invoked with ().\n * @param {AsyncFunction} iteratee - An async function which is called each time\n * `test` passes. Invoked with (callback).\n * @param {Function} [callback] - A callback which is called after the test\n * function has failed and repeated execution of `iteratee` has stopped. `callback`\n * will be passed an error and any arguments passed to the final `iteratee`'s\n * callback. Invoked with (err, [results]);\n * @returns undefined\n * @example\n *\n * var count = 0;\n * async.whilst(\n *     function() { return count < 5; },\n *     function(callback) {\n *         count++;\n *         setTimeout(function() {\n *             callback(null, count);\n *         }, 1000);\n *     },\n *     function (err, n) {\n *         // 5 seconds have passed, n = 5\n *     }\n * );\n */\nfunction whilst(test, iteratee, callback) {\n    callback = onlyOnce(callback || noop);\n    var _iteratee = wrapAsync(iteratee);\n    if (!test()) return callback(null);\n    var next = function(err/*, ...args*/) {\n        if (err) return callback(err);\n        if (test()) return _iteratee(next);\n        var args = slice(arguments, 1);\n        callback.apply(null, [null].concat(args));\n    };\n    _iteratee(next);\n}\n\n/**\n * Repeatedly call `iteratee` until `test` returns `true`. Calls `callback` when\n * stopped, or an error occurs. `callback` will be passed an error and any\n * arguments passed to the final `iteratee`'s callback.\n *\n * The inverse of [whilst]{@link module:ControlFlow.whilst}.\n *\n * @name until\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @see [async.whilst]{@link module:ControlFlow.whilst}\n * @category Control Flow\n * @param {Function} test - synchronous truth test to perform before each\n * execution of `iteratee`. Invoked with ().\n * @param {AsyncFunction} iteratee - An async function which is called each time\n * `test` fails. Invoked with (callback).\n * @param {Function} [callback] - A callback which is called after the test\n * function has passed and repeated execution of `iteratee` has stopped. `callback`\n * will be passed an error and any arguments passed to the final `iteratee`'s\n * callback. Invoked with (err, [results]);\n */\nfunction until(test, iteratee, callback) {\n    whilst(function() {\n        return !test.apply(this, arguments);\n    }, iteratee, callback);\n}\n\n/**\n * Runs the `tasks` array of functions in series, each passing their results to\n * the next in the array. However, if any of the `tasks` pass an error to their\n * own callback, the next function is not executed, and the main `callback` is\n * immediately called with the error.\n *\n * @name waterfall\n * @static\n * @memberOf module:ControlFlow\n * @method\n * @category Control Flow\n * @param {Array} tasks - An array of [async functions]{@link AsyncFunction}\n * to run.\n * Each function should complete with any number of `result` values.\n * The `result` values will be passed as arguments, in order, to the next task.\n * @param {Function} [callback] - An optional callback to run once all the\n * functions have completed. This will be passed the results of the last task's\n * callback. Invoked with (err, [results]).\n * @returns undefined\n * @example\n *\n * async.waterfall([\n *     function(callback) {\n *         callback(null, 'one', 'two');\n *     },\n *     function(arg1, arg2, callback) {\n *         // arg1 now equals 'one' and arg2 now equals 'two'\n *         callback(null, 'three');\n *     },\n *     function(arg1, callback) {\n *         // arg1 now equals 'three'\n *         callback(null, 'done');\n *     }\n * ], function (err, result) {\n *     // result now equals 'done'\n * });\n *\n * // Or, with named functions:\n * async.waterfall([\n *     myFirstFunction,\n *     mySecondFunction,\n *     myLastFunction,\n * ], function (err, result) {\n *     // result now equals 'done'\n * });\n * function myFirstFunction(callback) {\n *     callback(null, 'one', 'two');\n * }\n * function mySecondFunction(arg1, arg2, callback) {\n *     // arg1 now equals 'one' and arg2 now equals 'two'\n *     callback(null, 'three');\n * }\n * function myLastFunction(arg1, callback) {\n *     // arg1 now equals 'three'\n *     callback(null, 'done');\n * }\n */\nvar waterfall = function(tasks, callback) {\n    callback = once(callback || noop);\n    if (!isArray(tasks)) return callback(new Error('First argument to waterfall must be an array of functions'));\n    if (!tasks.length) return callback();\n    var taskIndex = 0;\n\n    function nextTask(args) {\n        var task = wrapAsync(tasks[taskIndex++]);\n        args.push(onlyOnce(next));\n        task.apply(null, args);\n    }\n\n    function next(err/*, ...args*/) {\n        if (err || taskIndex === tasks.length) {\n            return callback.apply(null, arguments);\n        }\n        nextTask(slice(arguments, 1));\n    }\n\n    nextTask([]);\n};\n\n/**\n * An \"async function\" in the context of Async is an asynchronous function with\n * a variable number of parameters, with the final parameter being a callback.\n * (`function (arg1, arg2, ..., callback) {}`)\n * The final callback is of the form `callback(err, results...)`, which must be\n * called once the function is completed.  The callback should be called with a\n * Error as its first argument to signal that an error occurred.\n * Otherwise, if no error occurred, it should be called with `null` as the first\n * argument, and any additional `result` arguments that may apply, to signal\n * successful completion.\n * The callback must be called exactly once, ideally on a later tick of the\n * JavaScript event loop.\n *\n * This type of function is also referred to as a \"Node-style async function\",\n * or a \"continuation passing-style function\" (CPS). Most of the methods of this\n * library are themselves CPS/Node-style async functions, or functions that\n * return CPS/Node-style async functions.\n *\n * Wherever we accept a Node-style async function, we also directly accept an\n * [ES2017 `async` function]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function}.\n * In this case, the `async` function will not be passed a final callback\n * argument, and any thrown error will be used as the `err` argument of the\n * implicit callback, and the return value will be used as the `result` value.\n * (i.e. a `rejected` of the returned Promise becomes the `err` callback\n * argument, and a `resolved` value becomes the `result`.)\n *\n * Note, due to JavaScript limitations, we can only detect native `async`\n * functions and not transpilied implementations.\n * Your environment must have `async`/`await` support for this to work.\n * (e.g. Node > v7.6, or a recent version of a modern browser).\n * If you are using `async` functions through a transpiler (e.g. Babel), you\n * must still wrap the function with [asyncify]{@link module:Utils.asyncify},\n * because the `async function` will be compiled to an ordinary function that\n * returns a promise.\n *\n * @typedef {Function} AsyncFunction\n * @static\n */\n\n/**\n * Async is a utility module which provides straight-forward, powerful functions\n * for working with asynchronous JavaScript. Although originally designed for\n * use with [Node.js](http://nodejs.org) and installable via\n * `npm install --save async`, it can also be used directly in the browser.\n * @module async\n * @see AsyncFunction\n */\n\n\n/**\n * A collection of `async` functions for manipulating collections, such as\n * arrays and objects.\n * @module Collections\n */\n\n/**\n * A collection of `async` functions for controlling the flow through a script.\n * @module ControlFlow\n */\n\n/**\n * A collection of `async` utility functions.\n * @module Utils\n */\n\nvar index = {\n    apply: apply,\n    applyEach: applyEach,\n    applyEachSeries: applyEachSeries,\n    asyncify: asyncify,\n    auto: auto,\n    autoInject: autoInject,\n    cargo: cargo,\n    compose: compose,\n    concat: concat,\n    concatLimit: concatLimit,\n    concatSeries: concatSeries,\n    constant: constant,\n    detect: detect,\n    detectLimit: detectLimit,\n    detectSeries: detectSeries,\n    dir: dir,\n    doDuring: doDuring,\n    doUntil: doUntil,\n    doWhilst: doWhilst,\n    during: during,\n    each: eachLimit,\n    eachLimit: eachLimit$1,\n    eachOf: eachOf,\n    eachOfLimit: eachOfLimit,\n    eachOfSeries: eachOfSeries,\n    eachSeries: eachSeries,\n    ensureAsync: ensureAsync,\n    every: every,\n    everyLimit: everyLimit,\n    everySeries: everySeries,\n    filter: filter,\n    filterLimit: filterLimit,\n    filterSeries: filterSeries,\n    forever: forever,\n    groupBy: groupBy,\n    groupByLimit: groupByLimit,\n    groupBySeries: groupBySeries,\n    log: log,\n    map: map,\n    mapLimit: mapLimit,\n    mapSeries: mapSeries,\n    mapValues: mapValues,\n    mapValuesLimit: mapValuesLimit,\n    mapValuesSeries: mapValuesSeries,\n    memoize: memoize,\n    nextTick: nextTick,\n    parallel: parallelLimit,\n    parallelLimit: parallelLimit$1,\n    priorityQueue: priorityQueue,\n    queue: queue$1,\n    race: race,\n    reduce: reduce,\n    reduceRight: reduceRight,\n    reflect: reflect,\n    reflectAll: reflectAll,\n    reject: reject,\n    rejectLimit: rejectLimit,\n    rejectSeries: rejectSeries,\n    retry: retry,\n    retryable: retryable,\n    seq: seq,\n    series: series,\n    setImmediate: setImmediate$1,\n    some: some,\n    someLimit: someLimit,\n    someSeries: someSeries,\n    sortBy: sortBy,\n    timeout: timeout,\n    times: times,\n    timesLimit: timeLimit,\n    timesSeries: timesSeries,\n    transform: transform,\n    tryEach: tryEach,\n    unmemoize: unmemoize,\n    until: until,\n    waterfall: waterfall,\n    whilst: whilst,\n\n    // aliases\n    all: every,\n    allLimit: everyLimit,\n    allSeries: everySeries,\n    any: some,\n    anyLimit: someLimit,\n    anySeries: someSeries,\n    find: detect,\n    findLimit: detectLimit,\n    findSeries: detectSeries,\n    forEach: eachLimit,\n    forEachSeries: eachSeries,\n    forEachLimit: eachLimit$1,\n    forEachOf: eachOf,\n    forEachOfSeries: eachOfSeries,\n    forEachOfLimit: eachOfLimit,\n    inject: reduce,\n    foldl: reduce,\n    foldr: reduceRight,\n    select: filter,\n    selectLimit: filterLimit,\n    selectSeries: filterSeries,\n    wrapSync: asyncify\n};\n\nexports['default'] = index;\nexports.apply = apply;\nexports.applyEach = applyEach;\nexports.applyEachSeries = applyEachSeries;\nexports.asyncify = asyncify;\nexports.auto = auto;\nexports.autoInject = autoInject;\nexports.cargo = cargo;\nexports.compose = compose;\nexports.concat = concat;\nexports.concatLimit = concatLimit;\nexports.concatSeries = concatSeries;\nexports.constant = constant;\nexports.detect = detect;\nexports.detectLimit = detectLimit;\nexports.detectSeries = detectSeries;\nexports.dir = dir;\nexports.doDuring = doDuring;\nexports.doUntil = doUntil;\nexports.doWhilst = doWhilst;\nexports.during = during;\nexports.each = eachLimit;\nexports.eachLimit = eachLimit$1;\nexports.eachOf = eachOf;\nexports.eachOfLimit = eachOfLimit;\nexports.eachOfSeries = eachOfSeries;\nexports.eachSeries = eachSeries;\nexports.ensureAsync = ensureAsync;\nexports.every = every;\nexports.everyLimit = everyLimit;\nexports.everySeries = everySeries;\nexports.filter = filter;\nexports.filterLimit = filterLimit;\nexports.filterSeries = filterSeries;\nexports.forever = forever;\nexports.groupBy = groupBy;\nexports.groupByLimit = groupByLimit;\nexports.groupBySeries = groupBySeries;\nexports.log = log;\nexports.map = map;\nexports.mapLimit = mapLimit;\nexports.mapSeries = mapSeries;\nexports.mapValues = mapValues;\nexports.mapValuesLimit = mapValuesLimit;\nexports.mapValuesSeries = mapValuesSeries;\nexports.memoize = memoize;\nexports.nextTick = nextTick;\nexports.parallel = parallelLimit;\nexports.parallelLimit = parallelLimit$1;\nexports.priorityQueue = priorityQueue;\nexports.queue = queue$1;\nexports.race = race;\nexports.reduce = reduce;\nexports.reduceRight = reduceRight;\nexports.reflect = reflect;\nexports.reflectAll = reflectAll;\nexports.reject = reject;\nexports.rejectLimit = rejectLimit;\nexports.rejectSeries = rejectSeries;\nexports.retry = retry;\nexports.retryable = retryable;\nexports.seq = seq;\nexports.series = series;\nexports.setImmediate = setImmediate$1;\nexports.some = some;\nexports.someLimit = someLimit;\nexports.someSeries = someSeries;\nexports.sortBy = sortBy;\nexports.timeout = timeout;\nexports.times = times;\nexports.timesLimit = timeLimit;\nexports.timesSeries = timesSeries;\nexports.transform = transform;\nexports.tryEach = tryEach;\nexports.unmemoize = unmemoize;\nexports.until = until;\nexports.waterfall = waterfall;\nexports.whilst = whilst;\nexports.all = every;\nexports.allLimit = everyLimit;\nexports.allSeries = everySeries;\nexports.any = some;\nexports.anyLimit = someLimit;\nexports.anySeries = someSeries;\nexports.find = detect;\nexports.findLimit = detectLimit;\nexports.findSeries = detectSeries;\nexports.forEach = eachLimit;\nexports.forEachSeries = eachSeries;\nexports.forEachLimit = eachLimit$1;\nexports.forEachOf = eachOf;\nexports.forEachOfSeries = eachOfSeries;\nexports.forEachOfLimit = eachOfLimit;\nexports.inject = reduce;\nexports.foldl = reduce;\nexports.foldr = reduceRight;\nexports.select = filter;\nexports.selectLimit = filterLimit;\nexports.selectSeries = filterSeries;\nexports.wrapSync = asyncify;\n\nObject.defineProperty(exports, '__esModule', { value: true });\n\n})));\n\n/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(5)(module)))\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly8vLi9hcHAvfi9hc3luYy9kaXN0L2FzeW5jLmpzPzlkYjAiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUE7QUFDQSxFQUFFLEtBQTREO0FBQzlEO0FBQ0EsNkNBQTZDO0FBQzdDLENBQUMsNEJBQTRCOztBQUU3QjtBQUNBO0FBQ0E7QUFDQTtBQUNBLG9CQUFvQixjQUFjO0FBQ2xDO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFdBQVcsU0FBUztBQUNwQjtBQUNBLFdBQVcsS0FBSztBQUNoQjtBQUNBLGFBQWEsU0FBUztBQUN0QjtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFFBQVE7QUFDUjtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsV0FBVyxFQUFFO0FBQ2IsYUFBYSxRQUFRO0FBQ3JCO0FBQ0E7QUFDQSxnQkFBZ0I7QUFDaEI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxTQUFTO0FBQ1Q7QUFDQTs7QUFFQTs7QUFFQTtBQUNBO0FBQ0EsQ0FBQztBQUNEO0FBQ0EsQ0FBQztBQUNEO0FBQ0E7O0FBRUE7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLFNBQVM7QUFDcEIsOEJBQThCLG9CQUFvQjtBQUNsRCxhQUFhLGNBQWM7QUFDM0I7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsUUFBUTtBQUNSO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxJQUFJO0FBQ0o7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFNBQVM7QUFDVDtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxhQUFhO0FBQ2I7QUFDQSxhQUFhO0FBQ2IsU0FBUztBQUNUO0FBQ0E7QUFDQSxLQUFLO0FBQ0w7O0FBRUE7QUFDQTtBQUNBO0FBQ0EsS0FBSztBQUNMO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7O0FBRUE7O0FBRUE7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLGFBQWE7QUFDYixTQUFTO0FBQ1Q7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFdBQVcsRUFBRTtBQUNiLGFBQWEsT0FBTztBQUNwQjtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQSxHQUFHOztBQUVIO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsS0FBSztBQUNMO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLE9BQU87QUFDcEI7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLE9BQU87QUFDcEI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsV0FBVyxFQUFFO0FBQ2IsYUFBYSxRQUFRO0FBQ3JCO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7O0FBRUE7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLE9BQU87QUFDbEIsV0FBVyxTQUFTO0FBQ3BCLGFBQWEsTUFBTTtBQUNuQjtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBLG9CQUFvQjtBQUNwQjtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBO0FBQ0EsNkJBQTZCLGtCQUFrQixFQUFFO0FBQ2pEO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSw4Q0FBOEMsa0JBQWtCLEVBQUU7QUFDbEU7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsV0FBVyxFQUFFO0FBQ2IsYUFBYSxRQUFRO0FBQ3JCO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLGFBQWEsUUFBUTtBQUNyQjtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFdBQVcsRUFBRTtBQUNiLGFBQWEsUUFBUTtBQUNyQjtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsV0FBVyxFQUFFO0FBQ2IsV0FBVyxPQUFPO0FBQ2xCLGFBQWEsUUFBUTtBQUNyQjtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFdBQVcsU0FBUztBQUNwQixhQUFhLFNBQVM7QUFDdEI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBLEdBQUc7QUFDSCxDQUFDOztBQUVEO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLEVBQUU7QUFDYixhQUFhLFFBQVE7QUFDckI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLFdBQVcsRUFBRTtBQUNiLFdBQVcsUUFBUTtBQUNuQixhQUFhLE1BQU07QUFDbkI7QUFDQTtBQUNBO0FBQ0E7QUFD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REFBb0Qsb0JBQW9CO0FBQzFGO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxXQUFXLFNBQVM7QUFDcEI7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQSxRQUFRO0FBQ1I7QUFDQTtBQUNBO0FBQ0E7QUFDQSxRQUFRO0FBQ1I7QUFDQTtBQUNBO0FBQ0E7QUFDQSxRQUFRO0FBQ1I7QUFDQTtBQUNBO0FBQ0EsMkJBQTJCLDhDQUE4QztBQUN6RTtBQUNBLElBQUk7QUFDSjtBQUNBO0FBQ0EsSUFBSTtBQUNKO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsUUFBUTtBQUNSO0FBQ0EsMkJBQTJCLDhDQUE4QztBQUN6RSxRQUFRO0FBQ1I7QUFDQSxJQUFJO0FBQ0o7QUFDQTtBQUNBLElBQUk7QUFDSjtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBLFNBQVM7QUFDVDtBQUNBO0FBQ0EsU0FBUztBQUNUO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7O0FBRUE7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQSxhQUFhO0FBQ2I7QUFDQTtBQUNBO0FBQ0EsS0FBSzs7QUFFTDtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTs7QUFFQTtB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QTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsNkJBQTZCLGtHQUFrRztBQUMvSDtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsZ0RBQWdELDRCQUE0QjtBQUM1RTtBQUNBO0FBQ0E7QUFDQSxhQUFhLFNBQVM7QUFDdEI7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOzs7QUFHQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBOztBQUVBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7QUFFQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7O0FBRUEsOENBQThDLGNBQWM7O0FBRTVELENBQUMiLCJmaWxlIjoiMC5qcyIsInNvdXJjZXNDb250ZW50IjpbIihmdW5jdGlvbiAoZ2xvYmFsLCBmYWN0b3J5KSB7XG4gIHR5cGVvZiBleHBvcnRzID09PSAnb2JqZWN0JyAmJiB0eXBlb2YgbW9kdWxlICE9PSAndW5kZWZpbmVkJyA/IGZhY3RvcnkoZXhwb3J0cykgOlxuICB0eXBlb2YgZGVmaW5lID09PSAnZnVuY3Rpb24nICYmIGRlZmluZS5hbWQgPyBkZWZpbmUoWydleHBvcnRzJ10sIGZhY3RvcnkpIDpcbiAgKGZhY3RvcnkoKGdsb2JhbC5hc3luYyA9IGdsb2JhbC5hc3luYyB8fCB7fSkpKTtcbn0odGhpcywgKGZ1bmN0aW9uIChleHBvcnRzKSB7ICd1c2Ugc3RyaWN0JztcblxuZnVuY3Rpb24gc2xpY2UoYXJyYXlMaWtlLCBzdGFydCkge1xuICAgIHN0YXJ0ID0gc3RhcnR8MDtcbiAgICB2YXIgbmV3TGVuID0gTWF0aC5tYXgoYXJyYXlMaWtlLmxlbmd0aCAtIHN0YXJ0LCAwKTtcbiAgICB2YXIgbmV3QXJyID0gQXJyYXkobmV3TGVuKTtcbiAgICBmb3IodmFyIGlkeCA9IDA7IGlkeCA8IG5ld0xlbjsgaWR4KyspICB7XG4gICAgICAgIG5ld0FycltpZHhdID0gYXJyYXlMaWtlW3N0YXJ0ICsgaWR4XTtcbiAgICB9XG4gICAgcmV0dXJuIG5ld0Fycjtcbn1cblxuLyoqXG4gKiBDcmVhdGVzIGEgY29udGludWF0aW9uIGZ1bmN0aW9uIHdpdGggc29tZSBhcmd1bWVudHMgYWxyZWFkeSBhcHBsaWVkLlxuICpcbiAqIFVzZWZ1bCBhcyBhIHNob3J0aGFuZCB3aGVuIGNvbWJpbmVkIHdpdGggb3RoZXIgY29udHJvbCBmbG93IGZ1bmN0aW9ucy4gQW55XG4gKiBhcmd1bWVudHMgcGFzc2VkIHRvIHRoZSByZXR1cm5lZCBmdW5jdGlvbiBhcmUgYWRkZWQgdG8gdGhlIGFyZ3VtZW50c1xuICogb3JpZ2luYWxseSBwYXNzZWQgdG8gYXBwbHkuXG4gKlxuICogQG5hbWUgYXBwbHlcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6VXRpbHNcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBmbiAtIFRoZSBmdW5jdGlvbiB5b3Ugd2FudCB0byBldmVudHVhbGx5IGFwcGx5IGFsbFxuICogYXJndW1lbnRzIHRvLiBJbnZva2VzIHdpdGggKGFyZ3VtZW50cy4uLikuXG4gKiBAcGFyYW0gey4uLip9IGFyZ3VtZW50cy4uLiAtIEFueSBudW1iZXIgb2YgYXJndW1lbnRzIHRvIGF1dG9tYXRpY2FsbHkgYXBwbHlcbiAqIHdoZW4gdGhlIGNvbnRpbnVhdGlvbiBpcyBjYWxsZWQuXG4gKiBAcmV0dXJucyB7RnVuY3Rpb259IHRoZSBwYXJ0aWFsbHktYXBwbGllZCBmdW5jdGlvblxuICogQGV4YW1wbGVcbiAqXG4gKiAvLyB1c2luZyBhcHBseVxuICogYXN5bmMucGFyYWxsZWwoW1xuICogICAgIGFzeW5jLmFwcGx5KGZzLndyaXRlRmlsZSwgJ3Rlc3RmaWxlMScsICd0ZXN0MScpLFxuICogICAgIGFzeW5jLmFwcGx5KGZzLndyaXRlRmlsZSwgJ3Rlc3RmaWxlMicsICd0ZXN0MicpXG4gKiBdKTtcbiAqXG4gKlxuICogLy8gdGhlIHNhbWUgcHJvY2VzcyB3aXRob3V0IHVzaW5nIGFwcGx5XG4gKiBhc3luYy5wYXJhbGxlbChbXG4gKiAgICAgZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgZnMud3JpdGVGaWxlKCd0ZXN0ZmlsZTEnLCAndGVzdDEnLCBjYWxsYmFjayk7XG4gKiAgICAgfSxcbiAqICAgICBmdW5jdGlvbihjYWxsYmFjaykge1xuICogICAgICAgICBmcy53cml0ZUZpbGUoJ3Rlc3RmaWxlMicsICd0ZXN0MicsIGNhbGxiYWNrKTtcbiAqICAgICB9XG4gKiBdKTtcbiAqXG4gKiAvLyBJdCdzIHBvc3NpYmxlIHRvIHBhc3MgYW55IG51bWJlciBvZiBhZGRpdGlvbmFsIGFyZ3VtZW50cyB3aGVuIGNhbGxpbmcgdGhlXG4gKiAvLyBjb250aW51YXRpb246XG4gKlxuICogbm9kZT4gdmFyIGZuID0gYXN5bmMuYXBwbHkoc3lzLnB1dHMsICdvbmUnKTtcbiAqIG5vZGU+IGZuKCd0d28nLCAndGhyZWUnKTtcbiAqIG9uZVxuICogdHdvXG4gKiB0aHJlZVxuICovXG52YXIgYXBwbHkgPSBmdW5jdGlvbihmbi8qLCAuLi5hcmdzKi8pIHtcbiAgICB2YXIgYXJncyA9IHNsaWNlKGFyZ3VtZW50cywgMSk7XG4gICAgcmV0dXJuIGZ1bmN0aW9uKC8qY2FsbEFyZ3MqLykge1xuICAgICAgICB2YXIgY2FsbEFyZ3MgPSBzbGljZShhcmd1bWVudHMpO1xuICAgICAgICByZXR1cm4gZm4uYXBwbHkobnVsbCwgYXJncy5jb25jYXQoY2FsbEFyZ3MpKTtcbiAgICB9O1xufTtcblxudmFyIGluaXRpYWxQYXJhbXMgPSBmdW5jdGlvbiAoZm4pIHtcbiAgICByZXR1cm4gZnVuY3Rpb24gKC8qLi4uYXJncywgY2FsbGJhY2sqLykge1xuICAgICAgICB2YXIgYXJncyA9IHNsaWNlKGFyZ3VtZW50cyk7XG4gICAgICAgIHZhciBjYWxsYmFjayA9IGFyZ3MucG9wKCk7XG4gICAgICAgIGZuLmNhbGwodGhpcywgYXJncywgY2FsbGJhY2spO1xuICAgIH07XG59O1xuXG4vKipcbiAqIENoZWNrcyBpZiBgdmFsdWVgIGlzIHRoZVxuICogW2xhbmd1YWdlIHR5cGVdKGh0dHA6Ly93d3cuZWNtYS1pbnRlcm5hdGlvbmFsLm9yZy9lY21hLTI2Mi83LjAvI3NlYy1lY21hc2NyaXB0LWxhbmd1YWdlLXR5cGVzKVxuICogb2YgYE9iamVjdGAuIChlLmcuIGFycmF5cywgZnVuY3Rpb25zLCBvYmplY3RzLCByZWdleGVzLCBgbmV3IE51bWJlcigwKWAsIGFuZCBgbmV3IFN0cmluZygnJylgKVxuICpcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBfXG4gKiBAc2luY2UgMC4xLjBcbiAqIEBjYXRlZ29yeSBMYW5nXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIGFuIG9iamVjdCwgZWxzZSBgZmFsc2VgLlxuICogQGV4YW1wbGVcbiAqXG4gKiBfLmlzT2JqZWN0KHt9KTtcbiAqIC8vID0+IHRydWVcbiAqXG4gKiBfLmlzT2JqZWN0KFsxLCAyLCAzXSk7XG4gKiAvLyA9PiB0cnVlXG4gKlxuICogXy5pc09iamVjdChfLm5vb3ApO1xuICogLy8gPT4gdHJ1ZVxuICpcbiAqIF8uaXNPYmplY3QobnVsbCk7XG4gKiAvLyA9PiBmYWxzZVxuICovXG5mdW5jdGlvbiBpc09iamVjdCh2YWx1ZSkge1xuICB2YXIgdHlwZSA9IHR5cGVvZiB2YWx1ZTtcbiAgcmV0dXJuIHZhbHVlICE9IG51bGwgJiYgKHR5cGUgPT0gJ29iamVjdCcgfHwgdHlwZSA9PSAnZnVuY3Rpb24nKTtcbn1cblxudmFyIGhhc1NldEltbWVkaWF0ZSA9IHR5cGVvZiBzZXRJbW1lZGlhdGUgPT09ICdmdW5jdGlvbicgJiYgc2V0SW1tZWRpYXRlO1xudmFyIGhhc05leHRUaWNrID0gdHlwZW9mIHByb2Nlc3MgPT09ICdvYmplY3QnICYmIHR5cGVvZiBwcm9jZXNzLm5leHRUaWNrID09PSAnZnVuY3Rpb24nO1xuXG5mdW5jdGlvbiBmYWxsYmFjayhmbikge1xuICAgIHNldFRpbWVvdXQoZm4sIDApO1xufVxuXG5mdW5jdGlvbiB3cmFwKGRlZmVyKSB7XG4gICAgcmV0dXJuIGZ1bmN0aW9uIChmbi8qLCAuLi5hcmdzKi8pIHtcbiAgICAgICAgdmFyIGFyZ3MgPSBzbGljZShhcmd1bWVudHMsIDEpO1xuICAgICAgICBkZWZlcihmdW5jdGlvbiAoKSB7XG4gICAgICAgICAgICBmbi5hcHBseShudWxsLCBhcmdzKTtcbiAgICAgICAgfSk7XG4gICAgfTtcbn1cblxudmFyIF9kZWZlcjtcblxuaWYgKGhhc1NldEltbWVkaWF0ZSkge1xuICAgIF9kZWZlciA9IHNldEltbWVkaWF0ZTtcbn0gZWxzZSBpZiAoaGFzTmV4dFRpY2spIHtcbiAgICBfZGVmZXIgPSBwcm9jZXNzLm5leHRUaWNrO1xufSBlbHNlIHtcbiAgICBfZGVmZXIgPSBmYWxsYmFjaztcbn1cblxudmFyIHNldEltbWVkaWF0ZSQxID0gd3JhcChfZGVmZXIpO1xuXG4vKipcbiAqIFRha2UgYSBzeW5jIGZ1bmN0aW9uIGFuZCBtYWtlIGl0IGFzeW5jLCBwYXNzaW5nIGl0cyByZXR1cm4gdmFsdWUgdG8gYVxuICogY2FsbGJhY2suIFRoaXMgaXMgdXNlZnVsIGZvciBwbHVnZ2luZyBzeW5jIGZ1bmN0aW9ucyBpbnRvIGEgd2F0ZXJmYWxsLFxuICogc2VyaWVzLCBvciBvdGhlciBhc3luYyBmdW5jdGlvbnMuIEFueSBhcmd1bWVudHMgcGFzc2VkIHRvIHRoZSBnZW5lcmF0ZWRcbiAqIGZ1bmN0aW9uIHdpbGwgYmUgcGFzc2VkIHRvIHRoZSB3cmFwcGVkIGZ1bmN0aW9uIChleGNlcHQgZm9yIHRoZSBmaW5hbFxuICogY2FsbGJhY2sgYXJndW1lbnQpLiBFcnJvcnMgdGhyb3duIHdpbGwgYmUgcGFzc2VkIHRvIHRoZSBjYWxsYmFjay5cbiAqXG4gKiBJZiB0aGUgZnVuY3Rpb24gcGFzc2VkIHRvIGBhc3luY2lmeWAgcmV0dXJucyBhIFByb21pc2UsIHRoYXQgcHJvbWlzZXMnc1xuICogcmVzb2x2ZWQvcmVqZWN0ZWQgc3RhdGUgd2lsbCBiZSB1c2VkIHRvIGNhbGwgdGhlIGNhbGxiYWNrLCByYXRoZXIgdGhhbiBzaW1wbHlcbiAqIHRoZSBzeW5jaHJvbm91cyByZXR1cm4gdmFsdWUuXG4gKlxuICogVGhpcyBhbHNvIG1lYW5zIHlvdSBjYW4gYXN5bmNpZnkgRVMyMDE3IGBhc3luY2AgZnVuY3Rpb25zLlxuICpcbiAqIEBuYW1lIGFzeW5jaWZ5XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOlV0aWxzXG4gKiBAbWV0aG9kXG4gKiBAYWxpYXMgd3JhcFN5bmNcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBmdW5jIC0gVGhlIHN5bmNocm9ub3VzIGZ1bmN0aW9uLCBvciBQcm9taXNlLXJldHVybmluZ1xuICogZnVuY3Rpb24gdG8gY29udmVydCB0byBhbiB7QGxpbmsgQXN5bmNGdW5jdGlvbn0uXG4gKiBAcmV0dXJucyB7QXN5bmNGdW5jdGlvbn0gQW4gYXN5bmNocm9ub3VzIHdyYXBwZXIgb2YgdGhlIGBmdW5jYC4gVG8gYmVcbiAqIGludm9rZWQgd2l0aCBgKGFyZ3MuLi4sIGNhbGxiYWNrKWAuXG4gKiBAZXhhbXBsZVxuICpcbiAqIC8vIHBhc3NpbmcgYSByZWd1bGFyIHN5bmNocm9ub3VzIGZ1bmN0aW9uXG4gKiBhc3luYy53YXRlcmZhbGwoW1xuICogICAgIGFzeW5jLmFwcGx5KGZzLnJlYWRGaWxlLCBmaWxlbmFtZSwgXCJ1dGY4XCIpLFxuICogICAgIGFzeW5jLmFzeW5jaWZ5KEpTT04ucGFyc2UpLFxuICogICAgIGZ1bmN0aW9uIChkYXRhLCBuZXh0KSB7XG4gKiAgICAgICAgIC8vIGRhdGEgaXMgdGhlIHJlc3VsdCBvZiBwYXJzaW5nIHRoZSB0ZXh0LlxuICogICAgICAgICAvLyBJZiB0aGVyZSB3YXMgYSBwYXJzaW5nIGVycm9yLCBpdCB3b3VsZCBoYXZlIGJlZW4gY2F1Z2h0LlxuICogICAgIH1cbiAqIF0sIGNhbGxiYWNrKTtcbiAqXG4gKiAvLyBwYXNzaW5nIGEgZnVuY3Rpb24gcmV0dXJuaW5nIGEgcHJvbWlzZVxuICogYXN5bmMud2F0ZXJmYWxsKFtcbiAqICAgICBhc3luYy5hcHBseShmcy5yZWFkRmlsZSwgZmlsZW5hbWUsIFwidXRmOFwiKSxcbiAqICAgICBhc3luYy5hc3luY2lmeShmdW5jdGlvbiAoY29udGVudHMpIHtcbiAqICAgICAgICAgcmV0dXJuIGRiLm1vZGVsLmNyZWF0ZShjb250ZW50cyk7XG4gKiAgICAgfSksXG4gKiAgICAgZnVuY3Rpb24gKG1vZGVsLCBuZXh0KSB7XG4gKiAgICAgICAgIC8vIGBtb2RlbGAgaXMgdGhlIGluc3RhbnRpYXRlZCBtb2RlbCBvYmplY3QuXG4gKiAgICAgICAgIC8vIElmIHRoZXJlIHdhcyBhbiBlcnJvciwgdGhpcyBmdW5jdGlvbiB3b3VsZCBiZSBza2lwcGVkLlxuICogICAgIH1cbiAqIF0sIGNhbGxiYWNrKTtcbiAqXG4gKiAvLyBlczIwMTcgZXhhbXBsZSwgdGhvdWdoIGBhc3luY2lmeWAgaXMgbm90IG5lZWRlZCBpZiB5b3VyIEpTIGVudmlyb25tZW50XG4gKiAvLyBzdXBwb3J0cyBhc3luYyBmdW5jdGlvbnMgb3V0IG9mIHRoZSBib3hcbiAqIHZhciBxID0gYXN5bmMucXVldWUoYXN5bmMuYXN5bmNpZnkoYXN5bmMgZnVuY3Rpb24oZmlsZSkge1xuICogICAgIHZhciBpbnRlcm1lZGlhdGVTdGVwID0gYXdhaXQgcHJvY2Vzc0ZpbGUoZmlsZSk7XG4gKiAgICAgcmV0dXJuIGF3YWl0IHNvbWVQcm9taXNlKGludGVybWVkaWF0ZVN0ZXApXG4gKiB9KSk7XG4gKlxuICogcS5wdXNoKGZpbGVzKTtcbiAqL1xuZnVuY3Rpb24gYXN5bmNpZnkoZnVuYykge1xuICAgIHJldHVybiBpbml0aWFsUGFyYW1zKGZ1bmN0aW9uIChhcmdzLCBjYWxsYmFjaykge1xuICAgICAgICB2YXIgcmVzdWx0O1xuICAgICAgICB0cnkge1xuICAgICAgICAgICAgcmVzdWx0ID0gZnVuYy5hcHBseSh0aGlzLCBhcmdzKTtcbiAgICAgICAgfSBjYXRjaCAoZSkge1xuICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKGUpO1xuICAgICAgICB9XG4gICAgICAgIC8vIGlmIHJlc3VsdCBpcyBQcm9taXNlIG9iamVjdFxuICAgICAgICBpZiAoaXNPYmplY3QocmVzdWx0KSAmJiB0eXBlb2YgcmVzdWx0LnRoZW4gPT09ICdmdW5jdGlvbicpIHtcbiAgICAgICAgICAgIHJlc3VsdC50aGVuKGZ1bmN0aW9uKHZhbHVlKSB7XG4gICAgICAgICAgICAgICAgaW52b2tlQ2FsbGJhY2soY2FsbGJhY2ssIG51bGwsIHZhbHVlKTtcbiAgICAgICAgICAgIH0sIGZ1bmN0aW9uKGVycikge1xuICAgICAgICAgICAgICAgIGludm9rZUNhbGxiYWNrKGNhbGxiYWNrLCBlcnIubWVzc2FnZSA/IGVyciA6IG5ldyBFcnJvcihlcnIpKTtcbiAgICAgICAgICAgIH0pO1xuICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgY2FsbGJhY2sobnVsbCwgcmVzdWx0KTtcbiAgICAgICAgfVxuICAgIH0pO1xufVxuXG5mdW5jdGlvbiBpbnZva2VDYWxsYmFjayhjYWxsYmFjaywgZXJyb3IsIHZhbHVlKSB7XG4gICAgdHJ5IHtcbiAgICAgICAgY2FsbGJhY2soZXJyb3IsIHZhbHVlKTtcbiAgICB9IGNhdGNoIChlKSB7XG4gICAgICAgIHNldEltbWVkaWF0ZSQxKHJldGhyb3csIGUpO1xuICAgIH1cbn1cblxuZnVuY3Rpb24gcmV0aHJvdyhlcnJvcikge1xuICAgIHRocm93IGVycm9yO1xufVxuXG52YXIgc3VwcG9ydHNTeW1ib2wgPSB0eXBlb2YgU3ltYm9sID09PSAnZnVuY3Rpb24nO1xuXG5mdW5jdGlvbiBpc0FzeW5jKGZuKSB7XG4gICAgcmV0dXJuIHN1cHBvcnRzU3ltYm9sICYmIGZuW1N5bWJvbC50b1N0cmluZ1RhZ10gPT09ICdBc3luY0Z1bmN0aW9uJztcbn1cblxuZnVuY3Rpb24gd3JhcEFzeW5jKGFzeW5jRm4pIHtcbiAgICByZXR1cm4gaXNBc3luYyhhc3luY0ZuKSA/IGFzeW5jaWZ5KGFzeW5jRm4pIDogYXN5bmNGbjtcbn1cblxuZnVuY3Rpb24gYXBwbHlFYWNoJDEoZWFjaGZuKSB7XG4gICAgcmV0dXJuIGZ1bmN0aW9uKGZucy8qLCAuLi5hcmdzKi8pIHtcbiAgICAgICAgdmFyIGFyZ3MgPSBzbGljZShhcmd1bWVudHMsIDEpO1xuICAgICAgICB2YXIgZ28gPSBpbml0aWFsUGFyYW1zKGZ1bmN0aW9uKGFyZ3MsIGNhbGxiYWNrKSB7XG4gICAgICAgICAgICB2YXIgdGhhdCA9IHRoaXM7XG4gICAgICAgICAgICByZXR1cm4gZWFjaGZuKGZucywgZnVuY3Rpb24gKGZuLCBjYikge1xuICAgICAgICAgICAgICAgIHdyYXBBc3luYyhmbikuYXBwbHkodGhhdCwgYXJncy5jb25jYXQoY2IpKTtcbiAgICAgICAgICAgIH0sIGNhbGxiYWNrKTtcbiAgICAgICAgfSk7XG4gICAgICAgIGlmIChhcmdzLmxlbmd0aCkge1xuICAgICAgICAgICAgcmV0dXJuIGdvLmFwcGx5KHRoaXMsIGFyZ3MpO1xuICAgICAgICB9XG4gICAgICAgIGVsc2Uge1xuICAgICAgICAgICAgcmV0dXJuIGdvO1xuICAgICAgICB9XG4gICAgfTtcbn1cblxuLyoqIERldGVjdCBmcmVlIHZhcmlhYmxlIGBnbG9iYWxgIGZyb20gTm9kZS5qcy4gKi9cbnZhciBmcmVlR2xvYmFsID0gdHlwZW9mIGdsb2JhbCA9PSAnb2JqZWN0JyAmJiBnbG9iYWwgJiYgZ2xvYmFsLk9iamVjdCA9PT0gT2JqZWN0ICYmIGdsb2JhbDtcblxuLyoqIERldGVjdCBmcmVlIHZhcmlhYmxlIGBzZWxmYC4gKi9cbnZhciBmcmVlU2VsZiA9IHR5cGVvZiBzZWxmID09ICdvYmplY3QnICYmIHNlbGYgJiYgc2VsZi5PYmplY3QgPT09IE9iamVjdCAmJiBzZWxmO1xuXG4vKiogVXNlZCBhcyBhIHJlZmVyZW5jZSB0byB0aGUgZ2xvYmFsIG9iamVjdC4gKi9cbnZhciByb290ID0gZnJlZUdsb2JhbCB8fCBmcmVlU2VsZiB8fCBGdW5jdGlvbigncmV0dXJuIHRoaXMnKSgpO1xuXG4vKiogQnVpbHQtaW4gdmFsdWUgcmVmZXJlbmNlcy4gKi9cbnZhciBTeW1ib2wkMSA9IHJvb3QuU3ltYm9sO1xuXG4vKiogVXNlZCBmb3IgYnVpbHQtaW4gbWV0aG9kIHJlZmVyZW5jZXMuICovXG52YXIgb2JqZWN0UHJvdG8gPSBPYmplY3QucHJvdG90eXBlO1xuXG4vKiogVXNlZCB0byBjaGVjayBvYmplY3RzIGZvciBvd24gcHJvcGVydGllcy4gKi9cbnZhciBoYXNPd25Qcm9wZXJ0eSA9IG9iamVjdFByb3RvLmhhc093blByb3BlcnR5O1xuXG4vKipcbiAqIFVzZWQgdG8gcmVzb2x2ZSB0aGVcbiAqIFtgdG9TdHJpbmdUYWdgXShodHRwOi8vZWNtYS1pbnRlcm5hdGlvbmFsLm9yZy9lY21hLTI2Mi83LjAvI3NlYy1vYmplY3QucHJvdG90eXBlLnRvc3RyaW5nKVxuICogb2YgdmFsdWVzLlxuICovXG52YXIgbmF0aXZlT2JqZWN0VG9TdHJpbmcgPSBvYmplY3RQcm90by50b1N0cmluZztcblxuLyoqIEJ1aWx0LWluIHZhbHVlIHJlZmVyZW5jZXMuICovXG52YXIgc3ltVG9TdHJpbmdUYWckMSA9IFN5bWJvbCQxID8gU3ltYm9sJDEudG9TdHJpbmdUYWcgOiB1bmRlZmluZWQ7XG5cbi8qKlxuICogQSBzcGVjaWFsaXplZCB2ZXJzaW9uIG9mIGBiYXNlR2V0VGFnYCB3aGljaCBpZ25vcmVzIGBTeW1ib2wudG9TdHJpbmdUYWdgIHZhbHVlcy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHsqfSB2YWx1ZSBUaGUgdmFsdWUgdG8gcXVlcnkuXG4gKiBAcmV0dXJucyB7c3RyaW5nfSBSZXR1cm5zIHRoZSByYXcgYHRvU3RyaW5nVGFnYC5cbiAqL1xuZnVuY3Rpb24gZ2V0UmF3VGFnKHZhbHVlKSB7XG4gIHZhciBpc093biA9IGhhc093blByb3BlcnR5LmNhbGwodmFsdWUsIHN5bVRvU3RyaW5nVGFnJDEpLFxuICAgICAgdGFnID0gdmFsdWVbc3ltVG9TdHJpbmdUYWckMV07XG5cbiAgdHJ5IHtcbiAgICB2YWx1ZVtzeW1Ub1N0cmluZ1RhZyQxXSA9IHVuZGVmaW5lZDtcbiAgICB2YXIgdW5tYXNrZWQgPSB0cnVlO1xuICB9IGNhdGNoIChlKSB7fVxuXG4gIHZhciByZXN1bHQgPSBuYXRpdmVPYmplY3RUb1N0cmluZy5jYWxsKHZhbHVlKTtcbiAgaWYgKHVubWFza2VkKSB7XG4gICAgaWYgKGlzT3duKSB7XG4gICAgICB2YWx1ZVtzeW1Ub1N0cmluZ1RhZyQxXSA9IHRhZztcbiAgICB9IGVsc2Uge1xuICAgICAgZGVsZXRlIHZhbHVlW3N5bVRvU3RyaW5nVGFnJDFdO1xuICAgIH1cbiAgfVxuICByZXR1cm4gcmVzdWx0O1xufVxuXG4vKiogVXNlZCBmb3IgYnVpbHQtaW4gbWV0aG9kIHJlZmVyZW5jZXMuICovXG52YXIgb2JqZWN0UHJvdG8kMSA9IE9iamVjdC5wcm90b3R5cGU7XG5cbi8qKlxuICogVXNlZCB0byByZXNvbHZlIHRoZVxuICogW2B0b1N0cmluZ1RhZ2BdKGh0dHA6Ly9lY21hLWludGVybmF0aW9uYWwub3JnL2VjbWEtMjYyLzcuMC8jc2VjLW9iamVjdC5wcm90b3R5cGUudG9zdHJpbmcpXG4gKiBvZiB2YWx1ZXMuXG4gKi9cbnZhciBuYXRpdmVPYmplY3RUb1N0cmluZyQxID0gb2JqZWN0UHJvdG8kMS50b1N0cmluZztcblxuLyoqXG4gKiBDb252ZXJ0cyBgdmFsdWVgIHRvIGEgc3RyaW5nIHVzaW5nIGBPYmplY3QucHJvdG90eXBlLnRvU3RyaW5nYC5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHsqfSB2YWx1ZSBUaGUgdmFsdWUgdG8gY29udmVydC5cbiAqIEByZXR1cm5zIHtzdHJpbmd9IFJldHVybnMgdGhlIGNvbnZlcnRlZCBzdHJpbmcuXG4gKi9cbmZ1bmN0aW9uIG9iamVjdFRvU3RyaW5nKHZhbHVlKSB7XG4gIHJldHVybiBuYXRpdmVPYmplY3RUb1N0cmluZyQxLmNhbGwodmFsdWUpO1xufVxuXG4vKiogYE9iamVjdCN0b1N0cmluZ2AgcmVzdWx0IHJlZmVyZW5jZXMuICovXG52YXIgbnVsbFRhZyA9ICdbb2JqZWN0IE51bGxdJztcbnZhciB1bmRlZmluZWRUYWcgPSAnW29iamVjdCBVbmRlZmluZWRdJztcblxuLyoqIEJ1aWx0LWluIHZhbHVlIHJlZmVyZW5jZXMuICovXG52YXIgc3ltVG9TdHJpbmdUYWcgPSBTeW1ib2wkMSA/IFN5bWJvbCQxLnRvU3RyaW5nVGFnIDogdW5kZWZpbmVkO1xuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBnZXRUYWdgIHdpdGhvdXQgZmFsbGJhY2tzIGZvciBidWdneSBlbnZpcm9ubWVudHMuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIHF1ZXJ5LlxuICogQHJldHVybnMge3N0cmluZ30gUmV0dXJucyB0aGUgYHRvU3RyaW5nVGFnYC5cbiAqL1xuZnVuY3Rpb24gYmFzZUdldFRhZyh2YWx1ZSkge1xuICBpZiAodmFsdWUgPT0gbnVsbCkge1xuICAgIHJldHVybiB2YWx1ZSA9PT0gdW5kZWZpbmVkID8gdW5kZWZpbmVkVGFnIDogbnVsbFRhZztcbiAgfVxuICByZXR1cm4gKHN5bVRvU3RyaW5nVGFnICYmIHN5bVRvU3RyaW5nVGFnIGluIE9iamVjdCh2YWx1ZSkpXG4gICAgPyBnZXRSYXdUYWcodmFsdWUpXG4gICAgOiBvYmplY3RUb1N0cmluZyh2YWx1ZSk7XG59XG5cbi8qKiBgT2JqZWN0I3RvU3RyaW5nYCByZXN1bHQgcmVmZXJlbmNlcy4gKi9cbnZhciBhc3luY1RhZyA9ICdbb2JqZWN0IEFzeW5jRnVuY3Rpb25dJztcbnZhciBmdW5jVGFnID0gJ1tvYmplY3QgRnVuY3Rpb25dJztcbnZhciBnZW5UYWcgPSAnW29iamVjdCBHZW5lcmF0b3JGdW5jdGlvbl0nO1xudmFyIHByb3h5VGFnID0gJ1tvYmplY3QgUHJveHldJztcblxuLyoqXG4gKiBDaGVja3MgaWYgYHZhbHVlYCBpcyBjbGFzc2lmaWVkIGFzIGEgYEZ1bmN0aW9uYCBvYmplY3QuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSAwLjEuMFxuICogQGNhdGVnb3J5IExhbmdcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIGNoZWNrLlxuICogQHJldHVybnMge2Jvb2xlYW59IFJldHVybnMgYHRydWVgIGlmIGB2YWx1ZWAgaXMgYSBmdW5jdGlvbiwgZWxzZSBgZmFsc2VgLlxuICogQGV4YW1wbGVcbiAqXG4gKiBfLmlzRnVuY3Rpb24oXyk7XG4gKiAvLyA9PiB0cnVlXG4gKlxuICogXy5pc0Z1bmN0aW9uKC9hYmMvKTtcbiAqIC8vID0+IGZhbHNlXG4gKi9cbmZ1bmN0aW9uIGlzRnVuY3Rpb24odmFsdWUpIHtcbiAgaWYgKCFpc09iamVjdCh2YWx1ZSkpIHtcbiAgICByZXR1cm4gZmFsc2U7XG4gIH1cbiAgLy8gVGhlIHVzZSBvZiBgT2JqZWN0I3RvU3RyaW5nYCBhdm9pZHMgaXNzdWVzIHdpdGggdGhlIGB0eXBlb2ZgIG9wZXJhdG9yXG4gIC8vIGluIFNhZmFyaSA5IHdoaWNoIHJldHVybnMgJ29iamVjdCcgZm9yIHR5cGVkIGFycmF5cyBhbmQgb3RoZXIgY29uc3RydWN0b3JzLlxuICB2YXIgdGFnID0gYmFzZUdldFRhZyh2YWx1ZSk7XG4gIHJldHVybiB0YWcgPT0gZnVuY1RhZyB8fCB0YWcgPT0gZ2VuVGFnIHx8IHRhZyA9PSBhc3luY1RhZyB8fCB0YWcgPT0gcHJveHlUYWc7XG59XG5cbi8qKiBVc2VkIGFzIHJlZmVyZW5jZXMgZm9yIHZhcmlvdXMgYE51bWJlcmAgY29uc3RhbnRzLiAqL1xudmFyIE1BWF9TQUZFX0lOVEVHRVIgPSA5MDA3MTk5MjU0NzQwOTkxO1xuXG4vKipcbiAqIENoZWNrcyBpZiBgdmFsdWVgIGlzIGEgdmFsaWQgYXJyYXktbGlrZSBsZW5ndGguXG4gKlxuICogKipOb3RlOioqIFRoaXMgbWV0aG9kIGlzIGxvb3NlbHkgYmFzZWQgb25cbiAqIFtgVG9MZW5ndGhgXShodHRwOi8vZWNtYS1pbnRlcm5hdGlvbmFsLm9yZy9lY21hLTI2Mi83LjAvI3NlYy10b2xlbmd0aCkuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSA0LjAuMFxuICogQGNhdGVnb3J5IExhbmdcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIGNoZWNrLlxuICogQHJldHVybnMge2Jvb2xlYW59IFJldHVybnMgYHRydWVgIGlmIGB2YWx1ZWAgaXMgYSB2YWxpZCBsZW5ndGgsIGVsc2UgYGZhbHNlYC5cbiAqIEBleGFtcGxlXG4gKlxuICogXy5pc0xlbmd0aCgzKTtcbiAqIC8vID0+IHRydWVcbiAqXG4gKiBfLmlzTGVuZ3RoKE51bWJlci5NSU5fVkFMVUUpO1xuICogLy8gPT4gZmFsc2VcbiAqXG4gKiBfLmlzTGVuZ3RoKEluZmluaXR5KTtcbiAqIC8vID0+IGZhbHNlXG4gKlxuICogXy5pc0xlbmd0aCgnMycpO1xuICogLy8gPT4gZmFsc2VcbiAqL1xuZnVuY3Rpb24gaXNMZW5ndGgodmFsdWUpIHtcbiAgcmV0dXJuIHR5cGVvZiB2YWx1ZSA9PSAnbnVtYmVyJyAmJlxuICAgIHZhbHVlID4gLTEgJiYgdmFsdWUgJSAxID09IDAgJiYgdmFsdWUgPD0gTUFYX1NBRkVfSU5URUdFUjtcbn1cblxuLyoqXG4gKiBDaGVja3MgaWYgYHZhbHVlYCBpcyBhcnJheS1saWtlLiBBIHZhbHVlIGlzIGNvbnNpZGVyZWQgYXJyYXktbGlrZSBpZiBpdCdzXG4gKiBub3QgYSBmdW5jdGlvbiBhbmQgaGFzIGEgYHZhbHVlLmxlbmd0aGAgdGhhdCdzIGFuIGludGVnZXIgZ3JlYXRlciB0aGFuIG9yXG4gKiBlcXVhbCB0byBgMGAgYW5kIGxlc3MgdGhhbiBvciBlcXVhbCB0byBgTnVtYmVyLk1BWF9TQUZFX0lOVEVHRVJgLlxuICpcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBfXG4gKiBAc2luY2UgNC4wLjBcbiAqIEBjYXRlZ29yeSBMYW5nXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIGFycmF5LWxpa2UsIGVsc2UgYGZhbHNlYC5cbiAqIEBleGFtcGxlXG4gKlxuICogXy5pc0FycmF5TGlrZShbMSwgMiwgM10pO1xuICogLy8gPT4gdHJ1ZVxuICpcbiAqIF8uaXNBcnJheUxpa2UoZG9jdW1lbnQuYm9keS5jaGlsZHJlbik7XG4gKiAvLyA9PiB0cnVlXG4gKlxuICogXy5pc0FycmF5TGlrZSgnYWJjJyk7XG4gKiAvLyA9PiB0cnVlXG4gKlxuICogXy5pc0FycmF5TGlrZShfLm5vb3ApO1xuICogLy8gPT4gZmFsc2VcbiAqL1xuZnVuY3Rpb24gaXNBcnJheUxpa2UodmFsdWUpIHtcbiAgcmV0dXJuIHZhbHVlICE9IG51bGwgJiYgaXNMZW5ndGgodmFsdWUubGVuZ3RoKSAmJiAhaXNGdW5jdGlvbih2YWx1ZSk7XG59XG5cbi8vIEEgdGVtcG9yYXJ5IHZhbHVlIHVzZWQgdG8gaWRlbnRpZnkgaWYgdGhlIGxvb3Agc2hvdWxkIGJlIGJyb2tlbi5cbi8vIFNlZSAjMTA2NCwgIzEyOTNcbnZhciBicmVha0xvb3AgPSB7fTtcblxuLyoqXG4gKiBUaGlzIG1ldGhvZCByZXR1cm5zIGB1bmRlZmluZWRgLlxuICpcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBfXG4gKiBAc2luY2UgMi4zLjBcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAZXhhbXBsZVxuICpcbiAqIF8udGltZXMoMiwgXy5ub29wKTtcbiAqIC8vID0+IFt1bmRlZmluZWQsIHVuZGVmaW5lZF1cbiAqL1xuZnVuY3Rpb24gbm9vcCgpIHtcbiAgLy8gTm8gb3BlcmF0aW9uIHBlcmZvcm1lZC5cbn1cblxuZnVuY3Rpb24gb25jZShmbikge1xuICAgIHJldHVybiBmdW5jdGlvbiAoKSB7XG4gICAgICAgIGlmIChmbiA9PT0gbnVsbCkgcmV0dXJuO1xuICAgICAgICB2YXIgY2FsbEZuID0gZm47XG4gICAgICAgIGZuID0gbnVsbDtcbiAgICAgICAgY2FsbEZuLmFwcGx5KHRoaXMsIGFyZ3VtZW50cyk7XG4gICAgfTtcbn1cblxudmFyIGl0ZXJhdG9yU3ltYm9sID0gdHlwZW9mIFN5bWJvbCA9PT0gJ2Z1bmN0aW9uJyAmJiBTeW1ib2wuaXRlcmF0b3I7XG5cbnZhciBnZXRJdGVyYXRvciA9IGZ1bmN0aW9uIChjb2xsKSB7XG4gICAgcmV0dXJuIGl0ZXJhdG9yU3ltYm9sICYmIGNvbGxbaXRlcmF0b3JTeW1ib2xdICYmIGNvbGxbaXRlcmF0b3JTeW1ib2xdKCk7XG59O1xuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBfLnRpbWVzYCB3aXRob3V0IHN1cHBvcnQgZm9yIGl0ZXJhdGVlIHNob3J0aGFuZHNcbiAqIG9yIG1heCBhcnJheSBsZW5ndGggY2hlY2tzLlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge251bWJlcn0gbiBUaGUgbnVtYmVyIG9mIHRpbWVzIHRvIGludm9rZSBgaXRlcmF0ZWVgLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgVGhlIGZ1bmN0aW9uIGludm9rZWQgcGVyIGl0ZXJhdGlvbi5cbiAqIEByZXR1cm5zIHtBcnJheX0gUmV0dXJucyB0aGUgYXJyYXkgb2YgcmVzdWx0cy5cbiAqL1xuZnVuY3Rpb24gYmFzZVRpbWVzKG4sIGl0ZXJhdGVlKSB7XG4gIHZhciBpbmRleCA9IC0xLFxuICAgICAgcmVzdWx0ID0gQXJyYXkobik7XG5cbiAgd2hpbGUgKCsraW5kZXggPCBuKSB7XG4gICAgcmVzdWx0W2luZGV4XSA9IGl0ZXJhdGVlKGluZGV4KTtcbiAgfVxuICByZXR1cm4gcmVzdWx0O1xufVxuXG4vKipcbiAqIENoZWNrcyBpZiBgdmFsdWVgIGlzIG9iamVjdC1saWtlLiBBIHZhbHVlIGlzIG9iamVjdC1saWtlIGlmIGl0J3Mgbm90IGBudWxsYFxuICogYW5kIGhhcyBhIGB0eXBlb2ZgIHJlc3VsdCBvZiBcIm9iamVjdFwiLlxuICpcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBfXG4gKiBAc2luY2UgNC4wLjBcbiAqIEBjYXRlZ29yeSBMYW5nXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIG9iamVjdC1saWtlLCBlbHNlIGBmYWxzZWAuXG4gKiBAZXhhbXBsZVxuICpcbiAqIF8uaXNPYmplY3RMaWtlKHt9KTtcbiAqIC8vID0+IHRydWVcbiAqXG4gKiBfLmlzT2JqZWN0TGlrZShbMSwgMiwgM10pO1xuICogLy8gPT4gdHJ1ZVxuICpcbiAqIF8uaXNPYmplY3RMaWtlKF8ubm9vcCk7XG4gKiAvLyA9PiBmYWxzZVxuICpcbiAqIF8uaXNPYmplY3RMaWtlKG51bGwpO1xuICogLy8gPT4gZmFsc2VcbiAqL1xuZnVuY3Rpb24gaXNPYmplY3RMaWtlKHZhbHVlKSB7XG4gIHJldHVybiB2YWx1ZSAhPSBudWxsICYmIHR5cGVvZiB2YWx1ZSA9PSAnb2JqZWN0Jztcbn1cblxuLyoqIGBPYmplY3QjdG9TdHJpbmdgIHJlc3VsdCByZWZlcmVuY2VzLiAqL1xudmFyIGFyZ3NUYWcgPSAnW29iamVjdCBBcmd1bWVudHNdJztcblxuLyoqXG4gKiBUaGUgYmFzZSBpbXBsZW1lbnRhdGlvbiBvZiBgXy5pc0FyZ3VtZW50c2AuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIGNoZWNrLlxuICogQHJldHVybnMge2Jvb2xlYW59IFJldHVybnMgYHRydWVgIGlmIGB2YWx1ZWAgaXMgYW4gYGFyZ3VtZW50c2Agb2JqZWN0LFxuICovXG5mdW5jdGlvbiBiYXNlSXNBcmd1bWVudHModmFsdWUpIHtcbiAgcmV0dXJuIGlzT2JqZWN0TGlrZSh2YWx1ZSkgJiYgYmFzZUdldFRhZyh2YWx1ZSkgPT0gYXJnc1RhZztcbn1cblxuLyoqIFVzZWQgZm9yIGJ1aWx0LWluIG1ldGhvZCByZWZlcmVuY2VzLiAqL1xudmFyIG9iamVjdFByb3RvJDMgPSBPYmplY3QucHJvdG90eXBlO1xuXG4vKiogVXNlZCB0byBjaGVjayBvYmplY3RzIGZvciBvd24gcHJvcGVydGllcy4gKi9cbnZhciBoYXNPd25Qcm9wZXJ0eSQyID0gb2JqZWN0UHJvdG8kMy5oYXNPd25Qcm9wZXJ0eTtcblxuLyoqIEJ1aWx0LWluIHZhbHVlIHJlZmVyZW5jZXMuICovXG52YXIgcHJvcGVydHlJc0VudW1lcmFibGUgPSBvYmplY3RQcm90byQzLnByb3BlcnR5SXNFbnVtZXJhYmxlO1xuXG4vKipcbiAqIENoZWNrcyBpZiBgdmFsdWVgIGlzIGxpa2VseSBhbiBgYXJndW1lbnRzYCBvYmplY3QuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSAwLjEuMFxuICogQGNhdGVnb3J5IExhbmdcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIGNoZWNrLlxuICogQHJldHVybnMge2Jvb2xlYW59IFJldHVybnMgYHRydWVgIGlmIGB2YWx1ZWAgaXMgYW4gYGFyZ3VtZW50c2Agb2JqZWN0LFxuICogIGVsc2UgYGZhbHNlYC5cbiAqIEBleGFtcGxlXG4gKlxuICogXy5pc0FyZ3VtZW50cyhmdW5jdGlvbigpIHsgcmV0dXJuIGFyZ3VtZW50czsgfSgpKTtcbiAqIC8vID0+IHRydWVcbiAqXG4gKiBfLmlzQXJndW1lbnRzKFsxLCAyLCAzXSk7XG4gKiAvLyA9PiBmYWxzZVxuICovXG52YXIgaXNBcmd1bWVudHMgPSBiYXNlSXNBcmd1bWVudHMoZnVuY3Rpb24oKSB7IHJldHVybiBhcmd1bWVudHM7IH0oKSkgPyBiYXNlSXNBcmd1bWVudHMgOiBmdW5jdGlvbih2YWx1ZSkge1xuICByZXR1cm4gaXNPYmplY3RMaWtlKHZhbHVlKSAmJiBoYXNPd25Qcm9wZXJ0eSQyLmNhbGwodmFsdWUsICdjYWxsZWUnKSAmJlxuICAgICFwcm9wZXJ0eUlzRW51bWVyYWJsZS5jYWxsKHZhbHVlLCAnY2FsbGVlJyk7XG59O1xuXG4vKipcbiAqIENoZWNrcyBpZiBgdmFsdWVgIGlzIGNsYXNzaWZpZWQgYXMgYW4gYEFycmF5YCBvYmplY3QuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSAwLjEuMFxuICogQGNhdGVnb3J5IExhbmdcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIGNoZWNrLlxuICogQHJldHVybnMge2Jvb2xlYW59IFJldHVybnMgYHRydWVgIGlmIGB2YWx1ZWAgaXMgYW4gYXJyYXksIGVsc2UgYGZhbHNlYC5cbiAqIEBleGFtcGxlXG4gKlxuICogXy5pc0FycmF5KFsxLCAyLCAzXSk7XG4gKiAvLyA9PiB0cnVlXG4gKlxuICogXy5pc0FycmF5KGRvY3VtZW50LmJvZHkuY2hpbGRyZW4pO1xuICogLy8gPT4gZmFsc2VcbiAqXG4gKiBfLmlzQXJyYXkoJ2FiYycpO1xuICogLy8gPT4gZmFsc2VcbiAqXG4gKiBfLmlzQXJyYXkoXy5ub29wKTtcbiAqIC8vID0+IGZhbHNlXG4gKi9cbnZhciBpc0FycmF5ID0gQXJyYXkuaXNBcnJheTtcblxuLyoqXG4gKiBUaGlzIG1ldGhvZCByZXR1cm5zIGBmYWxzZWAuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSA0LjEzLjBcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcmV0dXJucyB7Ym9vbGVhbn0gUmV0dXJucyBgZmFsc2VgLlxuICogQGV4YW1wbGVcbiAqXG4gKiBfLnRpbWVzKDIsIF8uc3R1YkZhbHNlKTtcbiAqIC8vID0+IFtmYWxzZSwgZmFsc2VdXG4gKi9cbmZ1bmN0aW9uIHN0dWJGYWxzZSgpIHtcbiAgcmV0dXJuIGZhbHNlO1xufVxuXG4vKiogRGV0ZWN0IGZyZWUgdmFyaWFibGUgYGV4cG9ydHNgLiAqL1xudmFyIGZyZWVFeHBvcnRzID0gdHlwZW9mIGV4cG9ydHMgPT0gJ29iamVjdCcgJiYgZXhwb3J0cyAmJiAhZXhwb3J0cy5ub2RlVHlwZSAmJiBleHBvcnRzO1xuXG4vKiogRGV0ZWN0IGZyZWUgdmFyaWFibGUgYG1vZHVsZWAuICovXG52YXIgZnJlZU1vZHVsZSA9IGZyZWVFeHBvcnRzICYmIHR5cGVvZiBtb2R1bGUgPT0gJ29iamVjdCcgJiYgbW9kdWxlICYmICFtb2R1bGUubm9kZVR5cGUgJiYgbW9kdWxlO1xuXG4vKiogRGV0ZWN0IHRoZSBwb3B1bGFyIENvbW1vbkpTIGV4dGVuc2lvbiBgbW9kdWxlLmV4cG9ydHNgLiAqL1xudmFyIG1vZHVsZUV4cG9ydHMgPSBmcmVlTW9kdWxlICYmIGZyZWVNb2R1bGUuZXhwb3J0cyA9PT0gZnJlZUV4cG9ydHM7XG5cbi8qKiBCdWlsdC1pbiB2YWx1ZSByZWZlcmVuY2VzLiAqL1xudmFyIEJ1ZmZlciA9IG1vZHVsZUV4cG9ydHMgPyByb290LkJ1ZmZlciA6IHVuZGVmaW5lZDtcblxuLyogQnVpbHQtaW4gbWV0aG9kIHJlZmVyZW5jZXMgZm9yIHRob3NlIHdpdGggdGhlIHNhbWUgbmFtZSBhcyBvdGhlciBgbG9kYXNoYCBtZXRob2RzLiAqL1xudmFyIG5hdGl2ZUlzQnVmZmVyID0gQnVmZmVyID8gQnVmZmVyLmlzQnVmZmVyIDogdW5kZWZpbmVkO1xuXG4vKipcbiAqIENoZWNrcyBpZiBgdmFsdWVgIGlzIGEgYnVmZmVyLlxuICpcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBfXG4gKiBAc2luY2UgNC4zLjBcbiAqIEBjYXRlZ29yeSBMYW5nXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIGEgYnVmZmVyLCBlbHNlIGBmYWxzZWAuXG4gKiBAZXhhbXBsZVxuICpcbiAqIF8uaXNCdWZmZXIobmV3IEJ1ZmZlcigyKSk7XG4gKiAvLyA9PiB0cnVlXG4gKlxuICogXy5pc0J1ZmZlcihuZXcgVWludDhBcnJheSgyKSk7XG4gKiAvLyA9PiBmYWxzZVxuICovXG52YXIgaXNCdWZmZXIgPSBuYXRpdmVJc0J1ZmZlciB8fCBzdHViRmFsc2U7XG5cbi8qKiBVc2VkIGFzIHJlZmVyZW5jZXMgZm9yIHZhcmlvdXMgYE51bWJlcmAgY29uc3RhbnRzLiAqL1xudmFyIE1BWF9TQUZFX0lOVEVHRVIkMSA9IDkwMDcxOTkyNTQ3NDA5OTE7XG5cbi8qKiBVc2VkIHRvIGRldGVjdCB1bnNpZ25lZCBpbnRlZ2VyIHZhbHVlcy4gKi9cbnZhciByZUlzVWludCA9IC9eKD86MHxbMS05XVxcZCopJC87XG5cbi8qKlxuICogQ2hlY2tzIGlmIGB2YWx1ZWAgaXMgYSB2YWxpZCBhcnJheS1saWtlIGluZGV4LlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEBwYXJhbSB7bnVtYmVyfSBbbGVuZ3RoPU1BWF9TQUZFX0lOVEVHRVJdIFRoZSB1cHBlciBib3VuZHMgb2YgYSB2YWxpZCBpbmRleC5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIGEgdmFsaWQgaW5kZXgsIGVsc2UgYGZhbHNlYC5cbiAqL1xuZnVuY3Rpb24gaXNJbmRleCh2YWx1ZSwgbGVuZ3RoKSB7XG4gIHZhciB0eXBlID0gdHlwZW9mIHZhbHVlO1xuICBsZW5ndGggPSBsZW5ndGggPT0gbnVsbCA/IE1BWF9TQUZFX0lOVEVHRVIkMSA6IGxlbmd0aDtcblxuICByZXR1cm4gISFsZW5ndGggJiZcbiAgICAodHlwZSA9PSAnbnVtYmVyJyB8fFxuICAgICAgKHR5cGUgIT0gJ3N5bWJvbCcgJiYgcmVJc1VpbnQudGVzdCh2YWx1ZSkpKSAmJlxuICAgICAgICAodmFsdWUgPiAtMSAmJiB2YWx1ZSAlIDEgPT0gMCAmJiB2YWx1ZSA8IGxlbmd0aCk7XG59XG5cbi8qKiBgT2JqZWN0I3RvU3RyaW5nYCByZXN1bHQgcmVmZXJlbmNlcy4gKi9cbnZhciBhcmdzVGFnJDEgPSAnW29iamVjdCBBcmd1bWVudHNdJztcbnZhciBhcnJheVRhZyA9ICdbb2JqZWN0IEFycmF5XSc7XG52YXIgYm9vbFRhZyA9ICdbb2JqZWN0IEJvb2xlYW5dJztcbnZhciBkYXRlVGFnID0gJ1tvYmplY3QgRGF0ZV0nO1xudmFyIGVycm9yVGFnID0gJ1tvYmplY3QgRXJyb3JdJztcbnZhciBmdW5jVGFnJDEgPSAnW29iamVjdCBGdW5jdGlvbl0nO1xudmFyIG1hcFRhZyA9ICdbb2JqZWN0IE1hcF0nO1xudmFyIG51bWJlclRhZyA9ICdbb2JqZWN0IE51bWJlcl0nO1xudmFyIG9iamVjdFRhZyA9ICdbb2JqZWN0IE9iamVjdF0nO1xudmFyIHJlZ2V4cFRhZyA9ICdbb2JqZWN0IFJlZ0V4cF0nO1xudmFyIHNldFRhZyA9ICdbb2JqZWN0IFNldF0nO1xudmFyIHN0cmluZ1RhZyA9ICdbb2JqZWN0IFN0cmluZ10nO1xudmFyIHdlYWtNYXBUYWcgPSAnW29iamVjdCBXZWFrTWFwXSc7XG5cbnZhciBhcnJheUJ1ZmZlclRhZyA9ICdbb2JqZWN0IEFycmF5QnVmZmVyXSc7XG52YXIgZGF0YVZpZXdUYWcgPSAnW29iamVjdCBEYXRhVmlld10nO1xudmFyIGZsb2F0MzJUYWcgPSAnW29iamVjdCBGbG9hdDMyQXJyYXldJztcbnZhciBmbG9hdDY0VGFnID0gJ1tvYmplY3QgRmxvYXQ2NEFycmF5XSc7XG52YXIgaW50OFRhZyA9ICdbb2JqZWN0IEludDhBcnJheV0nO1xudmFyIGludDE2VGFnID0gJ1tvYmplY3QgSW50MTZBcnJheV0nO1xudmFyIGludDMyVGFnID0gJ1tvYmplY3QgSW50MzJBcnJheV0nO1xudmFyIHVpbnQ4VGFnID0gJ1tvYmplY3QgVWludDhBcnJheV0nO1xudmFyIHVpbnQ4Q2xhbXBlZFRhZyA9ICdbb2JqZWN0IFVpbnQ4Q2xhbXBlZEFycmF5XSc7XG52YXIgdWludDE2VGFnID0gJ1tvYmplY3QgVWludDE2QXJyYXldJztcbnZhciB1aW50MzJUYWcgPSAnW29iamVjdCBVaW50MzJBcnJheV0nO1xuXG4vKiogVXNlZCB0byBpZGVudGlmeSBgdG9TdHJpbmdUYWdgIHZhbHVlcyBvZiB0eXBlZCBhcnJheXMuICovXG52YXIgdHlwZWRBcnJheVRhZ3MgPSB7fTtcbnR5cGVkQXJyYXlUYWdzW2Zsb2F0MzJUYWddID0gdHlwZWRBcnJheVRhZ3NbZmxvYXQ2NFRhZ10gPVxudHlwZWRBcnJheVRhZ3NbaW50OFRhZ10gPSB0eXBlZEFycmF5VGFnc1tpbnQxNlRhZ10gPVxudHlwZWRBcnJheVRhZ3NbaW50MzJUYWddID0gdHlwZWRBcnJheVRhZ3NbdWludDhUYWddID1cbnR5cGVkQXJyYXlUYWdzW3VpbnQ4Q2xhbXBlZFRhZ10gPSB0eXBlZEFycmF5VGFnc1t1aW50MTZUYWddID1cbnR5cGVkQXJyYXlUYWdzW3VpbnQzMlRhZ10gPSB0cnVlO1xudHlwZWRBcnJheVRhZ3NbYXJnc1RhZyQxXSA9IHR5cGVkQXJyYXlUYWdzW2FycmF5VGFnXSA9XG50eXBlZEFycmF5VGFnc1thcnJheUJ1ZmZlclRhZ10gPSB0eXBlZEFycmF5VGFnc1tib29sVGFnXSA9XG50eXBlZEFycmF5VGFnc1tkYXRhVmlld1RhZ10gPSB0eXBlZEFycmF5VGFnc1tkYXRlVGFnXSA9XG50eXBlZEFycmF5VGFnc1tlcnJvclRhZ10gPSB0eXBlZEFycmF5VGFnc1tmdW5jVGFnJDFdID1cbnR5cGVkQXJyYXlUYWdzW21hcFRhZ10gPSB0eXBlZEFycmF5VGFnc1tudW1iZXJUYWddID1cbnR5cGVkQXJyYXlUYWdzW29iamVjdFRhZ10gPSB0eXBlZEFycmF5VGFnc1tyZWdleHBUYWddID1cbnR5cGVkQXJyYXlUYWdzW3NldFRhZ10gPSB0eXBlZEFycmF5VGFnc1tzdHJpbmdUYWddID1cbnR5cGVkQXJyYXlUYWdzW3dlYWtNYXBUYWddID0gZmFsc2U7XG5cbi8qKlxuICogVGhlIGJhc2UgaW1wbGVtZW50YXRpb24gb2YgYF8uaXNUeXBlZEFycmF5YCB3aXRob3V0IE5vZGUuanMgb3B0aW1pemF0aW9ucy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHsqfSB2YWx1ZSBUaGUgdmFsdWUgdG8gY2hlY2suXG4gKiBAcmV0dXJucyB7Ym9vbGVhbn0gUmV0dXJucyBgdHJ1ZWAgaWYgYHZhbHVlYCBpcyBhIHR5cGVkIGFycmF5LCBlbHNlIGBmYWxzZWAuXG4gKi9cbmZ1bmN0aW9uIGJhc2VJc1R5cGVkQXJyYXkodmFsdWUpIHtcbiAgcmV0dXJuIGlzT2JqZWN0TGlrZSh2YWx1ZSkgJiZcbiAgICBpc0xlbmd0aCh2YWx1ZS5sZW5ndGgpICYmICEhdHlwZWRBcnJheVRhZ3NbYmFzZUdldFRhZyh2YWx1ZSldO1xufVxuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBfLnVuYXJ5YCB3aXRob3V0IHN1cHBvcnQgZm9yIHN0b3JpbmcgbWV0YWRhdGEuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7RnVuY3Rpb259IGZ1bmMgVGhlIGZ1bmN0aW9uIHRvIGNhcCBhcmd1bWVudHMgZm9yLlxuICogQHJldHVybnMge0Z1bmN0aW9ufSBSZXR1cm5zIHRoZSBuZXcgY2FwcGVkIGZ1bmN0aW9uLlxuICovXG5mdW5jdGlvbiBiYXNlVW5hcnkoZnVuYykge1xuICByZXR1cm4gZnVuY3Rpb24odmFsdWUpIHtcbiAgICByZXR1cm4gZnVuYyh2YWx1ZSk7XG4gIH07XG59XG5cbi8qKiBEZXRlY3QgZnJlZSB2YXJpYWJsZSBgZXhwb3J0c2AuICovXG52YXIgZnJlZUV4cG9ydHMkMSA9IHR5cGVvZiBleHBvcnRzID09ICdvYmplY3QnICYmIGV4cG9ydHMgJiYgIWV4cG9ydHMubm9kZVR5cGUgJiYgZXhwb3J0cztcblxuLyoqIERldGVjdCBmcmVlIHZhcmlhYmxlIGBtb2R1bGVgLiAqL1xudmFyIGZyZWVNb2R1bGUkMSA9IGZyZWVFeHBvcnRzJDEgJiYgdHlwZW9mIG1vZHVsZSA9PSAnb2JqZWN0JyAmJiBtb2R1bGUgJiYgIW1vZHVsZS5ub2RlVHlwZSAmJiBtb2R1bGU7XG5cbi8qKiBEZXRlY3QgdGhlIHBvcHVsYXIgQ29tbW9uSlMgZXh0ZW5zaW9uIGBtb2R1bGUuZXhwb3J0c2AuICovXG52YXIgbW9kdWxlRXhwb3J0cyQxID0gZnJlZU1vZHVsZSQxICYmIGZyZWVNb2R1bGUkMS5leHBvcnRzID09PSBmcmVlRXhwb3J0cyQxO1xuXG4vKiogRGV0ZWN0IGZyZWUgdmFyaWFibGUgYHByb2Nlc3NgIGZyb20gTm9kZS5qcy4gKi9cbnZhciBmcmVlUHJvY2VzcyA9IG1vZHVsZUV4cG9ydHMkMSAmJiBmcmVlR2xvYmFsLnByb2Nlc3M7XG5cbi8qKiBVc2VkIHRvIGFjY2VzcyBmYXN0ZXIgTm9kZS5qcyBoZWxwZXJzLiAqL1xudmFyIG5vZGVVdGlsID0gKGZ1bmN0aW9uKCkge1xuICB0cnkge1xuICAgIC8vIFVzZSBgdXRpbC50eXBlc2AgZm9yIE5vZGUuanMgMTArLlxuICAgIHZhciB0eXBlcyA9IGZyZWVNb2R1bGUkMSAmJiBmcmVlTW9kdWxlJDEucmVxdWlyZSAmJiBmcmVlTW9kdWxlJDEucmVxdWlyZSgndXRpbCcpLnR5cGVzO1xuXG4gICAgaWYgKHR5cGVzKSB7XG4gICAgICByZXR1cm4gdHlwZXM7XG4gICAgfVxuXG4gICAgLy8gTGVnYWN5IGBwcm9jZXNzLmJpbmRpbmcoJ3V0aWwnKWAgZm9yIE5vZGUuanMgPCAxMC5cbiAgICByZXR1cm4gZnJlZVByb2Nlc3MgJiYgZnJlZVByb2Nlc3MuYmluZGluZyAmJiBmcmVlUHJvY2Vzcy5iaW5kaW5nKCd1dGlsJyk7XG4gIH0gY2F0Y2ggKGUpIHt9XG59KCkpO1xuXG4vKiBOb2RlLmpzIGhlbHBlciByZWZlcmVuY2VzLiAqL1xudmFyIG5vZGVJc1R5cGVkQXJyYXkgPSBub2RlVXRpbCAmJiBub2RlVXRpbC5pc1R5cGVkQXJyYXk7XG5cbi8qKlxuICogQ2hlY2tzIGlmIGB2YWx1ZWAgaXMgY2xhc3NpZmllZCBhcyBhIHR5cGVkIGFycmF5LlxuICpcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBfXG4gKiBAc2luY2UgMy4wLjBcbiAqIEBjYXRlZ29yeSBMYW5nXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIGEgdHlwZWQgYXJyYXksIGVsc2UgYGZhbHNlYC5cbiAqIEBleGFtcGxlXG4gKlxuICogXy5pc1R5cGVkQXJyYXkobmV3IFVpbnQ4QXJyYXkpO1xuICogLy8gPT4gdHJ1ZVxuICpcbiAqIF8uaXNUeXBlZEFycmF5KFtdKTtcbiAqIC8vID0+IGZhbHNlXG4gKi9cbnZhciBpc1R5cGVkQXJyYXkgPSBub2RlSXNUeXBlZEFycmF5ID8gYmFzZVVuYXJ5KG5vZGVJc1R5cGVkQXJyYXkpIDogYmFzZUlzVHlwZWRBcnJheTtcblxuLyoqIFVzZWQgZm9yIGJ1aWx0LWluIG1ldGhvZCByZWZlcmVuY2VzLiAqL1xudmFyIG9iamVjdFByb3RvJDIgPSBPYmplY3QucHJvdG90eXBlO1xuXG4vKiogVXNlZCB0byBjaGVjayBvYmplY3RzIGZvciBvd24gcHJvcGVydGllcy4gKi9cbnZhciBoYXNPd25Qcm9wZXJ0eSQxID0gb2JqZWN0UHJvdG8kMi5oYXNPd25Qcm9wZXJ0eTtcblxuLyoqXG4gKiBDcmVhdGVzIGFuIGFycmF5IG9mIHRoZSBlbnVtZXJhYmxlIHByb3BlcnR5IG5hbWVzIG9mIHRoZSBhcnJheS1saWtlIGB2YWx1ZWAuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIHF1ZXJ5LlxuICogQHBhcmFtIHtib29sZWFufSBpbmhlcml0ZWQgU3BlY2lmeSByZXR1cm5pbmcgaW5oZXJpdGVkIHByb3BlcnR5IG5hbWVzLlxuICogQHJldHVybnMge0FycmF5fSBSZXR1cm5zIHRoZSBhcnJheSBvZiBwcm9wZXJ0eSBuYW1lcy5cbiAqL1xuZnVuY3Rpb24gYXJyYXlMaWtlS2V5cyh2YWx1ZSwgaW5oZXJpdGVkKSB7XG4gIHZhciBpc0FyciA9IGlzQXJyYXkodmFsdWUpLFxuICAgICAgaXNBcmcgPSAhaXNBcnIgJiYgaXNBcmd1bWVudHModmFsdWUpLFxuICAgICAgaXNCdWZmID0gIWlzQXJyICYmICFpc0FyZyAmJiBpc0J1ZmZlcih2YWx1ZSksXG4gICAgICBpc1R5cGUgPSAhaXNBcnIgJiYgIWlzQXJnICYmICFpc0J1ZmYgJiYgaXNUeXBlZEFycmF5KHZhbHVlKSxcbiAgICAgIHNraXBJbmRleGVzID0gaXNBcnIgfHwgaXNBcmcgfHwgaXNCdWZmIHx8IGlzVHlwZSxcbiAgICAgIHJlc3VsdCA9IHNraXBJbmRleGVzID8gYmFzZVRpbWVzKHZhbHVlLmxlbmd0aCwgU3RyaW5nKSA6IFtdLFxuICAgICAgbGVuZ3RoID0gcmVzdWx0Lmxlbmd0aDtcblxuICBmb3IgKHZhciBrZXkgaW4gdmFsdWUpIHtcbiAgICBpZiAoKGluaGVyaXRlZCB8fCBoYXNPd25Qcm9wZXJ0eSQxLmNhbGwodmFsdWUsIGtleSkpICYmXG4gICAgICAgICEoc2tpcEluZGV4ZXMgJiYgKFxuICAgICAgICAgICAvLyBTYWZhcmkgOSBoYXMgZW51bWVyYWJsZSBgYXJndW1lbnRzLmxlbmd0aGAgaW4gc3RyaWN0IG1vZGUuXG4gICAgICAgICAgIGtleSA9PSAnbGVuZ3RoJyB8fFxuICAgICAgICAgICAvLyBOb2RlLmpzIDAuMTAgaGFzIGVudW1lcmFibGUgbm9uLWluZGV4IHByb3BlcnRpZXMgb24gYnVmZmVycy5cbiAgICAgICAgICAgKGlzQnVmZiAmJiAoa2V5ID09ICdvZmZzZXQnIHx8IGtleSA9PSAncGFyZW50JykpIHx8XG4gICAgICAgICAgIC8vIFBoYW50b21KUyAyIGhhcyBlbnVtZXJhYmxlIG5vbi1pbmRleCBwcm9wZXJ0aWVzIG9uIHR5cGVkIGFycmF5cy5cbiAgICAgICAgICAgKGlzVHlwZSAmJiAoa2V5ID09ICdidWZmZXInIHx8IGtleSA9PSAnYnl0ZUxlbmd0aCcgfHwga2V5ID09ICdieXRlT2Zmc2V0JykpIHx8XG4gICAgICAgICAgIC8vIFNraXAgaW5kZXggcHJvcGVydGllcy5cbiAgICAgICAgICAgaXNJbmRleChrZXksIGxlbmd0aClcbiAgICAgICAgKSkpIHtcbiAgICAgIHJlc3VsdC5wdXNoKGtleSk7XG4gICAgfVxuICB9XG4gIHJldHVybiByZXN1bHQ7XG59XG5cbi8qKiBVc2VkIGZvciBidWlsdC1pbiBtZXRob2QgcmVmZXJlbmNlcy4gKi9cbnZhciBvYmplY3RQcm90byQ1ID0gT2JqZWN0LnByb3RvdHlwZTtcblxuLyoqXG4gKiBDaGVja3MgaWYgYHZhbHVlYCBpcyBsaWtlbHkgYSBwcm90b3R5cGUgb2JqZWN0LlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBjaGVjay5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBgdmFsdWVgIGlzIGEgcHJvdG90eXBlLCBlbHNlIGBmYWxzZWAuXG4gKi9cbmZ1bmN0aW9uIGlzUHJvdG90eXBlKHZhbHVlKSB7XG4gIHZhciBDdG9yID0gdmFsdWUgJiYgdmFsdWUuY29uc3RydWN0b3IsXG4gICAgICBwcm90byA9ICh0eXBlb2YgQ3RvciA9PSAnZnVuY3Rpb24nICYmIEN0b3IucHJvdG90eXBlKSB8fCBvYmplY3RQcm90byQ1O1xuXG4gIHJldHVybiB2YWx1ZSA9PT0gcHJvdG87XG59XG5cbi8qKlxuICogQ3JlYXRlcyBhIHVuYXJ5IGZ1bmN0aW9uIHRoYXQgaW52b2tlcyBgZnVuY2Agd2l0aCBpdHMgYXJndW1lbnQgdHJhbnNmb3JtZWQuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7RnVuY3Rpb259IGZ1bmMgVGhlIGZ1bmN0aW9uIHRvIHdyYXAuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSB0cmFuc2Zvcm0gVGhlIGFyZ3VtZW50IHRyYW5zZm9ybS5cbiAqIEByZXR1cm5zIHtGdW5jdGlvbn0gUmV0dXJucyB0aGUgbmV3IGZ1bmN0aW9uLlxuICovXG5mdW5jdGlvbiBvdmVyQXJnKGZ1bmMsIHRyYW5zZm9ybSkge1xuICByZXR1cm4gZnVuY3Rpb24oYXJnKSB7XG4gICAgcmV0dXJuIGZ1bmModHJhbnNmb3JtKGFyZykpO1xuICB9O1xufVxuXG4vKiBCdWlsdC1pbiBtZXRob2QgcmVmZXJlbmNlcyBmb3IgdGhvc2Ugd2l0aCB0aGUgc2FtZSBuYW1lIGFzIG90aGVyIGBsb2Rhc2hgIG1ldGhvZHMuICovXG52YXIgbmF0aXZlS2V5cyA9IG92ZXJBcmcoT2JqZWN0LmtleXMsIE9iamVjdCk7XG5cbi8qKiBVc2VkIGZvciBidWlsdC1pbiBtZXRob2QgcmVmZXJlbmNlcy4gKi9cbnZhciBvYmplY3RQcm90byQ0ID0gT2JqZWN0LnByb3RvdHlwZTtcblxuLyoqIFVzZWQgdG8gY2hlY2sgb2JqZWN0cyBmb3Igb3duIHByb3BlcnRpZXMuICovXG52YXIgaGFzT3duUHJvcGVydHkkMyA9IG9iamVjdFByb3RvJDQuaGFzT3duUHJvcGVydHk7XG5cbi8qKlxuICogVGhlIGJhc2UgaW1wbGVtZW50YXRpb24gb2YgYF8ua2V5c2Agd2hpY2ggZG9lc24ndCB0cmVhdCBzcGFyc2UgYXJyYXlzIGFzIGRlbnNlLlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge09iamVjdH0gb2JqZWN0IFRoZSBvYmplY3QgdG8gcXVlcnkuXG4gKiBAcmV0dXJucyB7QXJyYXl9IFJldHVybnMgdGhlIGFycmF5IG9mIHByb3BlcnR5IG5hbWVzLlxuICovXG5mdW5jdGlvbiBiYXNlS2V5cyhvYmplY3QpIHtcbiAgaWYgKCFpc1Byb3RvdHlwZShvYmplY3QpKSB7XG4gICAgcmV0dXJuIG5hdGl2ZUtleXMob2JqZWN0KTtcbiAgfVxuICB2YXIgcmVzdWx0ID0gW107XG4gIGZvciAodmFyIGtleSBpbiBPYmplY3Qob2JqZWN0KSkge1xuICAgIGlmIChoYXNPd25Qcm9wZXJ0eSQzLmNhbGwob2JqZWN0LCBrZXkpICYmIGtleSAhPSAnY29uc3RydWN0b3InKSB7XG4gICAgICByZXN1bHQucHVzaChrZXkpO1xuICAgIH1cbiAgfVxuICByZXR1cm4gcmVzdWx0O1xufVxuXG4vKipcbiAqIENyZWF0ZXMgYW4gYXJyYXkgb2YgdGhlIG93biBlbnVtZXJhYmxlIHByb3BlcnR5IG5hbWVzIG9mIGBvYmplY3RgLlxuICpcbiAqICoqTm90ZToqKiBOb24tb2JqZWN0IHZhbHVlcyBhcmUgY29lcmNlZCB0byBvYmplY3RzLiBTZWUgdGhlXG4gKiBbRVMgc3BlY10oaHR0cDovL2VjbWEtaW50ZXJuYXRpb25hbC5vcmcvZWNtYS0yNjIvNy4wLyNzZWMtb2JqZWN0LmtleXMpXG4gKiBmb3IgbW9yZSBkZXRhaWxzLlxuICpcbiAqIEBzdGF0aWNcbiAqIEBzaW5jZSAwLjEuMFxuICogQG1lbWJlck9mIF9cbiAqIEBjYXRlZ29yeSBPYmplY3RcbiAqIEBwYXJhbSB7T2JqZWN0fSBvYmplY3QgVGhlIG9iamVjdCB0byBxdWVyeS5cbiAqIEByZXR1cm5zIHtBcnJheX0gUmV0dXJucyB0aGUgYXJyYXkgb2YgcHJvcGVydHkgbmFtZXMuXG4gKiBAZXhhbXBsZVxuICpcbiAqIGZ1bmN0aW9uIEZvbygpIHtcbiAqICAgdGhpcy5hID0gMTtcbiAqICAgdGhpcy5iID0gMjtcbiAqIH1cbiAqXG4gKiBGb28ucHJvdG90eXBlLmMgPSAzO1xuICpcbiAqIF8ua2V5cyhuZXcgRm9vKTtcbiAqIC8vID0+IFsnYScsICdiJ10gKGl0ZXJhdGlvbiBvcmRlciBpcyBub3QgZ3VhcmFudGVlZClcbiAqXG4gKiBfLmtleXMoJ2hpJyk7XG4gKiAvLyA9PiBbJzAnLCAnMSddXG4gKi9cbmZ1bmN0aW9uIGtleXMob2JqZWN0KSB7XG4gIHJldHVybiBpc0FycmF5TGlrZShvYmplY3QpID8gYXJyYXlMaWtlS2V5cyhvYmplY3QpIDogYmFzZUtleXMob2JqZWN0KTtcbn1cblxuZnVuY3Rpb24gY3JlYXRlQXJyYXlJdGVyYXRvcihjb2xsKSB7XG4gICAgdmFyIGkgPSAtMTtcbiAgICB2YXIgbGVuID0gY29sbC5sZW5ndGg7XG4gICAgcmV0dXJuIGZ1bmN0aW9uIG5leHQoKSB7XG4gICAgICAgIHJldHVybiArK2kgPCBsZW4gPyB7dmFsdWU6IGNvbGxbaV0sIGtleTogaX0gOiBudWxsO1xuICAgIH1cbn1cblxuZnVuY3Rpb24gY3JlYXRlRVMyMDE1SXRlcmF0b3IoaXRlcmF0b3IpIHtcbiAgICB2YXIgaSA9IC0xO1xuICAgIHJldHVybiBmdW5jdGlvbiBuZXh0KCkge1xuICAgICAgICB2YXIgaXRlbSA9IGl0ZXJhdG9yLm5leHQoKTtcbiAgICAgICAgaWYgKGl0ZW0uZG9uZSlcbiAgICAgICAgICAgIHJldHVybiBudWxsO1xuICAgICAgICBpKys7XG4gICAgICAgIHJldHVybiB7dmFsdWU6IGl0ZW0udmFsdWUsIGtleTogaX07XG4gICAgfVxufVxuXG5mdW5jdGlvbiBjcmVhdGVPYmplY3RJdGVyYXRvcihvYmopIHtcbiAgICB2YXIgb2tleXMgPSBrZXlzKG9iaik7XG4gICAgdmFyIGkgPSAtMTtcbiAgICB2YXIgbGVuID0gb2tleXMubGVuZ3RoO1xuICAgIHJldHVybiBmdW5jdGlvbiBuZXh0KCkge1xuICAgICAgICB2YXIga2V5ID0gb2tleXNbKytpXTtcbiAgICAgICAgcmV0dXJuIGkgPCBsZW4gPyB7dmFsdWU6IG9ialtrZXldLCBrZXk6IGtleX0gOiBudWxsO1xuICAgIH07XG59XG5cbmZ1bmN0aW9uIGl0ZXJhdG9yKGNvbGwpIHtcbiAgICBpZiAoaXNBcnJheUxpa2UoY29sbCkpIHtcbiAgICAgICAgcmV0dXJuIGNyZWF0ZUFycmF5SXRlcmF0b3IoY29sbCk7XG4gICAgfVxuXG4gICAgdmFyIGl0ZXJhdG9yID0gZ2V0SXRlcmF0b3IoY29sbCk7XG4gICAgcmV0dXJuIGl0ZXJhdG9yID8gY3JlYXRlRVMyMDE1SXRlcmF0b3IoaXRlcmF0b3IpIDogY3JlYXRlT2JqZWN0SXRlcmF0b3IoY29sbCk7XG59XG5cbmZ1bmN0aW9uIG9ubHlPbmNlKGZuKSB7XG4gICAgcmV0dXJuIGZ1bmN0aW9uKCkge1xuICAgICAgICBpZiAoZm4gPT09IG51bGwpIHRocm93IG5ldyBFcnJvcihcIkNhbGxiYWNrIHdhcyBhbHJlYWR5IGNhbGxlZC5cIik7XG4gICAgICAgIHZhciBjYWxsRm4gPSBmbjtcbiAgICAgICAgZm4gPSBudWxsO1xuICAgICAgICBjYWxsRm4uYXBwbHkodGhpcywgYXJndW1lbnRzKTtcbiAgICB9O1xufVxuXG5mdW5jdGlvbiBfZWFjaE9mTGltaXQobGltaXQpIHtcbiAgICByZXR1cm4gZnVuY3Rpb24gKG9iaiwgaXRlcmF0ZWUsIGNhbGxiYWNrKSB7XG4gICAgICAgIGNhbGxiYWNrID0gb25jZShjYWxsYmFjayB8fCBub29wKTtcbiAgICAgICAgaWYgKGxpbWl0IDw9IDAgfHwgIW9iaikge1xuICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwpO1xuICAgICAgICB9XG4gICAgICAgIHZhciBuZXh0RWxlbSA9IGl0ZXJhdG9yKG9iaik7XG4gICAgICAgIHZhciBkb25lID0gZmFsc2U7XG4gICAgICAgIHZhciBydW5uaW5nID0gMDtcbiAgICAgICAgdmFyIGxvb3BpbmcgPSBmYWxzZTtcblxuICAgICAgICBmdW5jdGlvbiBpdGVyYXRlZUNhbGxiYWNrKGVyciwgdmFsdWUpIHtcbiAgICAgICAgICAgIHJ1bm5pbmcgLT0gMTtcbiAgICAgICAgICAgIGlmIChlcnIpIHtcbiAgICAgICAgICAgICAgICBkb25lID0gdHJ1ZTtcbiAgICAgICAgICAgICAgICBjYWxsYmFjayhlcnIpO1xuICAgICAgICAgICAgfVxuICAgICAgICAgICAgZWxzZSBpZiAodmFsdWUgPT09IGJyZWFrTG9vcCB8fCAoZG9uZSAmJiBydW5uaW5nIDw9IDApKSB7XG4gICAgICAgICAgICAgICAgZG9uZSA9IHRydWU7XG4gICAgICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwpO1xuICAgICAgICAgICAgfVxuICAgICAgICAgICAgZWxzZSBpZiAoIWxvb3BpbmcpIHtcbiAgICAgICAgICAgICAgICByZXBsZW5pc2goKTtcbiAgICAgICAgICAgIH1cbiAgICAgICAgfVxuXG4gICAgICAgIGZ1bmN0aW9uIHJlcGxlbmlzaCAoKSB7XG4gICAgICAgICAgICBsb29waW5nID0gdHJ1ZTtcbiAgICAgICAgICAgIHdoaWxlIChydW5uaW5nIDwgbGltaXQgJiYgIWRvbmUpIHtcbiAgICAgICAgICAgICAgICB2YXIgZWxlbSA9IG5leHRFbGVtKCk7XG4gICAgICAgICAgICAgICAgaWYgKGVsZW0gPT09IG51bGwpIHtcbiAgICAgICAgICAgICAgICAgICAgZG9uZSA9IHRydWU7XG4gICAgICAgICAgICAgICAgICAgIGlmIChydW5uaW5nIDw9IDApIHtcbiAgICAgICAgICAgICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwpO1xuICAgICAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICAgICAgICAgIHJldHVybjtcbiAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICAgICAgcnVubmluZyArPSAxO1xuICAgICAgICAgICAgICAgIGl0ZXJhdGVlKGVsZW0udmFsdWUsIGVsZW0ua2V5LCBvbmx5T25jZShpdGVyYXRlZUNhbGxiYWNrKSk7XG4gICAgICAgICAgICB9XG4gICAgICAgICAgICBsb29waW5nID0gZmFsc2U7XG4gICAgICAgIH1cblxuICAgICAgICByZXBsZW5pc2goKTtcbiAgICB9O1xufVxuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFtgZWFjaE9mYF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmVhY2hPZn0gYnV0IHJ1bnMgYSBtYXhpbXVtIG9mIGBsaW1pdGAgYXN5bmMgb3BlcmF0aW9ucyBhdCBhXG4gKiB0aW1lLlxuICpcbiAqIEBuYW1lIGVhY2hPZkxpbWl0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5lYWNoT2Zde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5lYWNoT2Z9XG4gKiBAYWxpYXMgZm9yRWFjaE9mTGltaXRcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge251bWJlcn0gbGltaXQgLSBUaGUgbWF4aW11bSBudW1iZXIgb2YgYXN5bmMgb3BlcmF0aW9ucyBhdCBhIHRpbWUuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgZnVuY3Rpb24gdG8gYXBwbHkgdG8gZWFjaFxuICogaXRlbSBpbiBgY29sbGAuIFRoZSBga2V5YCBpcyB0aGUgaXRlbSdzIGtleSwgb3IgaW5kZXggaW4gdGhlIGNhc2Ugb2YgYW5cbiAqIGFycmF5LlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBrZXksIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbFxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBJbnZva2VkIHdpdGggKGVycikuXG4gKi9cbmZ1bmN0aW9uIGVhY2hPZkxpbWl0KGNvbGwsIGxpbWl0LCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICBfZWFjaE9mTGltaXQobGltaXQpKGNvbGwsIHdyYXBBc3luYyhpdGVyYXRlZSksIGNhbGxiYWNrKTtcbn1cblxuZnVuY3Rpb24gZG9MaW1pdChmbiwgbGltaXQpIHtcbiAgICByZXR1cm4gZnVuY3Rpb24gKGl0ZXJhYmxlLCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICAgICAgcmV0dXJuIGZuKGl0ZXJhYmxlLCBsaW1pdCwgaXRlcmF0ZWUsIGNhbGxiYWNrKTtcbiAgICB9O1xufVxuXG4vLyBlYWNoT2YgaW1wbGVtZW50YXRpb24gb3B0aW1pemVkIGZvciBhcnJheS1saWtlc1xuZnVuY3Rpb24gZWFjaE9mQXJyYXlMaWtlKGNvbGwsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIGNhbGxiYWNrID0gb25jZShjYWxsYmFjayB8fCBub29wKTtcbiAgICB2YXIgaW5kZXggPSAwLFxuICAgICAgICBjb21wbGV0ZWQgPSAwLFxuICAgICAgICBsZW5ndGggPSBjb2xsLmxlbmd0aDtcbiAgICBpZiAobGVuZ3RoID09PSAwKSB7XG4gICAgICAgIGNhbGxiYWNrKG51bGwpO1xuICAgIH1cblxuICAgIGZ1bmN0aW9uIGl0ZXJhdG9yQ2FsbGJhY2soZXJyLCB2YWx1ZSkge1xuICAgICAgICBpZiAoZXJyKSB7XG4gICAgICAgICAgICBjYWxsYmFjayhlcnIpO1xuICAgICAgICB9IGVsc2UgaWYgKCgrK2NvbXBsZXRlZCA9PT0gbGVuZ3RoKSB8fCB2YWx1ZSA9PT0gYnJlYWtMb29wKSB7XG4gICAgICAgICAgICBjYWxsYmFjayhudWxsKTtcbiAgICAgICAgfVxuICAgIH1cblxuICAgIGZvciAoOyBpbmRleCA8IGxlbmd0aDsgaW5kZXgrKykge1xuICAgICAgICBpdGVyYXRlZShjb2xsW2luZGV4XSwgaW5kZXgsIG9ubHlPbmNlKGl0ZXJhdG9yQ2FsbGJhY2spKTtcbiAgICB9XG59XG5cbi8vIGEgZ2VuZXJpYyB2ZXJzaW9uIG9mIGVhY2hPZiB3aGljaCBjYW4gaGFuZGxlIGFycmF5LCBvYmplY3QsIGFuZCBpdGVyYXRvciBjYXNlcy5cbnZhciBlYWNoT2ZHZW5lcmljID0gZG9MaW1pdChlYWNoT2ZMaW1pdCwgSW5maW5pdHkpO1xuXG4vKipcbiAqIExpa2UgW2BlYWNoYF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmVhY2h9LCBleGNlcHQgdGhhdCBpdCBwYXNzZXMgdGhlIGtleSAob3IgaW5kZXgpIGFzIHRoZSBzZWNvbmQgYXJndW1lbnRcbiAqIHRvIHRoZSBpdGVyYXRlZS5cbiAqXG4gKiBAbmFtZSBlYWNoT2ZcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBhbGlhcyBmb3JFYWNoT2ZcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAc2VlIFthc3luYy5lYWNoXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZWFjaH1cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIGZ1bmN0aW9uIHRvIGFwcGx5IHRvIGVhY2hcbiAqIGl0ZW0gaW4gYGNvbGxgLlxuICogVGhlIGBrZXlgIGlzIHRoZSBpdGVtJ3Mga2V5LCBvciBpbmRleCBpbiB0aGUgY2FzZSBvZiBhbiBhcnJheS5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwga2V5LCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgd2hlbiBhbGxcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gSW52b2tlZCB3aXRoIChlcnIpLlxuICogQGV4YW1wbGVcbiAqXG4gKiB2YXIgb2JqID0ge2RldjogXCIvZGV2Lmpzb25cIiwgdGVzdDogXCIvdGVzdC5qc29uXCIsIHByb2Q6IFwiL3Byb2QuanNvblwifTtcbiAqIHZhciBjb25maWdzID0ge307XG4gKlxuICogYXN5bmMuZm9yRWFjaE9mKG9iaiwgZnVuY3Rpb24gKHZhbHVlLCBrZXksIGNhbGxiYWNrKSB7XG4gKiAgICAgZnMucmVhZEZpbGUoX19kaXJuYW1lICsgdmFsdWUsIFwidXRmOFwiLCBmdW5jdGlvbiAoZXJyLCBkYXRhKSB7XG4gKiAgICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICogICAgICAgICB0cnkge1xuICogICAgICAgICAgICAgY29uZmlnc1trZXldID0gSlNPTi5wYXJzZShkYXRhKTtcbiAqICAgICAgICAgfSBjYXRjaCAoZSkge1xuICogICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKGUpO1xuICogICAgICAgICB9XG4gKiAgICAgICAgIGNhbGxiYWNrKCk7XG4gKiAgICAgfSk7XG4gKiB9LCBmdW5jdGlvbiAoZXJyKSB7XG4gKiAgICAgaWYgKGVycikgY29uc29sZS5lcnJvcihlcnIubWVzc2FnZSk7XG4gKiAgICAgLy8gY29uZmlncyBpcyBub3cgYSBtYXAgb2YgSlNPTiBkYXRhXG4gKiAgICAgZG9Tb21ldGhpbmdXaXRoKGNvbmZpZ3MpO1xuICogfSk7XG4gKi9cbnZhciBlYWNoT2YgPSBmdW5jdGlvbihjb2xsLCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICB2YXIgZWFjaE9mSW1wbGVtZW50YXRpb24gPSBpc0FycmF5TGlrZShjb2xsKSA/IGVhY2hPZkFycmF5TGlrZSA6IGVhY2hPZkdlbmVyaWM7XG4gICAgZWFjaE9mSW1wbGVtZW50YXRpb24oY29sbCwgd3JhcEFzeW5jKGl0ZXJhdGVlKSwgY2FsbGJhY2spO1xufTtcblxuZnVuY3Rpb24gZG9QYXJhbGxlbChmbikge1xuICAgIHJldHVybiBmdW5jdGlvbiAob2JqLCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICAgICAgcmV0dXJuIGZuKGVhY2hPZiwgb2JqLCB3cmFwQXN5bmMoaXRlcmF0ZWUpLCBjYWxsYmFjayk7XG4gICAgfTtcbn1cblxuZnVuY3Rpb24gX2FzeW5jTWFwKGVhY2hmbiwgYXJyLCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICBjYWxsYmFjayA9IGNhbGxiYWNrIHx8IG5vb3A7XG4gICAgYXJyID0gYXJyIHx8IFtdO1xuICAgIHZhciByZXN1bHRzID0gW107XG4gICAgdmFyIGNvdW50ZXIgPSAwO1xuICAgIHZhciBfaXRlcmF0ZWUgPSB3cmFwQXN5bmMoaXRlcmF0ZWUpO1xuXG4gICAgZWFjaGZuKGFyciwgZnVuY3Rpb24gKHZhbHVlLCBfLCBjYWxsYmFjaykge1xuICAgICAgICB2YXIgaW5kZXggPSBjb3VudGVyKys7XG4gICAgICAgIF9pdGVyYXRlZSh2YWx1ZSwgZnVuY3Rpb24gKGVyciwgdikge1xuICAgICAgICAgICAgcmVzdWx0c1tpbmRleF0gPSB2O1xuICAgICAgICAgICAgY2FsbGJhY2soZXJyKTtcbiAgICAgICAgfSk7XG4gICAgfSwgZnVuY3Rpb24gKGVycikge1xuICAgICAgICBjYWxsYmFjayhlcnIsIHJlc3VsdHMpO1xuICAgIH0pO1xufVxuXG4vKipcbiAqIFByb2R1Y2VzIGEgbmV3IGNvbGxlY3Rpb24gb2YgdmFsdWVzIGJ5IG1hcHBpbmcgZWFjaCB2YWx1ZSBpbiBgY29sbGAgdGhyb3VnaFxuICogdGhlIGBpdGVyYXRlZWAgZnVuY3Rpb24uIFRoZSBgaXRlcmF0ZWVgIGlzIGNhbGxlZCB3aXRoIGFuIGl0ZW0gZnJvbSBgY29sbGBcbiAqIGFuZCBhIGNhbGxiYWNrIGZvciB3aGVuIGl0IGhhcyBmaW5pc2hlZCBwcm9jZXNzaW5nLiBFYWNoIG9mIHRoZXNlIGNhbGxiYWNrXG4gKiB0YWtlcyAyIGFyZ3VtZW50czogYW4gYGVycm9yYCwgYW5kIHRoZSB0cmFuc2Zvcm1lZCBpdGVtIGZyb20gYGNvbGxgLiBJZlxuICogYGl0ZXJhdGVlYCBwYXNzZXMgYW4gZXJyb3IgdG8gaXRzIGNhbGxiYWNrLCB0aGUgbWFpbiBgY2FsbGJhY2tgIChmb3IgdGhlXG4gKiBgbWFwYCBmdW5jdGlvbikgaXMgaW1tZWRpYXRlbHkgY2FsbGVkIHdpdGggdGhlIGVycm9yLlxuICpcbiAqIE5vdGUsIHRoYXQgc2luY2UgdGhpcyBmdW5jdGlvbiBhcHBsaWVzIHRoZSBgaXRlcmF0ZWVgIHRvIGVhY2ggaXRlbSBpblxuICogcGFyYWxsZWwsIHRoZXJlIGlzIG5vIGd1YXJhbnRlZSB0aGF0IHRoZSBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyB3aWxsIGNvbXBsZXRlXG4gKiBpbiBvcmRlci4gSG93ZXZlciwgdGhlIHJlc3VsdHMgYXJyYXkgd2lsbCBiZSBpbiB0aGUgc2FtZSBvcmRlciBhcyB0aGVcbiAqIG9yaWdpbmFsIGBjb2xsYC5cbiAqXG4gKiBJZiBgbWFwYCBpcyBwYXNzZWQgYW4gT2JqZWN0LCB0aGUgcmVzdWx0cyB3aWxsIGJlIGFuIEFycmF5LiAgVGhlIHJlc3VsdHNcbiAqIHdpbGwgcm91Z2hseSBiZSBpbiB0aGUgb3JkZXIgb2YgdGhlIG9yaWdpbmFsIE9iamVjdHMnIGtleXMgKGJ1dCB0aGlzIGNhblxuICogdmFyeSBhY3Jvc3MgSmF2YVNjcmlwdCBlbmdpbmVzKS5cbiAqXG4gKiBAbmFtZSBtYXBcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgZnVuY3Rpb24gdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluXG4gKiBgY29sbGAuXG4gKiBUaGUgaXRlcmF0ZWUgc2hvdWxkIGNvbXBsZXRlIHdpdGggdGhlIHRyYW5zZm9ybWVkIGl0ZW0uXG4gKiBJbnZva2VkIHdpdGggKGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbCBgaXRlcmF0ZWVgXG4gKiBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHRzIGlzIGFuIEFycmF5IG9mIHRoZVxuICogdHJhbnNmb3JtZWQgaXRlbXMgZnJvbSB0aGUgYGNvbGxgLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0cykuXG4gKiBAZXhhbXBsZVxuICpcbiAqIGFzeW5jLm1hcChbJ2ZpbGUxJywnZmlsZTInLCdmaWxlMyddLCBmcy5zdGF0LCBmdW5jdGlvbihlcnIsIHJlc3VsdHMpIHtcbiAqICAgICAvLyByZXN1bHRzIGlzIG5vdyBhbiBhcnJheSBvZiBzdGF0cyBmb3IgZWFjaCBmaWxlXG4gKiB9KTtcbiAqL1xudmFyIG1hcCA9IGRvUGFyYWxsZWwoX2FzeW5jTWFwKTtcblxuLyoqXG4gKiBBcHBsaWVzIHRoZSBwcm92aWRlZCBhcmd1bWVudHMgdG8gZWFjaCBmdW5jdGlvbiBpbiB0aGUgYXJyYXksIGNhbGxpbmdcbiAqIGBjYWxsYmFja2AgYWZ0ZXIgYWxsIGZ1bmN0aW9ucyBoYXZlIGNvbXBsZXRlZC4gSWYgeW91IG9ubHkgcHJvdmlkZSB0aGUgZmlyc3RcbiAqIGFyZ3VtZW50LCBgZm5zYCwgdGhlbiBpdCB3aWxsIHJldHVybiBhIGZ1bmN0aW9uIHdoaWNoIGxldHMgeW91IHBhc3MgaW4gdGhlXG4gKiBhcmd1bWVudHMgYXMgaWYgaXQgd2VyZSBhIHNpbmdsZSBmdW5jdGlvbiBjYWxsLiBJZiBtb3JlIGFyZ3VtZW50cyBhcmVcbiAqIHByb3ZpZGVkLCBgY2FsbGJhY2tgIGlzIHJlcXVpcmVkIHdoaWxlIGBhcmdzYCBpcyBzdGlsbCBvcHRpb25hbC5cbiAqXG4gKiBAbmFtZSBhcHBseUVhY2hcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBmbnMgLSBBIGNvbGxlY3Rpb24gb2Yge0BsaW5rIEFzeW5jRnVuY3Rpb259c1xuICogdG8gYWxsIGNhbGwgd2l0aCB0aGUgc2FtZSBhcmd1bWVudHNcbiAqIEBwYXJhbSB7Li4uKn0gW2FyZ3NdIC0gYW55IG51bWJlciBvZiBzZXBhcmF0ZSBhcmd1bWVudHMgdG8gcGFzcyB0byB0aGVcbiAqIGZ1bmN0aW9uLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIHRoZSBmaW5hbCBhcmd1bWVudCBzaG91bGQgYmUgdGhlIGNhbGxiYWNrLFxuICogY2FsbGVkIHdoZW4gYWxsIGZ1bmN0aW9ucyBoYXZlIGNvbXBsZXRlZCBwcm9jZXNzaW5nLlxuICogQHJldHVybnMge0Z1bmN0aW9ufSAtIElmIG9ubHkgdGhlIGZpcnN0IGFyZ3VtZW50LCBgZm5zYCwgaXMgcHJvdmlkZWQsIGl0IHdpbGxcbiAqIHJldHVybiBhIGZ1bmN0aW9uIHdoaWNoIGxldHMgeW91IHBhc3MgaW4gdGhlIGFyZ3VtZW50cyBhcyBpZiBpdCB3ZXJlIGEgc2luZ2xlXG4gKiBmdW5jdGlvbiBjYWxsLiBUaGUgc2lnbmF0dXJlIGlzIGAoLi5hcmdzLCBjYWxsYmFjaylgLiBJZiBpbnZva2VkIHdpdGggYW55XG4gKiBhcmd1bWVudHMsIGBjYWxsYmFja2AgaXMgcmVxdWlyZWQuXG4gKiBAZXhhbXBsZVxuICpcbiAqIGFzeW5jLmFwcGx5RWFjaChbZW5hYmxlU2VhcmNoLCB1cGRhdGVTY2hlbWFdLCAnYnVja2V0JywgY2FsbGJhY2spO1xuICpcbiAqIC8vIHBhcnRpYWwgYXBwbGljYXRpb24gZXhhbXBsZTpcbiAqIGFzeW5jLmVhY2goXG4gKiAgICAgYnVja2V0cyxcbiAqICAgICBhc3luYy5hcHBseUVhY2goW2VuYWJsZVNlYXJjaCwgdXBkYXRlU2NoZW1hXSksXG4gKiAgICAgY2FsbGJhY2tcbiAqICk7XG4gKi9cbnZhciBhcHBseUVhY2ggPSBhcHBseUVhY2gkMShtYXApO1xuXG5mdW5jdGlvbiBkb1BhcmFsbGVsTGltaXQoZm4pIHtcbiAgICByZXR1cm4gZnVuY3Rpb24gKG9iaiwgbGltaXQsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgICAgICByZXR1cm4gZm4oX2VhY2hPZkxpbWl0KGxpbWl0KSwgb2JqLCB3cmFwQXN5bmMoaXRlcmF0ZWUpLCBjYWxsYmFjayk7XG4gICAgfTtcbn1cblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYG1hcGBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9IGJ1dCBydW5zIGEgbWF4aW11bSBvZiBgbGltaXRgIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICpcbiAqIEBuYW1lIG1hcExpbWl0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5tYXBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIGZ1bmN0aW9uIHRvIGFwcGx5IHRvIGVhY2ggaXRlbSBpblxuICogYGNvbGxgLlxuICogVGhlIGl0ZXJhdGVlIHNob3VsZCBjb21wbGV0ZSB3aXRoIHRoZSB0cmFuc2Zvcm1lZCBpdGVtLlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgd2hlbiBhbGwgYGl0ZXJhdGVlYFxuICogZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gUmVzdWx0cyBpcyBhbiBhcnJheSBvZiB0aGVcbiAqIHRyYW5zZm9ybWVkIGl0ZW1zIGZyb20gdGhlIGBjb2xsYC4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICovXG52YXIgbWFwTGltaXQgPSBkb1BhcmFsbGVsTGltaXQoX2FzeW5jTWFwKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYG1hcGBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9IGJ1dCBydW5zIG9ubHkgYSBzaW5nbGUgYXN5bmMgb3BlcmF0aW9uIGF0IGEgdGltZS5cbiAqXG4gKiBAbmFtZSBtYXBTZXJpZXNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLm1hcF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLm1hcH1cbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgZnVuY3Rpb24gdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluXG4gKiBgY29sbGAuXG4gKiBUaGUgaXRlcmF0ZWUgc2hvdWxkIGNvbXBsZXRlIHdpdGggdGhlIHRyYW5zZm9ybWVkIGl0ZW0uXG4gKiBJbnZva2VkIHdpdGggKGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbCBgaXRlcmF0ZWVgXG4gKiBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHRzIGlzIGFuIGFycmF5IG9mIHRoZVxuICogdHJhbnNmb3JtZWQgaXRlbXMgZnJvbSB0aGUgYGNvbGxgLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0cykuXG4gKi9cbnZhciBtYXBTZXJpZXMgPSBkb0xpbWl0KG1hcExpbWl0LCAxKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGFwcGx5RWFjaGBde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy5hcHBseUVhY2h9IGJ1dCBydW5zIG9ubHkgYSBzaW5nbGUgYXN5bmMgb3BlcmF0aW9uIGF0IGEgdGltZS5cbiAqXG4gKiBAbmFtZSBhcHBseUVhY2hTZXJpZXNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmFwcGx5RWFjaF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LmFwcGx5RWFjaH1cbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBmbnMgLSBBIGNvbGxlY3Rpb24gb2Yge0BsaW5rIEFzeW5jRnVuY3Rpb259cyB0byBhbGxcbiAqIGNhbGwgd2l0aCB0aGUgc2FtZSBhcmd1bWVudHNcbiAqIEBwYXJhbSB7Li4uKn0gW2FyZ3NdIC0gYW55IG51bWJlciBvZiBzZXBhcmF0ZSBhcmd1bWVudHMgdG8gcGFzcyB0byB0aGVcbiAqIGZ1bmN0aW9uLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIHRoZSBmaW5hbCBhcmd1bWVudCBzaG91bGQgYmUgdGhlIGNhbGxiYWNrLFxuICogY2FsbGVkIHdoZW4gYWxsIGZ1bmN0aW9ucyBoYXZlIGNvbXBsZXRlZCBwcm9jZXNzaW5nLlxuICogQHJldHVybnMge0Z1bmN0aW9ufSAtIElmIG9ubHkgdGhlIGZpcnN0IGFyZ3VtZW50IGlzIHByb3ZpZGVkLCBpdCB3aWxsIHJldHVyblxuICogYSBmdW5jdGlvbiB3aGljaCBsZXRzIHlvdSBwYXNzIGluIHRoZSBhcmd1bWVudHMgYXMgaWYgaXQgd2VyZSBhIHNpbmdsZVxuICogZnVuY3Rpb24gY2FsbC5cbiAqL1xudmFyIGFwcGx5RWFjaFNlcmllcyA9IGFwcGx5RWFjaCQxKG1hcFNlcmllcyk7XG5cbi8qKlxuICogQSBzcGVjaWFsaXplZCB2ZXJzaW9uIG9mIGBfLmZvckVhY2hgIGZvciBhcnJheXMgd2l0aG91dCBzdXBwb3J0IGZvclxuICogaXRlcmF0ZWUgc2hvcnRoYW5kcy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHtBcnJheX0gW2FycmF5XSBUaGUgYXJyYXkgdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgVGhlIGZ1bmN0aW9uIGludm9rZWQgcGVyIGl0ZXJhdGlvbi5cbiAqIEByZXR1cm5zIHtBcnJheX0gUmV0dXJucyBgYXJyYXlgLlxuICovXG5mdW5jdGlvbiBhcnJheUVhY2goYXJyYXksIGl0ZXJhdGVlKSB7XG4gIHZhciBpbmRleCA9IC0xLFxuICAgICAgbGVuZ3RoID0gYXJyYXkgPT0gbnVsbCA/IDAgOiBhcnJheS5sZW5ndGg7XG5cbiAgd2hpbGUgKCsraW5kZXggPCBsZW5ndGgpIHtcbiAgICBpZiAoaXRlcmF0ZWUoYXJyYXlbaW5kZXhdLCBpbmRleCwgYXJyYXkpID09PSBmYWxzZSkge1xuICAgICAgYnJlYWs7XG4gICAgfVxuICB9XG4gIHJldHVybiBhcnJheTtcbn1cblxuLyoqXG4gKiBDcmVhdGVzIGEgYmFzZSBmdW5jdGlvbiBmb3IgbWV0aG9kcyBsaWtlIGBfLmZvckluYCBhbmQgYF8uZm9yT3duYC5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHtib29sZWFufSBbZnJvbVJpZ2h0XSBTcGVjaWZ5IGl0ZXJhdGluZyBmcm9tIHJpZ2h0IHRvIGxlZnQuXG4gKiBAcmV0dXJucyB7RnVuY3Rpb259IFJldHVybnMgdGhlIG5ldyBiYXNlIGZ1bmN0aW9uLlxuICovXG5mdW5jdGlvbiBjcmVhdGVCYXNlRm9yKGZyb21SaWdodCkge1xuICByZXR1cm4gZnVuY3Rpb24ob2JqZWN0LCBpdGVyYXRlZSwga2V5c0Z1bmMpIHtcbiAgICB2YXIgaW5kZXggPSAtMSxcbiAgICAgICAgaXRlcmFibGUgPSBPYmplY3Qob2JqZWN0KSxcbiAgICAgICAgcHJvcHMgPSBrZXlzRnVuYyhvYmplY3QpLFxuICAgICAgICBsZW5ndGggPSBwcm9wcy5sZW5ndGg7XG5cbiAgICB3aGlsZSAobGVuZ3RoLS0pIHtcbiAgICAgIHZhciBrZXkgPSBwcm9wc1tmcm9tUmlnaHQgPyBsZW5ndGggOiArK2luZGV4XTtcbiAgICAgIGlmIChpdGVyYXRlZShpdGVyYWJsZVtrZXldLCBrZXksIGl0ZXJhYmxlKSA9PT0gZmFsc2UpIHtcbiAgICAgICAgYnJlYWs7XG4gICAgICB9XG4gICAgfVxuICAgIHJldHVybiBvYmplY3Q7XG4gIH07XG59XG5cbi8qKlxuICogVGhlIGJhc2UgaW1wbGVtZW50YXRpb24gb2YgYGJhc2VGb3JPd25gIHdoaWNoIGl0ZXJhdGVzIG92ZXIgYG9iamVjdGBcbiAqIHByb3BlcnRpZXMgcmV0dXJuZWQgYnkgYGtleXNGdW5jYCBhbmQgaW52b2tlcyBgaXRlcmF0ZWVgIGZvciBlYWNoIHByb3BlcnR5LlxuICogSXRlcmF0ZWUgZnVuY3Rpb25zIG1heSBleGl0IGl0ZXJhdGlvbiBlYXJseSBieSBleHBsaWNpdGx5IHJldHVybmluZyBgZmFsc2VgLlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge09iamVjdH0gb2JqZWN0IFRoZSBvYmplY3QgdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgVGhlIGZ1bmN0aW9uIGludm9rZWQgcGVyIGl0ZXJhdGlvbi5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IGtleXNGdW5jIFRoZSBmdW5jdGlvbiB0byBnZXQgdGhlIGtleXMgb2YgYG9iamVjdGAuXG4gKiBAcmV0dXJucyB7T2JqZWN0fSBSZXR1cm5zIGBvYmplY3RgLlxuICovXG52YXIgYmFzZUZvciA9IGNyZWF0ZUJhc2VGb3IoKTtcblxuLyoqXG4gKiBUaGUgYmFzZSBpbXBsZW1lbnRhdGlvbiBvZiBgXy5mb3JPd25gIHdpdGhvdXQgc3VwcG9ydCBmb3IgaXRlcmF0ZWUgc2hvcnRoYW5kcy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHtPYmplY3R9IG9iamVjdCBUaGUgb2JqZWN0IHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IGl0ZXJhdGVlIFRoZSBmdW5jdGlvbiBpbnZva2VkIHBlciBpdGVyYXRpb24uXG4gKiBAcmV0dXJucyB7T2JqZWN0fSBSZXR1cm5zIGBvYmplY3RgLlxuICovXG5mdW5jdGlvbiBiYXNlRm9yT3duKG9iamVjdCwgaXRlcmF0ZWUpIHtcbiAgcmV0dXJuIG9iamVjdCAmJiBiYXNlRm9yKG9iamVjdCwgaXRlcmF0ZWUsIGtleXMpO1xufVxuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBfLmZpbmRJbmRleGAgYW5kIGBfLmZpbmRMYXN0SW5kZXhgIHdpdGhvdXRcbiAqIHN1cHBvcnQgZm9yIGl0ZXJhdGVlIHNob3J0aGFuZHMuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7QXJyYXl9IGFycmF5IFRoZSBhcnJheSB0byBpbnNwZWN0LlxuICogQHBhcmFtIHtGdW5jdGlvbn0gcHJlZGljYXRlIFRoZSBmdW5jdGlvbiBpbnZva2VkIHBlciBpdGVyYXRpb24uXG4gKiBAcGFyYW0ge251bWJlcn0gZnJvbUluZGV4IFRoZSBpbmRleCB0byBzZWFyY2ggZnJvbS5cbiAqIEBwYXJhbSB7Ym9vbGVhbn0gW2Zyb21SaWdodF0gU3BlY2lmeSBpdGVyYXRpbmcgZnJvbSByaWdodCB0byBsZWZ0LlxuICogQHJldHVybnMge251bWJlcn0gUmV0dXJucyB0aGUgaW5kZXggb2YgdGhlIG1hdGNoZWQgdmFsdWUsIGVsc2UgYC0xYC5cbiAqL1xuZnVuY3Rpb24gYmFzZUZpbmRJbmRleChhcnJheSwgcHJlZGljYXRlLCBmcm9tSW5kZXgsIGZyb21SaWdodCkge1xuICB2YXIgbGVuZ3RoID0gYXJyYXkubGVuZ3RoLFxuICAgICAgaW5kZXggPSBmcm9tSW5kZXggKyAoZnJvbVJpZ2h0ID8gMSA6IC0xKTtcblxuICB3aGlsZSAoKGZyb21SaWdodCA/IGluZGV4LS0gOiArK2luZGV4IDwgbGVuZ3RoKSkge1xuICAgIGlmIChwcmVkaWNhdGUoYXJyYXlbaW5kZXhdLCBpbmRleCwgYXJyYXkpKSB7XG4gICAgICByZXR1cm4gaW5kZXg7XG4gICAgfVxuICB9XG4gIHJldHVybiAtMTtcbn1cblxuLyoqXG4gKiBUaGUgYmFzZSBpbXBsZW1lbnRhdGlvbiBvZiBgXy5pc05hTmAgd2l0aG91dCBzdXBwb3J0IGZvciBudW1iZXIgb2JqZWN0cy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHsqfSB2YWx1ZSBUaGUgdmFsdWUgdG8gY2hlY2suXG4gKiBAcmV0dXJucyB7Ym9vbGVhbn0gUmV0dXJucyBgdHJ1ZWAgaWYgYHZhbHVlYCBpcyBgTmFOYCwgZWxzZSBgZmFsc2VgLlxuICovXG5mdW5jdGlvbiBiYXNlSXNOYU4odmFsdWUpIHtcbiAgcmV0dXJuIHZhbHVlICE9PSB2YWx1ZTtcbn1cblxuLyoqXG4gKiBBIHNwZWNpYWxpemVkIHZlcnNpb24gb2YgYF8uaW5kZXhPZmAgd2hpY2ggcGVyZm9ybXMgc3RyaWN0IGVxdWFsaXR5XG4gKiBjb21wYXJpc29ucyBvZiB2YWx1ZXMsIGkuZS4gYD09PWAuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7QXJyYXl9IGFycmF5IFRoZSBhcnJheSB0byBpbnNwZWN0LlxuICogQHBhcmFtIHsqfSB2YWx1ZSBUaGUgdmFsdWUgdG8gc2VhcmNoIGZvci5cbiAqIEBwYXJhbSB7bnVtYmVyfSBmcm9tSW5kZXggVGhlIGluZGV4IHRvIHNlYXJjaCBmcm9tLlxuICogQHJldHVybnMge251bWJlcn0gUmV0dXJucyB0aGUgaW5kZXggb2YgdGhlIG1hdGNoZWQgdmFsdWUsIGVsc2UgYC0xYC5cbiAqL1xuZnVuY3Rpb24gc3RyaWN0SW5kZXhPZihhcnJheSwgdmFsdWUsIGZyb21JbmRleCkge1xuICB2YXIgaW5kZXggPSBmcm9tSW5kZXggLSAxLFxuICAgICAgbGVuZ3RoID0gYXJyYXkubGVuZ3RoO1xuXG4gIHdoaWxlICgrK2luZGV4IDwgbGVuZ3RoKSB7XG4gICAgaWYgKGFycmF5W2luZGV4XSA9PT0gdmFsdWUpIHtcbiAgICAgIHJldHVybiBpbmRleDtcbiAgICB9XG4gIH1cbiAgcmV0dXJuIC0xO1xufVxuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBfLmluZGV4T2ZgIHdpdGhvdXQgYGZyb21JbmRleGAgYm91bmRzIGNoZWNrcy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHtBcnJheX0gYXJyYXkgVGhlIGFycmF5IHRvIGluc3BlY3QuXG4gKiBAcGFyYW0geyp9IHZhbHVlIFRoZSB2YWx1ZSB0byBzZWFyY2ggZm9yLlxuICogQHBhcmFtIHtudW1iZXJ9IGZyb21JbmRleCBUaGUgaW5kZXggdG8gc2VhcmNoIGZyb20uXG4gKiBAcmV0dXJucyB7bnVtYmVyfSBSZXR1cm5zIHRoZSBpbmRleCBvZiB0aGUgbWF0Y2hlZCB2YWx1ZSwgZWxzZSBgLTFgLlxuICovXG5mdW5jdGlvbiBiYXNlSW5kZXhPZihhcnJheSwgdmFsdWUsIGZyb21JbmRleCkge1xuICByZXR1cm4gdmFsdWUgPT09IHZhbHVlXG4gICAgPyBzdHJpY3RJbmRleE9mKGFycmF5LCB2YWx1ZSwgZnJvbUluZGV4KVxuICAgIDogYmFzZUZpbmRJbmRleChhcnJheSwgYmFzZUlzTmFOLCBmcm9tSW5kZXgpO1xufVxuXG4vKipcbiAqIERldGVybWluZXMgdGhlIGJlc3Qgb3JkZXIgZm9yIHJ1bm5pbmcgdGhlIHtAbGluayBBc3luY0Z1bmN0aW9ufXMgaW4gYHRhc2tzYCwgYmFzZWQgb25cbiAqIHRoZWlyIHJlcXVpcmVtZW50cy4gRWFjaCBmdW5jdGlvbiBjYW4gb3B0aW9uYWxseSBkZXBlbmQgb24gb3RoZXIgZnVuY3Rpb25zXG4gKiBiZWluZyBjb21wbGV0ZWQgZmlyc3QsIGFuZCBlYWNoIGZ1bmN0aW9uIGlzIHJ1biBhcyBzb29uIGFzIGl0cyByZXF1aXJlbWVudHNcbiAqIGFyZSBzYXRpc2ZpZWQuXG4gKlxuICogSWYgYW55IG9mIHRoZSB7QGxpbmsgQXN5bmNGdW5jdGlvbn1zIHBhc3MgYW4gZXJyb3IgdG8gdGhlaXIgY2FsbGJhY2ssIHRoZSBgYXV0b2Agc2VxdWVuY2VcbiAqIHdpbGwgc3RvcC4gRnVydGhlciB0YXNrcyB3aWxsIG5vdCBleGVjdXRlIChzbyBhbnkgb3RoZXIgZnVuY3Rpb25zIGRlcGVuZGluZ1xuICogb24gaXQgd2lsbCBub3QgcnVuKSwgYW5kIHRoZSBtYWluIGBjYWxsYmFja2AgaXMgaW1tZWRpYXRlbHkgY2FsbGVkIHdpdGggdGhlXG4gKiBlcnJvci5cbiAqXG4gKiB7QGxpbmsgQXN5bmNGdW5jdGlvbn1zIGFsc28gcmVjZWl2ZSBhbiBvYmplY3QgY29udGFpbmluZyB0aGUgcmVzdWx0cyBvZiBmdW5jdGlvbnMgd2hpY2hcbiAqIGhhdmUgY29tcGxldGVkIHNvIGZhciBhcyB0aGUgZmlyc3QgYXJndW1lbnQsIGlmIHRoZXkgaGF2ZSBkZXBlbmRlbmNpZXMuIElmIGFcbiAqIHRhc2sgZnVuY3Rpb24gaGFzIG5vIGRlcGVuZGVuY2llcywgaXQgd2lsbCBvbmx5IGJlIHBhc3NlZCBhIGNhbGxiYWNrLlxuICpcbiAqIEBuYW1lIGF1dG9cbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7T2JqZWN0fSB0YXNrcyAtIEFuIG9iamVjdC4gRWFjaCBvZiBpdHMgcHJvcGVydGllcyBpcyBlaXRoZXIgYVxuICogZnVuY3Rpb24gb3IgYW4gYXJyYXkgb2YgcmVxdWlyZW1lbnRzLCB3aXRoIHRoZSB7QGxpbmsgQXN5bmNGdW5jdGlvbn0gaXRzZWxmIHRoZSBsYXN0IGl0ZW1cbiAqIGluIHRoZSBhcnJheS4gVGhlIG9iamVjdCdzIGtleSBvZiBhIHByb3BlcnR5IHNlcnZlcyBhcyB0aGUgbmFtZSBvZiB0aGUgdGFza1xuICogZGVmaW5lZCBieSB0aGF0IHByb3BlcnR5LCBpLmUuIGNhbiBiZSB1c2VkIHdoZW4gc3BlY2lmeWluZyByZXF1aXJlbWVudHMgZm9yXG4gKiBvdGhlciB0YXNrcy4gVGhlIGZ1bmN0aW9uIHJlY2VpdmVzIG9uZSBvciB0d28gYXJndW1lbnRzOlxuICogKiBhIGByZXN1bHRzYCBvYmplY3QsIGNvbnRhaW5pbmcgdGhlIHJlc3VsdHMgb2YgdGhlIHByZXZpb3VzbHkgZXhlY3V0ZWRcbiAqICAgZnVuY3Rpb25zLCBvbmx5IHBhc3NlZCBpZiB0aGUgdGFzayBoYXMgYW55IGRlcGVuZGVuY2llcyxcbiAqICogYSBgY2FsbGJhY2soZXJyLCByZXN1bHQpYCBmdW5jdGlvbiwgd2hpY2ggbXVzdCBiZSBjYWxsZWQgd2hlbiBmaW5pc2hlZCxcbiAqICAgcGFzc2luZyBhbiBgZXJyb3JgICh3aGljaCBjYW4gYmUgYG51bGxgKSBhbmQgdGhlIHJlc3VsdCBvZiB0aGUgZnVuY3Rpb24nc1xuICogICBleGVjdXRpb24uXG4gKiBAcGFyYW0ge251bWJlcn0gW2NvbmN1cnJlbmN5PUluZmluaXR5XSAtIEFuIG9wdGlvbmFsIGBpbnRlZ2VyYCBmb3JcbiAqIGRldGVybWluaW5nIHRoZSBtYXhpbXVtIG51bWJlciBvZiB0YXNrcyB0aGF0IGNhbiBiZSBydW4gaW4gcGFyYWxsZWwuIEJ5XG4gKiBkZWZhdWx0LCBhcyBtYW55IGFzIHBvc3NpYmxlLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEFuIG9wdGlvbmFsIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbFxuICogdGhlIHRhc2tzIGhhdmUgYmVlbiBjb21wbGV0ZWQuIEl0IHJlY2VpdmVzIHRoZSBgZXJyYCBhcmd1bWVudCBpZiBhbnkgYHRhc2tzYFxuICogcGFzcyBhbiBlcnJvciB0byB0aGVpciBjYWxsYmFjay4gUmVzdWx0cyBhcmUgYWx3YXlzIHJldHVybmVkOyBob3dldmVyLCBpZiBhblxuICogZXJyb3Igb2NjdXJzLCBubyBmdXJ0aGVyIGB0YXNrc2Agd2lsbCBiZSBwZXJmb3JtZWQsIGFuZCB0aGUgcmVzdWx0cyBvYmplY3RcbiAqIHdpbGwgb25seSBjb250YWluIHBhcnRpYWwgcmVzdWx0cy4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICogQHJldHVybnMgdW5kZWZpbmVkXG4gKiBAZXhhbXBsZVxuICpcbiAqIGFzeW5jLmF1dG8oe1xuICogICAgIC8vIHRoaXMgZnVuY3Rpb24gd2lsbCBqdXN0IGJlIHBhc3NlZCBhIGNhbGxiYWNrXG4gKiAgICAgcmVhZERhdGE6IGFzeW5jLmFwcGx5KGZzLnJlYWRGaWxlLCAnZGF0YS50eHQnLCAndXRmLTgnKSxcbiAqICAgICBzaG93RGF0YTogWydyZWFkRGF0YScsIGZ1bmN0aW9uKHJlc3VsdHMsIGNiKSB7XG4gKiAgICAgICAgIC8vIHJlc3VsdHMucmVhZERhdGEgaXMgdGhlIGZpbGUncyBjb250ZW50c1xuICogICAgICAgICAvLyAuLi5cbiAqICAgICB9XVxuICogfSwgY2FsbGJhY2spO1xuICpcbiAqIGFzeW5jLmF1dG8oe1xuICogICAgIGdldF9kYXRhOiBmdW5jdGlvbihjYWxsYmFjaykge1xuICogICAgICAgICBjb25zb2xlLmxvZygnaW4gZ2V0X2RhdGEnKTtcbiAqICAgICAgICAgLy8gYXN5bmMgY29kZSB0byBnZXQgc29tZSBkYXRhXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsICdkYXRhJywgJ2NvbnZlcnRlZCB0byBhcnJheScpO1xuICogICAgIH0sXG4gKiAgICAgbWFrZV9mb2xkZXI6IGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIGNvbnNvbGUubG9nKCdpbiBtYWtlX2ZvbGRlcicpO1xuICogICAgICAgICAvLyBhc3luYyBjb2RlIHRvIGNyZWF0ZSBhIGRpcmVjdG9yeSB0byBzdG9yZSBhIGZpbGUgaW5cbiAqICAgICAgICAgLy8gdGhpcyBpcyBydW4gYXQgdGhlIHNhbWUgdGltZSBhcyBnZXR0aW5nIHRoZSBkYXRhXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsICdmb2xkZXInKTtcbiAqICAgICB9LFxuICogICAgIHdyaXRlX2ZpbGU6IFsnZ2V0X2RhdGEnLCAnbWFrZV9mb2xkZXInLCBmdW5jdGlvbihyZXN1bHRzLCBjYWxsYmFjaykge1xuICogICAgICAgICBjb25zb2xlLmxvZygnaW4gd3JpdGVfZmlsZScsIEpTT04uc3RyaW5naWZ5KHJlc3VsdHMpKTtcbiAqICAgICAgICAgLy8gb25jZSB0aGVyZSBpcyBzb21lIGRhdGEgYW5kIHRoZSBkaXJlY3RvcnkgZXhpc3RzLFxuICogICAgICAgICAvLyB3cml0ZSB0aGUgZGF0YSB0byBhIGZpbGUgaW4gdGhlIGRpcmVjdG9yeVxuICogICAgICAgICBjYWxsYmFjayhudWxsLCAnZmlsZW5hbWUnKTtcbiAqICAgICB9XSxcbiAqICAgICBlbWFpbF9saW5rOiBbJ3dyaXRlX2ZpbGUnLCBmdW5jdGlvbihyZXN1bHRzLCBjYWxsYmFjaykge1xuICogICAgICAgICBjb25zb2xlLmxvZygnaW4gZW1haWxfbGluaycsIEpTT04uc3RyaW5naWZ5KHJlc3VsdHMpKTtcbiAqICAgICAgICAgLy8gb25jZSB0aGUgZmlsZSBpcyB3cml0dGVuIGxldCdzIGVtYWlsIGEgbGluayB0byBpdC4uLlxuICogICAgICAgICAvLyByZXN1bHRzLndyaXRlX2ZpbGUgY29udGFpbnMgdGhlIGZpbGVuYW1lIHJldHVybmVkIGJ5IHdyaXRlX2ZpbGUuXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsIHsnZmlsZSc6cmVzdWx0cy53cml0ZV9maWxlLCAnZW1haWwnOid1c2VyQGV4YW1wbGUuY29tJ30pO1xuICogICAgIH1dXG4gKiB9LCBmdW5jdGlvbihlcnIsIHJlc3VsdHMpIHtcbiAqICAgICBjb25zb2xlLmxvZygnZXJyID0gJywgZXJyKTtcbiAqICAgICBjb25zb2xlLmxvZygncmVzdWx0cyA9ICcsIHJlc3VsdHMpO1xuICogfSk7XG4gKi9cbnZhciBhdXRvID0gZnVuY3Rpb24gKHRhc2tzLCBjb25jdXJyZW5jeSwgY2FsbGJhY2spIHtcbiAgICBpZiAodHlwZW9mIGNvbmN1cnJlbmN5ID09PSAnZnVuY3Rpb24nKSB7XG4gICAgICAgIC8vIGNvbmN1cnJlbmN5IGlzIG9wdGlvbmFsLCBzaGlmdCB0aGUgYXJncy5cbiAgICAgICAgY2FsbGJhY2sgPSBjb25jdXJyZW5jeTtcbiAgICAgICAgY29uY3VycmVuY3kgPSBudWxsO1xuICAgIH1cbiAgICBjYWxsYmFjayA9IG9uY2UoY2FsbGJhY2sgfHwgbm9vcCk7XG4gICAgdmFyIGtleXMkJDEgPSBrZXlzKHRhc2tzKTtcbiAgICB2YXIgbnVtVGFza3MgPSBrZXlzJCQxLmxlbmd0aDtcbiAgICBpZiAoIW51bVRhc2tzKSB7XG4gICAgICAgIHJldHVybiBjYWxsYmFjayhudWxsKTtcbiAgICB9XG4gICAgaWYgKCFjb25jdXJyZW5jeSkge1xuICAgICAgICBjb25jdXJyZW5jeSA9IG51bVRhc2tzO1xuICAgIH1cblxuICAgIHZhciByZXN1bHRzID0ge307XG4gICAgdmFyIHJ1bm5pbmdUYXNrcyA9IDA7XG4gICAgdmFyIGhhc0Vycm9yID0gZmFsc2U7XG5cbiAgICB2YXIgbGlzdGVuZXJzID0gT2JqZWN0LmNyZWF0ZShudWxsKTtcblxuICAgIHZhciByZWFkeVRhc2tzID0gW107XG5cbiAgICAvLyBmb3IgY3ljbGUgZGV0ZWN0aW9uOlxuICAgIHZhciByZWFkeVRvQ2hlY2sgPSBbXTsgLy8gdGFza3MgdGhhdCBoYXZlIGJlZW4gaWRlbnRpZmllZCBhcyByZWFjaGFibGVcbiAgICAvLyB3aXRob3V0IHRoZSBwb3NzaWJpbGl0eSBvZiByZXR1cm5pbmcgdG8gYW4gYW5jZXN0b3IgdGFza1xuICAgIHZhciB1bmNoZWNrZWREZXBlbmRlbmNpZXMgPSB7fTtcblxuICAgIGJhc2VGb3JPd24odGFza3MsIGZ1bmN0aW9uICh0YXNrLCBrZXkpIHtcbiAgICAgICAgaWYgKCFpc0FycmF5KHRhc2spKSB7XG4gICAgICAgICAgICAvLyBubyBkZXBlbmRlbmNpZXNcbiAgICAgICAgICAgIGVucXVldWVUYXNrKGtleSwgW3Rhc2tdKTtcbiAgICAgICAgICAgIHJlYWR5VG9DaGVjay5wdXNoKGtleSk7XG4gICAgICAgICAgICByZXR1cm47XG4gICAgICAgIH1cblxuICAgICAgICB2YXIgZGVwZW5kZW5jaWVzID0gdGFzay5zbGljZSgwLCB0YXNrLmxlbmd0aCAtIDEpO1xuICAgICAgICB2YXIgcmVtYWluaW5nRGVwZW5kZW5jaWVzID0gZGVwZW5kZW5jaWVzLmxlbmd0aDtcbiAgICAgICAgaWYgKHJlbWFpbmluZ0RlcGVuZGVuY2llcyA9PT0gMCkge1xuICAgICAgICAgICAgZW5xdWV1ZVRhc2soa2V5LCB0YXNrKTtcbiAgICAgICAgICAgIHJlYWR5VG9DaGVjay5wdXNoKGtleSk7XG4gICAgICAgICAgICByZXR1cm47XG4gICAgICAgIH1cbiAgICAgICAgdW5jaGVja2VkRGVwZW5kZW5jaWVzW2tleV0gPSByZW1haW5pbmdEZXBlbmRlbmNpZXM7XG5cbiAgICAgICAgYXJyYXlFYWNoKGRlcGVuZGVuY2llcywgZnVuY3Rpb24gKGRlcGVuZGVuY3lOYW1lKSB7XG4gICAgICAgICAgICBpZiAoIXRhc2tzW2RlcGVuZGVuY3lOYW1lXSkge1xuICAgICAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcignYXN5bmMuYXV0byB0YXNrIGAnICsga2V5ICtcbiAgICAgICAgICAgICAgICAgICAgJ2AgaGFzIGEgbm9uLWV4aXN0ZW50IGRlcGVuZGVuY3kgYCcgK1xuICAgICAgICAgICAgICAgICAgICBkZXBlbmRlbmN5TmFtZSArICdgIGluICcgK1xuICAgICAgICAgICAgICAgICAgICBkZXBlbmRlbmNpZXMuam9pbignLCAnKSk7XG4gICAgICAgICAgICB9XG4gICAgICAgICAgICBhZGRMaXN0ZW5lcihkZXBlbmRlbmN5TmFtZSwgZnVuY3Rpb24gKCkge1xuICAgICAgICAgICAgICAgIHJlbWFpbmluZ0RlcGVuZGVuY2llcy0tO1xuICAgICAgICAgICAgICAgIGlmIChyZW1haW5pbmdEZXBlbmRlbmNpZXMgPT09IDApIHtcbiAgICAgICAgICAgICAgICAgICAgZW5xdWV1ZVRhc2soa2V5LCB0YXNrKTtcbiAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICB9KTtcbiAgICAgICAgfSk7XG4gICAgfSk7XG5cbiAgICBjaGVja0ZvckRlYWRsb2NrcygpO1xuICAgIHByb2Nlc3NRdWV1ZSgpO1xuXG4gICAgZnVuY3Rpb24gZW5xdWV1ZVRhc2soa2V5LCB0YXNrKSB7XG4gICAgICAgIHJlYWR5VGFza3MucHVzaChmdW5jdGlvbiAoKSB7XG4gICAgICAgICAgICBydW5UYXNrKGtleSwgdGFzayk7XG4gICAgICAgIH0pO1xuICAgIH1cblxuICAgIGZ1bmN0aW9uIHByb2Nlc3NRdWV1ZSgpIHtcbiAgICAgICAgaWYgKHJlYWR5VGFza3MubGVuZ3RoID09PSAwICYmIHJ1bm5pbmdUYXNrcyA9PT0gMCkge1xuICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwsIHJlc3VsdHMpO1xuICAgICAgICB9XG4gICAgICAgIHdoaWxlKHJlYWR5VGFza3MubGVuZ3RoICYmIHJ1bm5pbmdUYXNrcyA8IGNvbmN1cnJlbmN5KSB7XG4gICAgICAgICAgICB2YXIgcnVuID0gcmVhZHlUYXNrcy5zaGlmdCgpO1xuICAgICAgICAgICAgcnVuKCk7XG4gICAgICAgIH1cblxuICAgIH1cblxuICAgIGZ1bmN0aW9uIGFkZExpc3RlbmVyKHRhc2tOYW1lLCBmbikge1xuICAgICAgICB2YXIgdGFza0xpc3RlbmVycyA9IGxpc3RlbmVyc1t0YXNrTmFtZV07XG4gICAgICAgIGlmICghdGFza0xpc3RlbmVycykge1xuICAgICAgICAgICAgdGFza0xpc3RlbmVycyA9IGxpc3RlbmVyc1t0YXNrTmFtZV0gPSBbXTtcbiAgICAgICAgfVxuXG4gICAgICAgIHRhc2tMaXN0ZW5lcnMucHVzaChmbik7XG4gICAgfVxuXG4gICAgZnVuY3Rpb24gdGFza0NvbXBsZXRlKHRhc2tOYW1lKSB7XG4gICAgICAgIHZhciB0YXNrTGlzdGVuZXJzID0gbGlzdGVuZXJzW3Rhc2tOYW1lXSB8fCBbXTtcbiAgICAgICAgYXJyYXlFYWNoKHRhc2tMaXN0ZW5lcnMsIGZ1bmN0aW9uIChmbikge1xuICAgICAgICAgICAgZm4oKTtcbiAgICAgICAgfSk7XG4gICAgICAgIHByb2Nlc3NRdWV1ZSgpO1xuICAgIH1cblxuXG4gICAgZnVuY3Rpb24gcnVuVGFzayhrZXksIHRhc2spIHtcbiAgICAgICAgaWYgKGhhc0Vycm9yKSByZXR1cm47XG5cbiAgICAgICAgdmFyIHRhc2tDYWxsYmFjayA9IG9ubHlPbmNlKGZ1bmN0aW9uKGVyciwgcmVzdWx0KSB7XG4gICAgICAgICAgICBydW5uaW5nVGFza3MtLTtcbiAgICAgICAgICAgIGlmIChhcmd1bWVudHMubGVuZ3RoID4gMikge1xuICAgICAgICAgICAgICAgIHJlc3VsdCA9IHNsaWNlKGFyZ3VtZW50cywgMSk7XG4gICAgICAgICAgICB9XG4gICAgICAgICAgICBpZiAoZXJyKSB7XG4gICAgICAgICAgICAgICAgdmFyIHNhZmVSZXN1bHRzID0ge307XG4gICAgICAgICAgICAgICAgYmFzZUZvck93bihyZXN1bHRzLCBmdW5jdGlvbih2YWwsIHJrZXkpIHtcbiAgICAgICAgICAgICAgICAgICAgc2FmZVJlc3VsdHNbcmtleV0gPSB2YWw7XG4gICAgICAgICAgICAgICAgfSk7XG4gICAgICAgICAgICAgICAgc2FmZVJlc3VsdHNba2V5XSA9IHJlc3VsdDtcbiAgICAgICAgICAgICAgICBoYXNFcnJvciA9IHRydWU7XG4gICAgICAgICAgICAgICAgbGlzdGVuZXJzID0gT2JqZWN0LmNyZWF0ZShudWxsKTtcblxuICAgICAgICAgICAgICAgIGNhbGxiYWNrKGVyciwgc2FmZVJlc3VsdHMpO1xuICAgICAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgICAgICByZXN1bHRzW2tleV0gPSByZXN1bHQ7XG4gICAgICAgICAgICAgICAgdGFza0NvbXBsZXRlKGtleSk7XG4gICAgICAgICAgICB9XG4gICAgICAgIH0pO1xuXG4gICAgICAgIHJ1bm5pbmdUYXNrcysrO1xuICAgICAgICB2YXIgdGFza0ZuID0gd3JhcEFzeW5jKHRhc2tbdGFzay5sZW5ndGggLSAxXSk7XG4gICAgICAgIGlmICh0YXNrLmxlbmd0aCA+IDEpIHtcbiAgICAgICAgICAgIHRhc2tGbihyZXN1bHRzLCB0YXNrQ2FsbGJhY2spO1xuICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgdGFza0ZuKHRhc2tDYWxsYmFjayk7XG4gICAgICAgIH1cbiAgICB9XG5cbiAgICBmdW5jdGlvbiBjaGVja0ZvckRlYWRsb2NrcygpIHtcbiAgICAgICAgLy8gS2FobidzIGFsZ29yaXRobVxuICAgICAgICAvLyBodHRwczovL2VuLndpa2lwZWRpYS5vcmcvd2lraS9Ub3BvbG9naWNhbF9zb3J0aW5nI0thaG4uMjdzX2FsZ29yaXRobVxuICAgICAgICAvLyBodHRwOi8vY29ubmFsbGUuYmxvZ3Nwb3QuY29tLzIwMTMvMTAvdG9wb2xvZ2ljYWwtc29ydGluZ2thaG4tYWxnb3JpdGhtLmh0bWxcbiAgICAgICAgdmFyIGN1cnJlbnRUYXNrO1xuICAgICAgICB2YXIgY291bnRlciA9IDA7XG4gICAgICAgIHdoaWxlIChyZWFkeVRvQ2hlY2subGVuZ3RoKSB7XG4gICAgICAgICAgICBjdXJyZW50VGFzayA9IHJlYWR5VG9DaGVjay5wb3AoKTtcbiAgICAgICAgICAgIGNvdW50ZXIrKztcbiAgICAgICAgICAgIGFycmF5RWFjaChnZXREZXBlbmRlbnRzKGN1cnJlbnRUYXNrKSwgZnVuY3Rpb24gKGRlcGVuZGVudCkge1xuICAgICAgICAgICAgICAgIGlmICgtLXVuY2hlY2tlZERlcGVuZGVuY2llc1tkZXBlbmRlbnRdID09PSAwKSB7XG4gICAgICAgICAgICAgICAgICAgIHJlYWR5VG9DaGVjay5wdXNoKGRlcGVuZGVudCk7XG4gICAgICAgICAgICAgICAgfVxuICAgICAgICAgICAgfSk7XG4gICAgICAgIH1cblxuICAgICAgICBpZiAoY291bnRlciAhPT0gbnVtVGFza3MpIHtcbiAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcihcbiAgICAgICAgICAgICAgICAnYXN5bmMuYXV0byBjYW5ub3QgZXhlY3V0ZSB0YXNrcyBkdWUgdG8gYSByZWN1cnNpdmUgZGVwZW5kZW5jeSdcbiAgICAgICAgICAgICk7XG4gICAgICAgIH1cbiAgICB9XG5cbiAgICBmdW5jdGlvbiBnZXREZXBlbmRlbnRzKHRhc2tOYW1lKSB7XG4gICAgICAgIHZhciByZXN1bHQgPSBbXTtcbiAgICAgICAgYmFzZUZvck93bih0YXNrcywgZnVuY3Rpb24gKHRhc2ssIGtleSkge1xuICAgICAgICAgICAgaWYgKGlzQXJyYXkodGFzaykgJiYgYmFzZUluZGV4T2YodGFzaywgdGFza05hbWUsIDApID49IDApIHtcbiAgICAgICAgICAgICAgICByZXN1bHQucHVzaChrZXkpO1xuICAgICAgICAgICAgfVxuICAgICAgICB9KTtcbiAgICAgICAgcmV0dXJuIHJlc3VsdDtcbiAgICB9XG59O1xuXG4vKipcbiAqIEEgc3BlY2lhbGl6ZWQgdmVyc2lvbiBvZiBgXy5tYXBgIGZvciBhcnJheXMgd2l0aG91dCBzdXBwb3J0IGZvciBpdGVyYXRlZVxuICogc2hvcnRoYW5kcy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHtBcnJheX0gW2FycmF5XSBUaGUgYXJyYXkgdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgVGhlIGZ1bmN0aW9uIGludm9rZWQgcGVyIGl0ZXJhdGlvbi5cbiAqIEByZXR1cm5zIHtBcnJheX0gUmV0dXJucyB0aGUgbmV3IG1hcHBlZCBhcnJheS5cbiAqL1xuZnVuY3Rpb24gYXJyYXlNYXAoYXJyYXksIGl0ZXJhdGVlKSB7XG4gIHZhciBpbmRleCA9IC0xLFxuICAgICAgbGVuZ3RoID0gYXJyYXkgPT0gbnVsbCA/IDAgOiBhcnJheS5sZW5ndGgsXG4gICAgICByZXN1bHQgPSBBcnJheShsZW5ndGgpO1xuXG4gIHdoaWxlICgrK2luZGV4IDwgbGVuZ3RoKSB7XG4gICAgcmVzdWx0W2luZGV4XSA9IGl0ZXJhdGVlKGFycmF5W2luZGV4XSwgaW5kZXgsIGFycmF5KTtcbiAgfVxuICByZXR1cm4gcmVzdWx0O1xufVxuXG4vKiogYE9iamVjdCN0b1N0cmluZ2AgcmVzdWx0IHJlZmVyZW5jZXMuICovXG52YXIgc3ltYm9sVGFnID0gJ1tvYmplY3QgU3ltYm9sXSc7XG5cbi8qKlxuICogQ2hlY2tzIGlmIGB2YWx1ZWAgaXMgY2xhc3NpZmllZCBhcyBhIGBTeW1ib2xgIHByaW1pdGl2ZSBvciBvYmplY3QuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSA0LjAuMFxuICogQGNhdGVnb3J5IExhbmdcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIGNoZWNrLlxuICogQHJldHVybnMge2Jvb2xlYW59IFJldHVybnMgYHRydWVgIGlmIGB2YWx1ZWAgaXMgYSBzeW1ib2wsIGVsc2UgYGZhbHNlYC5cbiAqIEBleGFtcGxlXG4gKlxuICogXy5pc1N5bWJvbChTeW1ib2wuaXRlcmF0b3IpO1xuICogLy8gPT4gdHJ1ZVxuICpcbiAqIF8uaXNTeW1ib2woJ2FiYycpO1xuICogLy8gPT4gZmFsc2VcbiAqL1xuZnVuY3Rpb24gaXNTeW1ib2wodmFsdWUpIHtcbiAgcmV0dXJuIHR5cGVvZiB2YWx1ZSA9PSAnc3ltYm9sJyB8fFxuICAgIChpc09iamVjdExpa2UodmFsdWUpICYmIGJhc2VHZXRUYWcodmFsdWUpID09IHN5bWJvbFRhZyk7XG59XG5cbi8qKiBVc2VkIGFzIHJlZmVyZW5jZXMgZm9yIHZhcmlvdXMgYE51bWJlcmAgY29uc3RhbnRzLiAqL1xudmFyIElORklOSVRZID0gMSAvIDA7XG5cbi8qKiBVc2VkIHRvIGNvbnZlcnQgc3ltYm9scyB0byBwcmltaXRpdmVzIGFuZCBzdHJpbmdzLiAqL1xudmFyIHN5bWJvbFByb3RvID0gU3ltYm9sJDEgPyBTeW1ib2wkMS5wcm90b3R5cGUgOiB1bmRlZmluZWQ7XG52YXIgc3ltYm9sVG9TdHJpbmcgPSBzeW1ib2xQcm90byA/IHN5bWJvbFByb3RvLnRvU3RyaW5nIDogdW5kZWZpbmVkO1xuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBfLnRvU3RyaW5nYCB3aGljaCBkb2Vzbid0IGNvbnZlcnQgbnVsbGlzaFxuICogdmFsdWVzIHRvIGVtcHR5IHN0cmluZ3MuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIHByb2Nlc3MuXG4gKiBAcmV0dXJucyB7c3RyaW5nfSBSZXR1cm5zIHRoZSBzdHJpbmcuXG4gKi9cbmZ1bmN0aW9uIGJhc2VUb1N0cmluZyh2YWx1ZSkge1xuICAvLyBFeGl0IGVhcmx5IGZvciBzdHJpbmdzIHRvIGF2b2lkIGEgcGVyZm9ybWFuY2UgaGl0IGluIHNvbWUgZW52aXJvbm1lbnRzLlxuICBpZiAodHlwZW9mIHZhbHVlID09ICdzdHJpbmcnKSB7XG4gICAgcmV0dXJuIHZhbHVlO1xuICB9XG4gIGlmIChpc0FycmF5KHZhbHVlKSkge1xuICAgIC8vIFJlY3Vyc2l2ZWx5IGNvbnZlcnQgdmFsdWVzIChzdXNjZXB0aWJsZSB0byBjYWxsIHN0YWNrIGxpbWl0cykuXG4gICAgcmV0dXJuIGFycmF5TWFwKHZhbHVlLCBiYXNlVG9TdHJpbmcpICsgJyc7XG4gIH1cbiAgaWYgKGlzU3ltYm9sKHZhbHVlKSkge1xuICAgIHJldHVybiBzeW1ib2xUb1N0cmluZyA/IHN5bWJvbFRvU3RyaW5nLmNhbGwodmFsdWUpIDogJyc7XG4gIH1cbiAgdmFyIHJlc3VsdCA9ICh2YWx1ZSArICcnKTtcbiAgcmV0dXJuIChyZXN1bHQgPT0gJzAnICYmICgxIC8gdmFsdWUpID09IC1JTkZJTklUWSkgPyAnLTAnIDogcmVzdWx0O1xufVxuXG4vKipcbiAqIFRoZSBiYXNlIGltcGxlbWVudGF0aW9uIG9mIGBfLnNsaWNlYCB3aXRob3V0IGFuIGl0ZXJhdGVlIGNhbGwgZ3VhcmQuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7QXJyYXl9IGFycmF5IFRoZSBhcnJheSB0byBzbGljZS5cbiAqIEBwYXJhbSB7bnVtYmVyfSBbc3RhcnQ9MF0gVGhlIHN0YXJ0IHBvc2l0aW9uLlxuICogQHBhcmFtIHtudW1iZXJ9IFtlbmQ9YXJyYXkubGVuZ3RoXSBUaGUgZW5kIHBvc2l0aW9uLlxuICogQHJldHVybnMge0FycmF5fSBSZXR1cm5zIHRoZSBzbGljZSBvZiBgYXJyYXlgLlxuICovXG5mdW5jdGlvbiBiYXNlU2xpY2UoYXJyYXksIHN0YXJ0LCBlbmQpIHtcbiAgdmFyIGluZGV4ID0gLTEsXG4gICAgICBsZW5ndGggPSBhcnJheS5sZW5ndGg7XG5cbiAgaWYgKHN0YXJ0IDwgMCkge1xuICAgIHN0YXJ0ID0gLXN0YXJ0ID4gbGVuZ3RoID8gMCA6IChsZW5ndGggKyBzdGFydCk7XG4gIH1cbiAgZW5kID0gZW5kID4gbGVuZ3RoID8gbGVuZ3RoIDogZW5kO1xuICBpZiAoZW5kIDwgMCkge1xuICAgIGVuZCArPSBsZW5ndGg7XG4gIH1cbiAgbGVuZ3RoID0gc3RhcnQgPiBlbmQgPyAwIDogKChlbmQgLSBzdGFydCkgPj4+IDApO1xuICBzdGFydCA+Pj49IDA7XG5cbiAgdmFyIHJlc3VsdCA9IEFycmF5KGxlbmd0aCk7XG4gIHdoaWxlICgrK2luZGV4IDwgbGVuZ3RoKSB7XG4gICAgcmVzdWx0W2luZGV4XSA9IGFycmF5W2luZGV4ICsgc3RhcnRdO1xuICB9XG4gIHJldHVybiByZXN1bHQ7XG59XG5cbi8qKlxuICogQ2FzdHMgYGFycmF5YCB0byBhIHNsaWNlIGlmIGl0J3MgbmVlZGVkLlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge0FycmF5fSBhcnJheSBUaGUgYXJyYXkgdG8gaW5zcGVjdC5cbiAqIEBwYXJhbSB7bnVtYmVyfSBzdGFydCBUaGUgc3RhcnQgcG9zaXRpb24uXG4gKiBAcGFyYW0ge251bWJlcn0gW2VuZD1hcnJheS5sZW5ndGhdIFRoZSBlbmQgcG9zaXRpb24uXG4gKiBAcmV0dXJucyB7QXJyYXl9IFJldHVybnMgdGhlIGNhc3Qgc2xpY2UuXG4gKi9cbmZ1bmN0aW9uIGNhc3RTbGljZShhcnJheSwgc3RhcnQsIGVuZCkge1xuICB2YXIgbGVuZ3RoID0gYXJyYXkubGVuZ3RoO1xuICBlbmQgPSBlbmQgPT09IHVuZGVmaW5lZCA/IGxlbmd0aCA6IGVuZDtcbiAgcmV0dXJuICghc3RhcnQgJiYgZW5kID49IGxlbmd0aCkgPyBhcnJheSA6IGJhc2VTbGljZShhcnJheSwgc3RhcnQsIGVuZCk7XG59XG5cbi8qKlxuICogVXNlZCBieSBgXy50cmltYCBhbmQgYF8udHJpbUVuZGAgdG8gZ2V0IHRoZSBpbmRleCBvZiB0aGUgbGFzdCBzdHJpbmcgc3ltYm9sXG4gKiB0aGF0IGlzIG5vdCBmb3VuZCBpbiB0aGUgY2hhcmFjdGVyIHN5bWJvbHMuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7QXJyYXl9IHN0clN5bWJvbHMgVGhlIHN0cmluZyBzeW1ib2xzIHRvIGluc3BlY3QuXG4gKiBAcGFyYW0ge0FycmF5fSBjaHJTeW1ib2xzIFRoZSBjaGFyYWN0ZXIgc3ltYm9scyB0byBmaW5kLlxuICogQHJldHVybnMge251bWJlcn0gUmV0dXJucyB0aGUgaW5kZXggb2YgdGhlIGxhc3QgdW5tYXRjaGVkIHN0cmluZyBzeW1ib2wuXG4gKi9cbmZ1bmN0aW9uIGNoYXJzRW5kSW5kZXgoc3RyU3ltYm9scywgY2hyU3ltYm9scykge1xuICB2YXIgaW5kZXggPSBzdHJTeW1ib2xzLmxlbmd0aDtcblxuICB3aGlsZSAoaW5kZXgtLSAmJiBiYXNlSW5kZXhPZihjaHJTeW1ib2xzLCBzdHJTeW1ib2xzW2luZGV4XSwgMCkgPiAtMSkge31cbiAgcmV0dXJuIGluZGV4O1xufVxuXG4vKipcbiAqIFVzZWQgYnkgYF8udHJpbWAgYW5kIGBfLnRyaW1TdGFydGAgdG8gZ2V0IHRoZSBpbmRleCBvZiB0aGUgZmlyc3Qgc3RyaW5nIHN5bWJvbFxuICogdGhhdCBpcyBub3QgZm91bmQgaW4gdGhlIGNoYXJhY3RlciBzeW1ib2xzLlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge0FycmF5fSBzdHJTeW1ib2xzIFRoZSBzdHJpbmcgc3ltYm9scyB0byBpbnNwZWN0LlxuICogQHBhcmFtIHtBcnJheX0gY2hyU3ltYm9scyBUaGUgY2hhcmFjdGVyIHN5bWJvbHMgdG8gZmluZC5cbiAqIEByZXR1cm5zIHtudW1iZXJ9IFJldHVybnMgdGhlIGluZGV4IG9mIHRoZSBmaXJzdCB1bm1hdGNoZWQgc3RyaW5nIHN5bWJvbC5cbiAqL1xuZnVuY3Rpb24gY2hhcnNTdGFydEluZGV4KHN0clN5bWJvbHMsIGNoclN5bWJvbHMpIHtcbiAgdmFyIGluZGV4ID0gLTEsXG4gICAgICBsZW5ndGggPSBzdHJTeW1ib2xzLmxlbmd0aDtcblxuICB3aGlsZSAoKytpbmRleCA8IGxlbmd0aCAmJiBiYXNlSW5kZXhPZihjaHJTeW1ib2xzLCBzdHJTeW1ib2xzW2luZGV4XSwgMCkgPiAtMSkge31cbiAgcmV0dXJuIGluZGV4O1xufVxuXG4vKipcbiAqIENvbnZlcnRzIGFuIEFTQ0lJIGBzdHJpbmdgIHRvIGFuIGFycmF5LlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge3N0cmluZ30gc3RyaW5nIFRoZSBzdHJpbmcgdG8gY29udmVydC5cbiAqIEByZXR1cm5zIHtBcnJheX0gUmV0dXJucyB0aGUgY29udmVydGVkIGFycmF5LlxuICovXG5mdW5jdGlvbiBhc2NpaVRvQXJyYXkoc3RyaW5nKSB7XG4gIHJldHVybiBzdHJpbmcuc3BsaXQoJycpO1xufVxuXG4vKiogVXNlZCB0byBjb21wb3NlIHVuaWNvZGUgY2hhcmFjdGVyIGNsYXNzZXMuICovXG52YXIgcnNBc3RyYWxSYW5nZSA9ICdcXFxcdWQ4MDAtXFxcXHVkZmZmJztcbnZhciByc0NvbWJvTWFya3NSYW5nZSA9ICdcXFxcdTAzMDAtXFxcXHUwMzZmJztcbnZhciByZUNvbWJvSGFsZk1hcmtzUmFuZ2UgPSAnXFxcXHVmZTIwLVxcXFx1ZmUyZic7XG52YXIgcnNDb21ib1N5bWJvbHNSYW5nZSA9ICdcXFxcdTIwZDAtXFxcXHUyMGZmJztcbnZhciByc0NvbWJvUmFuZ2UgPSByc0NvbWJvTWFya3NSYW5nZSArIHJlQ29tYm9IYWxmTWFya3NSYW5nZSArIHJzQ29tYm9TeW1ib2xzUmFuZ2U7XG52YXIgcnNWYXJSYW5nZSA9ICdcXFxcdWZlMGVcXFxcdWZlMGYnO1xuXG4vKiogVXNlZCB0byBjb21wb3NlIHVuaWNvZGUgY2FwdHVyZSBncm91cHMuICovXG52YXIgcnNaV0ogPSAnXFxcXHUyMDBkJztcblxuLyoqIFVzZWQgdG8gZGV0ZWN0IHN0cmluZ3Mgd2l0aCBbemVyby13aWR0aCBqb2luZXJzIG9yIGNvZGUgcG9pbnRzIGZyb20gdGhlIGFzdHJhbCBwbGFuZXNdKGh0dHA6Ly9lZXYuZWUvYmxvZy8yMDE1LzA5LzEyL2RhcmstY29ybmVycy1vZi11bmljb2RlLykuICovXG52YXIgcmVIYXNVbmljb2RlID0gUmVnRXhwKCdbJyArIHJzWldKICsgcnNBc3RyYWxSYW5nZSAgKyByc0NvbWJvUmFuZ2UgKyByc1ZhclJhbmdlICsgJ10nKTtcblxuLyoqXG4gKiBDaGVja3MgaWYgYHN0cmluZ2AgY29udGFpbnMgVW5pY29kZSBzeW1ib2xzLlxuICpcbiAqIEBwcml2YXRlXG4gKiBAcGFyYW0ge3N0cmluZ30gc3RyaW5nIFRoZSBzdHJpbmcgdG8gaW5zcGVjdC5cbiAqIEByZXR1cm5zIHtib29sZWFufSBSZXR1cm5zIGB0cnVlYCBpZiBhIHN5bWJvbCBpcyBmb3VuZCwgZWxzZSBgZmFsc2VgLlxuICovXG5mdW5jdGlvbiBoYXNVbmljb2RlKHN0cmluZykge1xuICByZXR1cm4gcmVIYXNVbmljb2RlLnRlc3Qoc3RyaW5nKTtcbn1cblxuLyoqIFVzZWQgdG8gY29tcG9zZSB1bmljb2RlIGNoYXJhY3RlciBjbGFzc2VzLiAqL1xudmFyIHJzQXN0cmFsUmFuZ2UkMSA9ICdcXFxcdWQ4MDAtXFxcXHVkZmZmJztcbnZhciByc0NvbWJvTWFya3NSYW5nZSQxID0gJ1xcXFx1MDMwMC1cXFxcdTAzNmYnO1xudmFyIHJlQ29tYm9IYWxmTWFya3NSYW5nZSQxID0gJ1xcXFx1ZmUyMC1cXFxcdWZlMmYnO1xudmFyIHJzQ29tYm9TeW1ib2xzUmFuZ2UkMSA9ICdcXFxcdTIwZDAtXFxcXHUyMGZmJztcbnZhciByc0NvbWJvUmFuZ2UkMSA9IHJzQ29tYm9NYXJrc1JhbmdlJDEgKyByZUNvbWJvSGFsZk1hcmtzUmFuZ2UkMSArIHJzQ29tYm9TeW1ib2xzUmFuZ2UkMTtcbnZhciByc1ZhclJhbmdlJDEgPSAnXFxcXHVmZTBlXFxcXHVmZTBmJztcblxuLyoqIFVzZWQgdG8gY29tcG9zZSB1bmljb2RlIGNhcHR1cmUgZ3JvdXBzLiAqL1xudmFyIHJzQXN0cmFsID0gJ1snICsgcnNBc3RyYWxSYW5nZSQxICsgJ10nO1xudmFyIHJzQ29tYm8gPSAnWycgKyByc0NvbWJvUmFuZ2UkMSArICddJztcbnZhciByc0ZpdHogPSAnXFxcXHVkODNjW1xcXFx1ZGZmYi1cXFxcdWRmZmZdJztcbnZhciByc01vZGlmaWVyID0gJyg/OicgKyByc0NvbWJvICsgJ3wnICsgcnNGaXR6ICsgJyknO1xudmFyIHJzTm9uQXN0cmFsID0gJ1teJyArIHJzQXN0cmFsUmFuZ2UkMSArICddJztcbnZhciByc1JlZ2lvbmFsID0gJyg/OlxcXFx1ZDgzY1tcXFxcdWRkZTYtXFxcXHVkZGZmXSl7Mn0nO1xudmFyIHJzU3VyclBhaXIgPSAnW1xcXFx1ZDgwMC1cXFxcdWRiZmZdW1xcXFx1ZGMwMC1cXFxcdWRmZmZdJztcbnZhciByc1pXSiQxID0gJ1xcXFx1MjAwZCc7XG5cbi8qKiBVc2VkIHRvIGNvbXBvc2UgdW5pY29kZSByZWdleGVzLiAqL1xudmFyIHJlT3B0TW9kID0gcnNNb2RpZmllciArICc/JztcbnZhciByc09wdFZhciA9ICdbJyArIHJzVmFyUmFuZ2UkMSArICddPyc7XG52YXIgcnNPcHRKb2luID0gJyg/OicgKyByc1pXSiQxICsgJyg/OicgKyBbcnNOb25Bc3RyYWwsIHJzUmVnaW9uYWwsIHJzU3VyclBhaXJdLmpvaW4oJ3wnKSArICcpJyArIHJzT3B0VmFyICsgcmVPcHRNb2QgKyAnKSonO1xudmFyIHJzU2VxID0gcnNPcHRWYXIgKyByZU9wdE1vZCArIHJzT3B0Sm9pbjtcbnZhciByc1N5bWJvbCA9ICcoPzonICsgW3JzTm9uQXN0cmFsICsgcnNDb21ibyArICc/JywgcnNDb21ibywgcnNSZWdpb25hbCwgcnNTdXJyUGFpciwgcnNBc3RyYWxdLmpvaW4oJ3wnKSArICcpJztcblxuLyoqIFVzZWQgdG8gbWF0Y2ggW3N0cmluZyBzeW1ib2xzXShodHRwczovL21hdGhpYXNieW5lbnMuYmUvbm90ZXMvamF2YXNjcmlwdC11bmljb2RlKS4gKi9cbnZhciByZVVuaWNvZGUgPSBSZWdFeHAocnNGaXR6ICsgJyg/PScgKyByc0ZpdHogKyAnKXwnICsgcnNTeW1ib2wgKyByc1NlcSwgJ2cnKTtcblxuLyoqXG4gKiBDb252ZXJ0cyBhIFVuaWNvZGUgYHN0cmluZ2AgdG8gYW4gYXJyYXkuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7c3RyaW5nfSBzdHJpbmcgVGhlIHN0cmluZyB0byBjb252ZXJ0LlxuICogQHJldHVybnMge0FycmF5fSBSZXR1cm5zIHRoZSBjb252ZXJ0ZWQgYXJyYXkuXG4gKi9cbmZ1bmN0aW9uIHVuaWNvZGVUb0FycmF5KHN0cmluZykge1xuICByZXR1cm4gc3RyaW5nLm1hdGNoKHJlVW5pY29kZSkgfHwgW107XG59XG5cbi8qKlxuICogQ29udmVydHMgYHN0cmluZ2AgdG8gYW4gYXJyYXkuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7c3RyaW5nfSBzdHJpbmcgVGhlIHN0cmluZyB0byBjb252ZXJ0LlxuICogQHJldHVybnMge0FycmF5fSBSZXR1cm5zIHRoZSBjb252ZXJ0ZWQgYXJyYXkuXG4gKi9cbmZ1bmN0aW9uIHN0cmluZ1RvQXJyYXkoc3RyaW5nKSB7XG4gIHJldHVybiBoYXNVbmljb2RlKHN0cmluZylcbiAgICA/IHVuaWNvZGVUb0FycmF5KHN0cmluZylcbiAgICA6IGFzY2lpVG9BcnJheShzdHJpbmcpO1xufVxuXG4vKipcbiAqIENvbnZlcnRzIGB2YWx1ZWAgdG8gYSBzdHJpbmcuIEFuIGVtcHR5IHN0cmluZyBpcyByZXR1cm5lZCBmb3IgYG51bGxgXG4gKiBhbmQgYHVuZGVmaW5lZGAgdmFsdWVzLiBUaGUgc2lnbiBvZiBgLTBgIGlzIHByZXNlcnZlZC5cbiAqXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgX1xuICogQHNpbmNlIDQuMC4wXG4gKiBAY2F0ZWdvcnkgTGFuZ1xuICogQHBhcmFtIHsqfSB2YWx1ZSBUaGUgdmFsdWUgdG8gY29udmVydC5cbiAqIEByZXR1cm5zIHtzdHJpbmd9IFJldHVybnMgdGhlIGNvbnZlcnRlZCBzdHJpbmcuXG4gKiBAZXhhbXBsZVxuICpcbiAqIF8udG9TdHJpbmcobnVsbCk7XG4gKiAvLyA9PiAnJ1xuICpcbiAqIF8udG9TdHJpbmcoLTApO1xuICogLy8gPT4gJy0wJ1xuICpcbiAqIF8udG9TdHJpbmcoWzEsIDIsIDNdKTtcbiAqIC8vID0+ICcxLDIsMydcbiAqL1xuZnVuY3Rpb24gdG9TdHJpbmcodmFsdWUpIHtcbiAgcmV0dXJuIHZhbHVlID09IG51bGwgPyAnJyA6IGJhc2VUb1N0cmluZyh2YWx1ZSk7XG59XG5cbi8qKiBVc2VkIHRvIG1hdGNoIGxlYWRpbmcgYW5kIHRyYWlsaW5nIHdoaXRlc3BhY2UuICovXG52YXIgcmVUcmltID0gL15cXHMrfFxccyskL2c7XG5cbi8qKlxuICogUmVtb3ZlcyBsZWFkaW5nIGFuZCB0cmFpbGluZyB3aGl0ZXNwYWNlIG9yIHNwZWNpZmllZCBjaGFyYWN0ZXJzIGZyb20gYHN0cmluZ2AuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSAzLjAuMFxuICogQGNhdGVnb3J5IFN0cmluZ1xuICogQHBhcmFtIHtzdHJpbmd9IFtzdHJpbmc9JyddIFRoZSBzdHJpbmcgdG8gdHJpbS5cbiAqIEBwYXJhbSB7c3RyaW5nfSBbY2hhcnM9d2hpdGVzcGFjZV0gVGhlIGNoYXJhY3RlcnMgdG8gdHJpbS5cbiAqIEBwYXJhbS0ge09iamVjdH0gW2d1YXJkXSBFbmFibGVzIHVzZSBhcyBhbiBpdGVyYXRlZSBmb3IgbWV0aG9kcyBsaWtlIGBfLm1hcGAuXG4gKiBAcmV0dXJucyB7c3RyaW5nfSBSZXR1cm5zIHRoZSB0cmltbWVkIHN0cmluZy5cbiAqIEBleGFtcGxlXG4gKlxuICogXy50cmltKCcgIGFiYyAgJyk7XG4gKiAvLyA9PiAnYWJjJ1xuICpcbiAqIF8udHJpbSgnLV8tYWJjLV8tJywgJ18tJyk7XG4gKiAvLyA9PiAnYWJjJ1xuICpcbiAqIF8ubWFwKFsnICBmb28gICcsICcgIGJhciAgJ10sIF8udHJpbSk7XG4gKiAvLyA9PiBbJ2ZvbycsICdiYXInXVxuICovXG5mdW5jdGlvbiB0cmltKHN0cmluZywgY2hhcnMsIGd1YXJkKSB7XG4gIHN0cmluZyA9IHRvU3RyaW5nKHN0cmluZyk7XG4gIGlmIChzdHJpbmcgJiYgKGd1YXJkIHx8IGNoYXJzID09PSB1bmRlZmluZWQpKSB7XG4gICAgcmV0dXJuIHN0cmluZy5yZXBsYWNlKHJlVHJpbSwgJycpO1xuICB9XG4gIGlmICghc3RyaW5nIHx8ICEoY2hhcnMgPSBiYXNlVG9TdHJpbmcoY2hhcnMpKSkge1xuICAgIHJldHVybiBzdHJpbmc7XG4gIH1cbiAgdmFyIHN0clN5bWJvbHMgPSBzdHJpbmdUb0FycmF5KHN0cmluZyksXG4gICAgICBjaHJTeW1ib2xzID0gc3RyaW5nVG9BcnJheShjaGFycyksXG4gICAgICBzdGFydCA9IGNoYXJzU3RhcnRJbmRleChzdHJTeW1ib2xzLCBjaHJTeW1ib2xzKSxcbiAgICAgIGVuZCA9IGNoYXJzRW5kSW5kZXgoc3RyU3ltYm9scywgY2hyU3ltYm9scykgKyAxO1xuXG4gIHJldHVybiBjYXN0U2xpY2Uoc3RyU3ltYm9scywgc3RhcnQsIGVuZCkuam9pbignJyk7XG59XG5cbnZhciBGTl9BUkdTID0gL14oPzphc3luY1xccyspPyhmdW5jdGlvbik/XFxzKlteXFwoXSpcXChcXHMqKFteXFwpXSopXFwpL207XG52YXIgRk5fQVJHX1NQTElUID0gLywvO1xudmFyIEZOX0FSRyA9IC8oPS4rKT8oXFxzKikkLztcbnZhciBTVFJJUF9DT01NRU5UUyA9IC8oKFxcL1xcLy4qJCl8KFxcL1xcKltcXHNcXFNdKj9cXCpcXC8pKS9tZztcblxuZnVuY3Rpb24gcGFyc2VQYXJhbXMoZnVuYykge1xuICAgIGZ1bmMgPSBmdW5jLnRvU3RyaW5nKCkucmVwbGFjZShTVFJJUF9DT01NRU5UUywgJycpO1xuICAgIGZ1bmMgPSBmdW5jLm1hdGNoKEZOX0FSR1MpWzJdLnJlcGxhY2UoJyAnLCAnJyk7XG4gICAgZnVuYyA9IGZ1bmMgPyBmdW5jLnNwbGl0KEZOX0FSR19TUExJVCkgOiBbXTtcbiAgICBmdW5jID0gZnVuYy5tYXAoZnVuY3Rpb24gKGFyZyl7XG4gICAgICAgIHJldHVybiB0cmltKGFyZy5yZXBsYWNlKEZOX0FSRywgJycpKTtcbiAgICB9KTtcbiAgICByZXR1cm4gZnVuYztcbn1cblxuLyoqXG4gKiBBIGRlcGVuZGVuY3ktaW5qZWN0ZWQgdmVyc2lvbiBvZiB0aGUgW2FzeW5jLmF1dG9de0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy5hdXRvfSBmdW5jdGlvbi4gRGVwZW5kZW50XG4gKiB0YXNrcyBhcmUgc3BlY2lmaWVkIGFzIHBhcmFtZXRlcnMgdG8gdGhlIGZ1bmN0aW9uLCBhZnRlciB0aGUgdXN1YWwgY2FsbGJhY2tcbiAqIHBhcmFtZXRlciwgd2l0aCB0aGUgcGFyYW1ldGVyIG5hbWVzIG1hdGNoaW5nIHRoZSBuYW1lcyBvZiB0aGUgdGFza3MgaXRcbiAqIGRlcGVuZHMgb24uIFRoaXMgY2FuIHByb3ZpZGUgZXZlbiBtb3JlIHJlYWRhYmxlIHRhc2sgZ3JhcGhzIHdoaWNoIGNhbiBiZVxuICogZWFzaWVyIHRvIG1haW50YWluLlxuICpcbiAqIElmIGEgZmluYWwgY2FsbGJhY2sgaXMgc3BlY2lmaWVkLCB0aGUgdGFzayByZXN1bHRzIGFyZSBzaW1pbGFybHkgaW5qZWN0ZWQsXG4gKiBzcGVjaWZpZWQgYXMgbmFtZWQgcGFyYW1ldGVycyBhZnRlciB0aGUgaW5pdGlhbCBlcnJvciBwYXJhbWV0ZXIuXG4gKlxuICogVGhlIGF1dG9JbmplY3QgZnVuY3Rpb24gaXMgcHVyZWx5IHN5bnRhY3RpYyBzdWdhciBhbmQgaXRzIHNlbWFudGljcyBhcmVcbiAqIG90aGVyd2lzZSBlcXVpdmFsZW50IHRvIFthc3luYy5hdXRvXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cuYXV0b30uXG4gKlxuICogQG5hbWUgYXV0b0luamVjdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb250cm9sRmxvd1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuYXV0b117QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LmF1dG99XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge09iamVjdH0gdGFza3MgLSBBbiBvYmplY3QsIGVhY2ggb2Ygd2hvc2UgcHJvcGVydGllcyBpcyBhbiB7QGxpbmsgQXN5bmNGdW5jdGlvbn0gb2ZcbiAqIHRoZSBmb3JtICdmdW5jKFtkZXBlbmRlbmNpZXMuLi5dLCBjYWxsYmFjaykuIFRoZSBvYmplY3QncyBrZXkgb2YgYSBwcm9wZXJ0eVxuICogc2VydmVzIGFzIHRoZSBuYW1lIG9mIHRoZSB0YXNrIGRlZmluZWQgYnkgdGhhdCBwcm9wZXJ0eSwgaS5lLiBjYW4gYmUgdXNlZFxuICogd2hlbiBzcGVjaWZ5aW5nIHJlcXVpcmVtZW50cyBmb3Igb3RoZXIgdGFza3MuXG4gKiAqIFRoZSBgY2FsbGJhY2tgIHBhcmFtZXRlciBpcyBhIGBjYWxsYmFjayhlcnIsIHJlc3VsdClgIHdoaWNoIG11c3QgYmUgY2FsbGVkXG4gKiAgIHdoZW4gZmluaXNoZWQsIHBhc3NpbmcgYW4gYGVycm9yYCAod2hpY2ggY2FuIGJlIGBudWxsYCkgYW5kIHRoZSByZXN1bHQgb2ZcbiAqICAgdGhlIGZ1bmN0aW9uJ3MgZXhlY3V0aW9uLiBUaGUgcmVtYWluaW5nIHBhcmFtZXRlcnMgbmFtZSBvdGhlciB0YXNrcyBvblxuICogICB3aGljaCB0aGUgdGFzayBpcyBkZXBlbmRlbnQsIGFuZCB0aGUgcmVzdWx0cyBmcm9tIHRob3NlIHRhc2tzIGFyZSB0aGVcbiAqICAgYXJndW1lbnRzIG9mIHRob3NlIHBhcmFtZXRlcnMuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQW4gb3B0aW9uYWwgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIHdoZW4gYWxsXG4gKiB0aGUgdGFza3MgaGF2ZSBiZWVuIGNvbXBsZXRlZC4gSXQgcmVjZWl2ZXMgdGhlIGBlcnJgIGFyZ3VtZW50IGlmIGFueSBgdGFza3NgXG4gKiBwYXNzIGFuIGVycm9yIHRvIHRoZWlyIGNhbGxiYWNrLCBhbmQgYSBgcmVzdWx0c2Agb2JqZWN0IHdpdGggYW55IGNvbXBsZXRlZFxuICogdGFzayByZXN1bHRzLCBzaW1pbGFyIHRvIGBhdXRvYC5cbiAqIEBleGFtcGxlXG4gKlxuICogLy8gIFRoZSBleGFtcGxlIGZyb20gYGF1dG9gIGNhbiBiZSByZXdyaXR0ZW4gYXMgZm9sbG93czpcbiAqIGFzeW5jLmF1dG9JbmplY3Qoe1xuICogICAgIGdldF9kYXRhOiBmdW5jdGlvbihjYWxsYmFjaykge1xuICogICAgICAgICAvLyBhc3luYyBjb2RlIHRvIGdldCBzb21lIGRhdGFcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ2RhdGEnLCAnY29udmVydGVkIHRvIGFycmF5Jyk7XG4gKiAgICAgfSxcbiAqICAgICBtYWtlX2ZvbGRlcjogZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgLy8gYXN5bmMgY29kZSB0byBjcmVhdGUgYSBkaXJlY3RvcnkgdG8gc3RvcmUgYSBmaWxlIGluXG4gKiAgICAgICAgIC8vIHRoaXMgaXMgcnVuIGF0IHRoZSBzYW1lIHRpbWUgYXMgZ2V0dGluZyB0aGUgZGF0YVxuICogICAgICAgICBjYWxsYmFjayhudWxsLCAnZm9sZGVyJyk7XG4gKiAgICAgfSxcbiAqICAgICB3cml0ZV9maWxlOiBmdW5jdGlvbihnZXRfZGF0YSwgbWFrZV9mb2xkZXIsIGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIC8vIG9uY2UgdGhlcmUgaXMgc29tZSBkYXRhIGFuZCB0aGUgZGlyZWN0b3J5IGV4aXN0cyxcbiAqICAgICAgICAgLy8gd3JpdGUgdGhlIGRhdGEgdG8gYSBmaWxlIGluIHRoZSBkaXJlY3RvcnlcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ2ZpbGVuYW1lJyk7XG4gKiAgICAgfSxcbiAqICAgICBlbWFpbF9saW5rOiBmdW5jdGlvbih3cml0ZV9maWxlLCBjYWxsYmFjaykge1xuICogICAgICAgICAvLyBvbmNlIHRoZSBmaWxlIGlzIHdyaXR0ZW4gbGV0J3MgZW1haWwgYSBsaW5rIHRvIGl0Li4uXG4gKiAgICAgICAgIC8vIHdyaXRlX2ZpbGUgY29udGFpbnMgdGhlIGZpbGVuYW1lIHJldHVybmVkIGJ5IHdyaXRlX2ZpbGUuXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsIHsnZmlsZSc6d3JpdGVfZmlsZSwgJ2VtYWlsJzondXNlckBleGFtcGxlLmNvbSd9KTtcbiAqICAgICB9XG4gKiB9LCBmdW5jdGlvbihlcnIsIHJlc3VsdHMpIHtcbiAqICAgICBjb25zb2xlLmxvZygnZXJyID0gJywgZXJyKTtcbiAqICAgICBjb25zb2xlLmxvZygnZW1haWxfbGluayA9ICcsIHJlc3VsdHMuZW1haWxfbGluayk7XG4gKiB9KTtcbiAqXG4gKiAvLyBJZiB5b3UgYXJlIHVzaW5nIGEgSlMgbWluaWZpZXIgdGhhdCBtYW5nbGVzIHBhcmFtZXRlciBuYW1lcywgYGF1dG9JbmplY3RgXG4gKiAvLyB3aWxsIG5vdCB3b3JrIHdpdGggcGxhaW4gZnVuY3Rpb25zLCBzaW5jZSB0aGUgcGFyYW1ldGVyIG5hbWVzIHdpbGwgYmVcbiAqIC8vIGNvbGxhcHNlZCB0byBhIHNpbmdsZSBsZXR0ZXIgaWRlbnRpZmllci4gIFRvIHdvcmsgYXJvdW5kIHRoaXMsIHlvdSBjYW5cbiAqIC8vIGV4cGxpY2l0bHkgc3BlY2lmeSB0aGUgbmFtZXMgb2YgdGhlIHBhcmFtZXRlcnMgeW91ciB0YXNrIGZ1bmN0aW9uIG5lZWRzXG4gKiAvLyBpbiBhbiBhcnJheSwgc2ltaWxhciB0byBBbmd1bGFyLmpzIGRlcGVuZGVuY3kgaW5qZWN0aW9uLlxuICpcbiAqIC8vIFRoaXMgc3RpbGwgaGFzIGFuIGFkdmFudGFnZSBvdmVyIHBsYWluIGBhdXRvYCwgc2luY2UgdGhlIHJlc3VsdHMgYSB0YXNrXG4gKiAvLyBkZXBlbmRzIG9uIGFyZSBzdGlsbCBzcHJlYWQgaW50byBhcmd1bWVudHMuXG4gKiBhc3luYy5hdXRvSW5qZWN0KHtcbiAqICAgICAvLy4uLlxuICogICAgIHdyaXRlX2ZpbGU6IFsnZ2V0X2RhdGEnLCAnbWFrZV9mb2xkZXInLCBmdW5jdGlvbihnZXRfZGF0YSwgbWFrZV9mb2xkZXIsIGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsICdmaWxlbmFtZScpO1xuICogICAgIH1dLFxuICogICAgIGVtYWlsX2xpbms6IFsnd3JpdGVfZmlsZScsIGZ1bmN0aW9uKHdyaXRlX2ZpbGUsIGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsIHsnZmlsZSc6d3JpdGVfZmlsZSwgJ2VtYWlsJzondXNlckBleGFtcGxlLmNvbSd9KTtcbiAqICAgICB9XVxuICogICAgIC8vLi4uXG4gKiB9LCBmdW5jdGlvbihlcnIsIHJlc3VsdHMpIHtcbiAqICAgICBjb25zb2xlLmxvZygnZXJyID0gJywgZXJyKTtcbiAqICAgICBjb25zb2xlLmxvZygnZW1haWxfbGluayA9ICcsIHJlc3VsdHMuZW1haWxfbGluayk7XG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gYXV0b0luamVjdCh0YXNrcywgY2FsbGJhY2spIHtcbiAgICB2YXIgbmV3VGFza3MgPSB7fTtcblxuICAgIGJhc2VGb3JPd24odGFza3MsIGZ1bmN0aW9uICh0YXNrRm4sIGtleSkge1xuICAgICAgICB2YXIgcGFyYW1zO1xuICAgICAgICB2YXIgZm5Jc0FzeW5jID0gaXNBc3luYyh0YXNrRm4pO1xuICAgICAgICB2YXIgaGFzTm9EZXBzID1cbiAgICAgICAgICAgICghZm5Jc0FzeW5jICYmIHRhc2tGbi5sZW5ndGggPT09IDEpIHx8XG4gICAgICAgICAgICAoZm5Jc0FzeW5jICYmIHRhc2tGbi5sZW5ndGggPT09IDApO1xuXG4gICAgICAgIGlmIChpc0FycmF5KHRhc2tGbikpIHtcbiAgICAgICAgICAgIHBhcmFtcyA9IHRhc2tGbi5zbGljZSgwLCAtMSk7XG4gICAgICAgICAgICB0YXNrRm4gPSB0YXNrRm5bdGFza0ZuLmxlbmd0aCAtIDFdO1xuXG4gICAgICAgICAgICBuZXdUYXNrc1trZXldID0gcGFyYW1zLmNvbmNhdChwYXJhbXMubGVuZ3RoID4gMCA/IG5ld1Rhc2sgOiB0YXNrRm4pO1xuICAgICAgICB9IGVsc2UgaWYgKGhhc05vRGVwcykge1xuICAgICAgICAgICAgLy8gbm8gZGVwZW5kZW5jaWVzLCB1c2UgdGhlIGZ1bmN0aW9uIGFzLWlzXG4gICAgICAgICAgICBuZXdUYXNrc1trZXldID0gdGFza0ZuO1xuICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgcGFyYW1zID0gcGFyc2VQYXJhbXModGFza0ZuKTtcbiAgICAgICAgICAgIGlmICh0YXNrRm4ubGVuZ3RoID09PSAwICYmICFmbklzQXN5bmMgJiYgcGFyYW1zLmxlbmd0aCA9PT0gMCkge1xuICAgICAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcihcImF1dG9JbmplY3QgdGFzayBmdW5jdGlvbnMgcmVxdWlyZSBleHBsaWNpdCBwYXJhbWV0ZXJzLlwiKTtcbiAgICAgICAgICAgIH1cblxuICAgICAgICAgICAgLy8gcmVtb3ZlIGNhbGxiYWNrIHBhcmFtXG4gICAgICAgICAgICBpZiAoIWZuSXNBc3luYykgcGFyYW1zLnBvcCgpO1xuXG4gICAgICAgICAgICBuZXdUYXNrc1trZXldID0gcGFyYW1zLmNvbmNhdChuZXdUYXNrKTtcbiAgICAgICAgfVxuXG4gICAgICAgIGZ1bmN0aW9uIG5ld1Rhc2socmVzdWx0cywgdGFza0NiKSB7XG4gICAgICAgICAgICB2YXIgbmV3QXJncyA9IGFycmF5TWFwKHBhcmFtcywgZnVuY3Rpb24gKG5hbWUpIHtcbiAgICAgICAgICAgICAgICByZXR1cm4gcmVzdWx0c1tuYW1lXTtcbiAgICAgICAgICAgIH0pO1xuICAgICAgICAgICAgbmV3QXJncy5wdXNoKHRhc2tDYik7XG4gICAgICAgICAgICB3cmFwQXN5bmModGFza0ZuKS5hcHBseShudWxsLCBuZXdBcmdzKTtcbiAgICAgICAgfVxuICAgIH0pO1xuXG4gICAgYXV0byhuZXdUYXNrcywgY2FsbGJhY2spO1xufVxuXG4vLyBTaW1wbGUgZG91Ymx5IGxpbmtlZCBsaXN0IChodHRwczovL2VuLndpa2lwZWRpYS5vcmcvd2lraS9Eb3VibHlfbGlua2VkX2xpc3QpIGltcGxlbWVudGF0aW9uXG4vLyB1c2VkIGZvciBxdWV1ZXMuIFRoaXMgaW1wbGVtZW50YXRpb24gYXNzdW1lcyB0aGF0IHRoZSBub2RlIHByb3ZpZGVkIGJ5IHRoZSB1c2VyIGNhbiBiZSBtb2RpZmllZFxuLy8gdG8gYWRqdXN0IHRoZSBuZXh0IGFuZCBsYXN0IHByb3BlcnRpZXMuIFdlIGltcGxlbWVudCBvbmx5IHRoZSBtaW5pbWFsIGZ1bmN0aW9uYWxpdHlcbi8vIGZvciBxdWV1ZSBzdXBwb3J0LlxuZnVuY3Rpb24gRExMKCkge1xuICAgIHRoaXMuaGVhZCA9IHRoaXMudGFpbCA9IG51bGw7XG4gICAgdGhpcy5sZW5ndGggPSAwO1xufVxuXG5mdW5jdGlvbiBzZXRJbml0aWFsKGRsbCwgbm9kZSkge1xuICAgIGRsbC5sZW5ndGggPSAxO1xuICAgIGRsbC5oZWFkID0gZGxsLnRhaWwgPSBub2RlO1xufVxuXG5ETEwucHJvdG90eXBlLnJlbW92ZUxpbmsgPSBmdW5jdGlvbihub2RlKSB7XG4gICAgaWYgKG5vZGUucHJldikgbm9kZS5wcmV2Lm5leHQgPSBub2RlLm5leHQ7XG4gICAgZWxzZSB0aGlzLmhlYWQgPSBub2RlLm5leHQ7XG4gICAgaWYgKG5vZGUubmV4dCkgbm9kZS5uZXh0LnByZXYgPSBub2RlLnByZXY7XG4gICAgZWxzZSB0aGlzLnRhaWwgPSBub2RlLnByZXY7XG5cbiAgICBub2RlLnByZXYgPSBub2RlLm5leHQgPSBudWxsO1xuICAgIHRoaXMubGVuZ3RoIC09IDE7XG4gICAgcmV0dXJuIG5vZGU7XG59O1xuXG5ETEwucHJvdG90eXBlLmVtcHR5ID0gZnVuY3Rpb24gKCkge1xuICAgIHdoaWxlKHRoaXMuaGVhZCkgdGhpcy5zaGlmdCgpO1xuICAgIHJldHVybiB0aGlzO1xufTtcblxuRExMLnByb3RvdHlwZS5pbnNlcnRBZnRlciA9IGZ1bmN0aW9uKG5vZGUsIG5ld05vZGUpIHtcbiAgICBuZXdOb2RlLnByZXYgPSBub2RlO1xuICAgIG5ld05vZGUubmV4dCA9IG5vZGUubmV4dDtcbiAgICBpZiAobm9kZS5uZXh0KSBub2RlLm5leHQucHJldiA9IG5ld05vZGU7XG4gICAgZWxzZSB0aGlzLnRhaWwgPSBuZXdOb2RlO1xuICAgIG5vZGUubmV4dCA9IG5ld05vZGU7XG4gICAgdGhpcy5sZW5ndGggKz0gMTtcbn07XG5cbkRMTC5wcm90b3R5cGUuaW5zZXJ0QmVmb3JlID0gZnVuY3Rpb24obm9kZSwgbmV3Tm9kZSkge1xuICAgIG5ld05vZGUucHJldiA9IG5vZGUucHJldjtcbiAgICBuZXdOb2RlLm5leHQgPSBub2RlO1xuICAgIGlmIChub2RlLnByZXYpIG5vZGUucHJldi5uZXh0ID0gbmV3Tm9kZTtcbiAgICBlbHNlIHRoaXMuaGVhZCA9IG5ld05vZGU7XG4gICAgbm9kZS5wcmV2ID0gbmV3Tm9kZTtcbiAgICB0aGlzLmxlbmd0aCArPSAxO1xufTtcblxuRExMLnByb3RvdHlwZS51bnNoaWZ0ID0gZnVuY3Rpb24obm9kZSkge1xuICAgIGlmICh0aGlzLmhlYWQpIHRoaXMuaW5zZXJ0QmVmb3JlKHRoaXMuaGVhZCwgbm9kZSk7XG4gICAgZWxzZSBzZXRJbml0aWFsKHRoaXMsIG5vZGUpO1xufTtcblxuRExMLnByb3RvdHlwZS5wdXNoID0gZnVuY3Rpb24obm9kZSkge1xuICAgIGlmICh0aGlzLnRhaWwpIHRoaXMuaW5zZXJ0QWZ0ZXIodGhpcy50YWlsLCBub2RlKTtcbiAgICBlbHNlIHNldEluaXRpYWwodGhpcywgbm9kZSk7XG59O1xuXG5ETEwucHJvdG90eXBlLnNoaWZ0ID0gZnVuY3Rpb24oKSB7XG4gICAgcmV0dXJuIHRoaXMuaGVhZCAmJiB0aGlzLnJlbW92ZUxpbmsodGhpcy5oZWFkKTtcbn07XG5cbkRMTC5wcm90b3R5cGUucG9wID0gZnVuY3Rpb24oKSB7XG4gICAgcmV0dXJuIHRoaXMudGFpbCAmJiB0aGlzLnJlbW92ZUxpbmsodGhpcy50YWlsKTtcbn07XG5cbkRMTC5wcm90b3R5cGUudG9BcnJheSA9IGZ1bmN0aW9uICgpIHtcbiAgICB2YXIgYXJyID0gQXJyYXkodGhpcy5sZW5ndGgpO1xuICAgIHZhciBjdXJyID0gdGhpcy5oZWFkO1xuICAgIGZvcih2YXIgaWR4ID0gMDsgaWR4IDwgdGhpcy5sZW5ndGg7IGlkeCsrKSB7XG4gICAgICAgIGFycltpZHhdID0gY3Vyci5kYXRhO1xuICAgICAgICBjdXJyID0gY3Vyci5uZXh0O1xuICAgIH1cbiAgICByZXR1cm4gYXJyO1xufTtcblxuRExMLnByb3RvdHlwZS5yZW1vdmUgPSBmdW5jdGlvbiAodGVzdEZuKSB7XG4gICAgdmFyIGN1cnIgPSB0aGlzLmhlYWQ7XG4gICAgd2hpbGUoISFjdXJyKSB7XG4gICAgICAgIHZhciBuZXh0ID0gY3Vyci5uZXh0O1xuICAgICAgICBpZiAodGVzdEZuKGN1cnIpKSB7XG4gICAgICAgICAgICB0aGlzLnJlbW92ZUxpbmsoY3Vycik7XG4gICAgICAgIH1cbiAgICAgICAgY3VyciA9IG5leHQ7XG4gICAgfVxuICAgIHJldHVybiB0aGlzO1xufTtcblxuZnVuY3Rpb24gcXVldWUod29ya2VyLCBjb25jdXJyZW5jeSwgcGF5bG9hZCkge1xuICAgIGlmIChjb25jdXJyZW5jeSA9PSBudWxsKSB7XG4gICAgICAgIGNvbmN1cnJlbmN5ID0gMTtcbiAgICB9XG4gICAgZWxzZSBpZihjb25jdXJyZW5jeSA9PT0gMCkge1xuICAgICAgICB0aHJvdyBuZXcgRXJyb3IoJ0NvbmN1cnJlbmN5IG11c3Qgbm90IGJlIHplcm8nKTtcbiAgICB9XG5cbiAgICB2YXIgX3dvcmtlciA9IHdyYXBBc3luYyh3b3JrZXIpO1xuICAgIHZhciBudW1SdW5uaW5nID0gMDtcbiAgICB2YXIgd29ya2Vyc0xpc3QgPSBbXTtcblxuICAgIHZhciBwcm9jZXNzaW5nU2NoZWR1bGVkID0gZmFsc2U7XG4gICAgZnVuY3Rpb24gX2luc2VydChkYXRhLCBpbnNlcnRBdEZyb250LCBjYWxsYmFjaykge1xuICAgICAgICBpZiAoY2FsbGJhY2sgIT0gbnVsbCAmJiB0eXBlb2YgY2FsbGJhY2sgIT09ICdmdW5jdGlvbicpIHtcbiAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcigndGFzayBjYWxsYmFjayBtdXN0IGJlIGEgZnVuY3Rpb24nKTtcbiAgICAgICAgfVxuICAgICAgICBxLnN0YXJ0ZWQgPSB0cnVlO1xuICAgICAgICBpZiAoIWlzQXJyYXkoZGF0YSkpIHtcbiAgICAgICAgICAgIGRhdGEgPSBbZGF0YV07XG4gICAgICAgIH1cbiAgICAgICAgaWYgKGRhdGEubGVuZ3RoID09PSAwICYmIHEuaWRsZSgpKSB7XG4gICAgICAgICAgICAvLyBjYWxsIGRyYWluIGltbWVkaWF0ZWx5IGlmIHRoZXJlIGFyZSBubyB0YXNrc1xuICAgICAgICAgICAgcmV0dXJuIHNldEltbWVkaWF0ZSQxKGZ1bmN0aW9uKCkge1xuICAgICAgICAgICAgICAgIHEuZHJhaW4oKTtcbiAgICAgICAgICAgIH0pO1xuICAgICAgICB9XG5cbiAgICAgICAgZm9yICh2YXIgaSA9IDAsIGwgPSBkYXRhLmxlbmd0aDsgaSA8IGw7IGkrKykge1xuICAgICAgICAgICAgdmFyIGl0ZW0gPSB7XG4gICAgICAgICAgICAgICAgZGF0YTogZGF0YVtpXSxcbiAgICAgICAgICAgICAgICBjYWxsYmFjazogY2FsbGJhY2sgfHwgbm9vcFxuICAgICAgICAgICAgfTtcblxuICAgICAgICAgICAgaWYgKGluc2VydEF0RnJvbnQpIHtcbiAgICAgICAgICAgICAgICBxLl90YXNrcy51bnNoaWZ0KGl0ZW0pO1xuICAgICAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgICAgICBxLl90YXNrcy5wdXNoKGl0ZW0pO1xuICAgICAgICAgICAgfVxuICAgICAgICB9XG5cbiAgICAgICAgaWYgKCFwcm9jZXNzaW5nU2NoZWR1bGVkKSB7XG4gICAgICAgICAgICBwcm9jZXNzaW5nU2NoZWR1bGVkID0gdHJ1ZTtcbiAgICAgICAgICAgIHNldEltbWVkaWF0ZSQxKGZ1bmN0aW9uKCkge1xuICAgICAgICAgICAgICAgIHByb2Nlc3NpbmdTY2hlZHVsZWQgPSBmYWxzZTtcbiAgICAgICAgICAgICAgICBxLnByb2Nlc3MoKTtcbiAgICAgICAgICAgIH0pO1xuICAgICAgICB9XG4gICAgfVxuXG4gICAgZnVuY3Rpb24gX25leHQodGFza3MpIHtcbiAgICAgICAgcmV0dXJuIGZ1bmN0aW9uKGVycil7XG4gICAgICAgICAgICBudW1SdW5uaW5nIC09IDE7XG5cbiAgICAgICAgICAgIGZvciAodmFyIGkgPSAwLCBsID0gdGFza3MubGVuZ3RoOyBpIDwgbDsgaSsrKSB7XG4gICAgICAgICAgICAgICAgdmFyIHRhc2sgPSB0YXNrc1tpXTtcblxuICAgICAgICAgICAgICAgIHZhciBpbmRleCA9IGJhc2VJbmRleE9mKHdvcmtlcnNMaXN0LCB0YXNrLCAwKTtcbiAgICAgICAgICAgICAgICBpZiAoaW5kZXggPT09IDApIHtcbiAgICAgICAgICAgICAgICAgICAgd29ya2Vyc0xpc3Quc2hpZnQoKTtcbiAgICAgICAgICAgICAgICB9IGVsc2UgaWYgKGluZGV4ID4gMCkge1xuICAgICAgICAgICAgICAgICAgICB3b3JrZXJzTGlzdC5zcGxpY2UoaW5kZXgsIDEpO1xuICAgICAgICAgICAgICAgIH1cblxuICAgICAgICAgICAgICAgIHRhc2suY2FsbGJhY2suYXBwbHkodGFzaywgYXJndW1lbnRzKTtcblxuICAgICAgICAgICAgICAgIGlmIChlcnIgIT0gbnVsbCkge1xuICAgICAgICAgICAgICAgICAgICBxLmVycm9yKGVyciwgdGFzay5kYXRhKTtcbiAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICB9XG5cbiAgICAgICAgICAgIGlmIChudW1SdW5uaW5nIDw9IChxLmNvbmN1cnJlbmN5IC0gcS5idWZmZXIpICkge1xuICAgICAgICAgICAgICAgIHEudW5zYXR1cmF0ZWQoKTtcbiAgICAgICAgICAgIH1cblxuICAgICAgICAgICAgaWYgKHEuaWRsZSgpKSB7XG4gICAgICAgICAgICAgICAgcS5kcmFpbigpO1xuICAgICAgICAgICAgfVxuICAgICAgICAgICAgcS5wcm9jZXNzKCk7XG4gICAgICAgIH07XG4gICAgfVxuXG4gICAgdmFyIGlzUHJvY2Vzc2luZyA9IGZhbHNlO1xuICAgIHZhciBxID0ge1xuICAgICAgICBfdGFza3M6IG5ldyBETEwoKSxcbiAgICAgICAgY29uY3VycmVuY3k6IGNvbmN1cnJlbmN5LFxuICAgICAgICBwYXlsb2FkOiBwYXlsb2FkLFxuICAgICAgICBzYXR1cmF0ZWQ6IG5vb3AsXG4gICAgICAgIHVuc2F0dXJhdGVkOm5vb3AsXG4gICAgICAgIGJ1ZmZlcjogY29uY3VycmVuY3kgLyA0LFxuICAgICAgICBlbXB0eTogbm9vcCxcbiAgICAgICAgZHJhaW46IG5vb3AsXG4gICAgICAgIGVycm9yOiBub29wLFxuICAgICAgICBzdGFydGVkOiBmYWxzZSxcbiAgICAgICAgcGF1c2VkOiBmYWxzZSxcbiAgICAgICAgcHVzaDogZnVuY3Rpb24gKGRhdGEsIGNhbGxiYWNrKSB7XG4gICAgICAgICAgICBfaW5zZXJ0KGRhdGEsIGZhbHNlLCBjYWxsYmFjayk7XG4gICAgICAgIH0sXG4gICAgICAgIGtpbGw6IGZ1bmN0aW9uICgpIHtcbiAgICAgICAgICAgIHEuZHJhaW4gPSBub29wO1xuICAgICAgICAgICAgcS5fdGFza3MuZW1wdHkoKTtcbiAgICAgICAgfSxcbiAgICAgICAgdW5zaGlmdDogZnVuY3Rpb24gKGRhdGEsIGNhbGxiYWNrKSB7XG4gICAgICAgICAgICBfaW5zZXJ0KGRhdGEsIHRydWUsIGNhbGxiYWNrKTtcbiAgICAgICAgfSxcbiAgICAgICAgcmVtb3ZlOiBmdW5jdGlvbiAodGVzdEZuKSB7XG4gICAgICAgICAgICBxLl90YXNrcy5yZW1vdmUodGVzdEZuKTtcbiAgICAgICAgfSxcbiAgICAgICAgcHJvY2VzczogZnVuY3Rpb24gKCkge1xuICAgICAgICAgICAgLy8gQXZvaWQgdHJ5aW5nIHRvIHN0YXJ0IHRvbyBtYW55IHByb2Nlc3Npbmcgb3BlcmF0aW9ucy4gVGhpcyBjYW4gb2NjdXJcbiAgICAgICAgICAgIC8vIHdoZW4gY2FsbGJhY2tzIHJlc29sdmUgc3luY2hyb25vdXNseSAoIzEyNjcpLlxuICAgICAgICAgICAgaWYgKGlzUHJvY2Vzc2luZykge1xuICAgICAgICAgICAgICAgIHJldHVybjtcbiAgICAgICAgICAgIH1cbiAgICAgICAgICAgIGlzUHJvY2Vzc2luZyA9IHRydWU7XG4gICAgICAgICAgICB3aGlsZSghcS5wYXVzZWQgJiYgbnVtUnVubmluZyA8IHEuY29uY3VycmVuY3kgJiYgcS5fdGFza3MubGVuZ3RoKXtcbiAgICAgICAgICAgICAgICB2YXIgdGFza3MgPSBbXSwgZGF0YSA9IFtdO1xuICAgICAgICAgICAgICAgIHZhciBsID0gcS5fdGFza3MubGVuZ3RoO1xuICAgICAgICAgICAgICAgIGlmIChxLnBheWxvYWQpIGwgPSBNYXRoLm1pbihsLCBxLnBheWxvYWQpO1xuICAgICAgICAgICAgICAgIGZvciAodmFyIGkgPSAwOyBpIDwgbDsgaSsrKSB7XG4gICAgICAgICAgICAgICAgICAgIHZhciBub2RlID0gcS5fdGFza3Muc2hpZnQoKTtcbiAgICAgICAgICAgICAgICAgICAgdGFza3MucHVzaChub2RlKTtcbiAgICAgICAgICAgICAgICAgICAgd29ya2Vyc0xpc3QucHVzaChub2RlKTtcbiAgICAgICAgICAgICAgICAgICAgZGF0YS5wdXNoKG5vZGUuZGF0YSk7XG4gICAgICAgICAgICAgICAgfVxuXG4gICAgICAgICAgICAgICAgbnVtUnVubmluZyArPSAxO1xuXG4gICAgICAgICAgICAgICAgaWYgKHEuX3Rhc2tzLmxlbmd0aCA9PT0gMCkge1xuICAgICAgICAgICAgICAgICAgICBxLmVtcHR5KCk7XG4gICAgICAgICAgICAgICAgfVxuXG4gICAgICAgICAgICAgICAgaWYgKG51bVJ1bm5pbmcgPT09IHEuY29uY3VycmVuY3kpIHtcbiAgICAgICAgICAgICAgICAgICAgcS5zYXR1cmF0ZWQoKTtcbiAgICAgICAgICAgICAgICB9XG5cbiAgICAgICAgICAgICAgICB2YXIgY2IgPSBvbmx5T25jZShfbmV4dCh0YXNrcykpO1xuICAgICAgICAgICAgICAgIF93b3JrZXIoZGF0YSwgY2IpO1xuICAgICAgICAgICAgfVxuICAgICAgICAgICAgaXNQcm9jZXNzaW5nID0gZmFsc2U7XG4gICAgICAgIH0sXG4gICAgICAgIGxlbmd0aDogZnVuY3Rpb24gKCkge1xuICAgICAgICAgICAgcmV0dXJuIHEuX3Rhc2tzLmxlbmd0aDtcbiAgICAgICAgfSxcbiAgICAgICAgcnVubmluZzogZnVuY3Rpb24gKCkge1xuICAgICAgICAgICAgcmV0dXJuIG51bVJ1bm5pbmc7XG4gICAgICAgIH0sXG4gICAgICAgIHdvcmtlcnNMaXN0OiBmdW5jdGlvbiAoKSB7XG4gICAgICAgICAgICByZXR1cm4gd29ya2Vyc0xpc3Q7XG4gICAgICAgIH0sXG4gICAgICAgIGlkbGU6IGZ1bmN0aW9uKCkge1xuICAgICAgICAgICAgcmV0dXJuIHEuX3Rhc2tzLmxlbmd0aCArIG51bVJ1bm5pbmcgPT09IDA7XG4gICAgICAgIH0sXG4gICAgICAgIHBhdXNlOiBmdW5jdGlvbiAoKSB7XG4gICAgICAgICAgICBxLnBhdXNlZCA9IHRydWU7XG4gICAgICAgIH0sXG4gICAgICAgIHJlc3VtZTogZnVuY3Rpb24gKCkge1xuICAgICAgICAgICAgaWYgKHEucGF1c2VkID09PSBmYWxzZSkgeyByZXR1cm47IH1cbiAgICAgICAgICAgIHEucGF1c2VkID0gZmFsc2U7XG4gICAgICAgICAgICBzZXRJbW1lZGlhdGUkMShxLnByb2Nlc3MpO1xuICAgICAgICB9XG4gICAgfTtcbiAgICByZXR1cm4gcTtcbn1cblxuLyoqXG4gKiBBIGNhcmdvIG9mIHRhc2tzIGZvciB0aGUgd29ya2VyIGZ1bmN0aW9uIHRvIGNvbXBsZXRlLiBDYXJnbyBpbmhlcml0cyBhbGwgb2ZcbiAqIHRoZSBzYW1lIG1ldGhvZHMgYW5kIGV2ZW50IGNhbGxiYWNrcyBhcyBbYHF1ZXVlYF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnF1ZXVlfS5cbiAqIEB0eXBlZGVmIHtPYmplY3R9IENhcmdvT2JqZWN0XG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBsZW5ndGggLSBBIGZ1bmN0aW9uIHJldHVybmluZyB0aGUgbnVtYmVyIG9mIGl0ZW1zXG4gKiB3YWl0aW5nIHRvIGJlIHByb2Nlc3NlZC4gSW52b2tlIGxpa2UgYGNhcmdvLmxlbmd0aCgpYC5cbiAqIEBwcm9wZXJ0eSB7bnVtYmVyfSBwYXlsb2FkIC0gQW4gYGludGVnZXJgIGZvciBkZXRlcm1pbmluZyBob3cgbWFueSB0YXNrc1xuICogc2hvdWxkIGJlIHByb2Nlc3MgcGVyIHJvdW5kLiBUaGlzIHByb3BlcnR5IGNhbiBiZSBjaGFuZ2VkIGFmdGVyIGEgYGNhcmdvYCBpc1xuICogY3JlYXRlZCB0byBhbHRlciB0aGUgcGF5bG9hZCBvbi10aGUtZmx5LlxuICogQHByb3BlcnR5IHtGdW5jdGlvbn0gcHVzaCAtIEFkZHMgYHRhc2tgIHRvIHRoZSBgcXVldWVgLiBUaGUgY2FsbGJhY2sgaXNcbiAqIGNhbGxlZCBvbmNlIHRoZSBgd29ya2VyYCBoYXMgZmluaXNoZWQgcHJvY2Vzc2luZyB0aGUgdGFzay4gSW5zdGVhZCBvZiBhXG4gKiBzaW5nbGUgdGFzaywgYW4gYXJyYXkgb2YgYHRhc2tzYCBjYW4gYmUgc3VibWl0dGVkLiBUaGUgcmVzcGVjdGl2ZSBjYWxsYmFjayBpc1xuICogdXNlZCBmb3IgZXZlcnkgdGFzayBpbiB0aGUgbGlzdC4gSW52b2tlIGxpa2UgYGNhcmdvLnB1c2godGFzaywgW2NhbGxiYWNrXSlgLlxuICogQHByb3BlcnR5IHtGdW5jdGlvbn0gc2F0dXJhdGVkIC0gQSBjYWxsYmFjayB0aGF0IGlzIGNhbGxlZCB3aGVuIHRoZVxuICogYHF1ZXVlLmxlbmd0aCgpYCBoaXRzIHRoZSBjb25jdXJyZW5jeSBhbmQgZnVydGhlciB0YXNrcyB3aWxsIGJlIHF1ZXVlZC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IGVtcHR5IC0gQSBjYWxsYmFjayB0aGF0IGlzIGNhbGxlZCB3aGVuIHRoZSBsYXN0IGl0ZW1cbiAqIGZyb20gdGhlIGBxdWV1ZWAgaXMgZ2l2ZW4gdG8gYSBgd29ya2VyYC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IGRyYWluIC0gQSBjYWxsYmFjayB0aGF0IGlzIGNhbGxlZCB3aGVuIHRoZSBsYXN0IGl0ZW1cbiAqIGZyb20gdGhlIGBxdWV1ZWAgaGFzIHJldHVybmVkIGZyb20gdGhlIGB3b3JrZXJgLlxuICogQHByb3BlcnR5IHtGdW5jdGlvbn0gaWRsZSAtIGEgZnVuY3Rpb24gcmV0dXJuaW5nIGZhbHNlIGlmIHRoZXJlIGFyZSBpdGVtc1xuICogd2FpdGluZyBvciBiZWluZyBwcm9jZXNzZWQsIG9yIHRydWUgaWYgbm90LiBJbnZva2UgbGlrZSBgY2FyZ28uaWRsZSgpYC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IHBhdXNlIC0gYSBmdW5jdGlvbiB0aGF0IHBhdXNlcyB0aGUgcHJvY2Vzc2luZyBvZiB0YXNrc1xuICogdW50aWwgYHJlc3VtZSgpYCBpcyBjYWxsZWQuIEludm9rZSBsaWtlIGBjYXJnby5wYXVzZSgpYC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IHJlc3VtZSAtIGEgZnVuY3Rpb24gdGhhdCByZXN1bWVzIHRoZSBwcm9jZXNzaW5nIG9mXG4gKiBxdWV1ZWQgdGFza3Mgd2hlbiB0aGUgcXVldWUgaXMgcGF1c2VkLiBJbnZva2UgbGlrZSBgY2FyZ28ucmVzdW1lKClgLlxuICogQHByb3BlcnR5IHtGdW5jdGlvbn0ga2lsbCAtIGEgZnVuY3Rpb24gdGhhdCByZW1vdmVzIHRoZSBgZHJhaW5gIGNhbGxiYWNrIGFuZFxuICogZW1wdGllcyByZW1haW5pbmcgdGFza3MgZnJvbSB0aGUgcXVldWUgZm9yY2luZyBpdCB0byBnbyBpZGxlLiBJbnZva2UgbGlrZSBgY2FyZ28ua2lsbCgpYC5cbiAqL1xuXG4vKipcbiAqIENyZWF0ZXMgYSBgY2FyZ29gIG9iamVjdCB3aXRoIHRoZSBzcGVjaWZpZWQgcGF5bG9hZC4gVGFza3MgYWRkZWQgdG8gdGhlXG4gKiBjYXJnbyB3aWxsIGJlIHByb2Nlc3NlZCBhbHRvZ2V0aGVyICh1cCB0byB0aGUgYHBheWxvYWRgIGxpbWl0KS4gSWYgdGhlXG4gKiBgd29ya2VyYCBpcyBpbiBwcm9ncmVzcywgdGhlIHRhc2sgaXMgcXVldWVkIHVudGlsIGl0IGJlY29tZXMgYXZhaWxhYmxlLiBPbmNlXG4gKiB0aGUgYHdvcmtlcmAgaGFzIGNvbXBsZXRlZCBzb21lIHRhc2tzLCBlYWNoIGNhbGxiYWNrIG9mIHRob3NlIHRhc2tzIGlzXG4gKiBjYWxsZWQuIENoZWNrIG91dCBbdGhlc2VdKGh0dHBzOi8vY2Ftby5naXRodWJ1c2VyY29udGVudC5jb20vNmJiZDM2ZjRjZjViMzVhMGYxMWE5NmRjZDJlOTc3MTFmZmMyZmIzNy82ODc0NzQ3MDczM2EyZjJmNjYyZTYzNmM2Zjc1NjQyZTY3Njk3NDY4NzU2MjJlNjM2ZjZkMmY2MTczNzM2NTc0NzMyZjMxMzYzNzM2MzgzNzMxMmYzNjM4MzEzMDM4MmY2MjYyNjMzMDYzNjY2MjMwMmQzNTY2MzIzOTJkMzEzMTY1MzIyZDM5MzczNDY2MmQzMzMzMzkzNzYzMzYzNDY0NjMzODM1MzgyZTY3Njk2NikgW2FuaW1hdGlvbnNdKGh0dHBzOi8vY2Ftby5naXRodWJ1c2VyY29udGVudC5jb20vZjQ4MTBlMDBlMWM1ZjVmOGFkZGJlM2U5ZjQ5MDY0ZmQ1ZDEwMjY5OS82ODc0NzQ3MDczM2EyZjJmNjYyZTYzNmM2Zjc1NjQyZTY3Njk3NDY4NzU2MjJlNjM2ZjZkMmY2MTczNzM2NTc0NzMyZjMxMzYzNzM2MzgzNzMxMmYzNjM4MzEzMDMxMmYzODM0NjMzOTMyMzAzNjM2MmQzNTY2MzIzOTJkMzEzMTY1MzIyZDM4MzEzNDY2MmQzOTY0MzM2NDMwMzIzNDMxMzM2MjY2NjQyZTY3Njk2NilcbiAqIGZvciBob3cgYGNhcmdvYCBhbmQgYHF1ZXVlYCB3b3JrLlxuICpcbiAqIFdoaWxlIFtgcXVldWVgXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cucXVldWV9IHBhc3NlcyBvbmx5IG9uZSB0YXNrIHRvIG9uZSBvZiBhIGdyb3VwIG9mIHdvcmtlcnNcbiAqIGF0IGEgdGltZSwgY2FyZ28gcGFzc2VzIGFuIGFycmF5IG9mIHRhc2tzIHRvIGEgc2luZ2xlIHdvcmtlciwgcmVwZWF0aW5nXG4gKiB3aGVuIHRoZSB3b3JrZXIgaXMgZmluaXNoZWQuXG4gKlxuICogQG5hbWUgY2FyZ29cbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLnF1ZXVlXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cucXVldWV9XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IHdvcmtlciAtIEFuIGFzeW5jaHJvbm91cyBmdW5jdGlvbiBmb3IgcHJvY2Vzc2luZyBhbiBhcnJheVxuICogb2YgcXVldWVkIHRhc2tzLiBJbnZva2VkIHdpdGggYCh0YXNrcywgY2FsbGJhY2spYC5cbiAqIEBwYXJhbSB7bnVtYmVyfSBbcGF5bG9hZD1JbmZpbml0eV0gLSBBbiBvcHRpb25hbCBgaW50ZWdlcmAgZm9yIGRldGVybWluaW5nXG4gKiBob3cgbWFueSB0YXNrcyBzaG91bGQgYmUgcHJvY2Vzc2VkIHBlciByb3VuZDsgaWYgb21pdHRlZCwgdGhlIGRlZmF1bHQgaXNcbiAqIHVubGltaXRlZC5cbiAqIEByZXR1cm5zIHttb2R1bGU6Q29udHJvbEZsb3cuQ2FyZ29PYmplY3R9IEEgY2FyZ28gb2JqZWN0IHRvIG1hbmFnZSB0aGUgdGFza3MuIENhbGxiYWNrcyBjYW5cbiAqIGF0dGFjaGVkIGFzIGNlcnRhaW4gcHJvcGVydGllcyB0byBsaXN0ZW4gZm9yIHNwZWNpZmljIGV2ZW50cyBkdXJpbmcgdGhlXG4gKiBsaWZlY3ljbGUgb2YgdGhlIGNhcmdvIGFuZCBpbm5lciBxdWV1ZS5cbiAqIEBleGFtcGxlXG4gKlxuICogLy8gY3JlYXRlIGEgY2FyZ28gb2JqZWN0IHdpdGggcGF5bG9hZCAyXG4gKiB2YXIgY2FyZ28gPSBhc3luYy5jYXJnbyhmdW5jdGlvbih0YXNrcywgY2FsbGJhY2spIHtcbiAqICAgICBmb3IgKHZhciBpPTA7IGk8dGFza3MubGVuZ3RoOyBpKyspIHtcbiAqICAgICAgICAgY29uc29sZS5sb2coJ2hlbGxvICcgKyB0YXNrc1tpXS5uYW1lKTtcbiAqICAgICB9XG4gKiAgICAgY2FsbGJhY2soKTtcbiAqIH0sIDIpO1xuICpcbiAqIC8vIGFkZCBzb21lIGl0ZW1zXG4gKiBjYXJnby5wdXNoKHtuYW1lOiAnZm9vJ30sIGZ1bmN0aW9uKGVycikge1xuICogICAgIGNvbnNvbGUubG9nKCdmaW5pc2hlZCBwcm9jZXNzaW5nIGZvbycpO1xuICogfSk7XG4gKiBjYXJnby5wdXNoKHtuYW1lOiAnYmFyJ30sIGZ1bmN0aW9uKGVycikge1xuICogICAgIGNvbnNvbGUubG9nKCdmaW5pc2hlZCBwcm9jZXNzaW5nIGJhcicpO1xuICogfSk7XG4gKiBjYXJnby5wdXNoKHtuYW1lOiAnYmF6J30sIGZ1bmN0aW9uKGVycikge1xuICogICAgIGNvbnNvbGUubG9nKCdmaW5pc2hlZCBwcm9jZXNzaW5nIGJheicpO1xuICogfSk7XG4gKi9cbmZ1bmN0aW9uIGNhcmdvKHdvcmtlciwgcGF5bG9hZCkge1xuICAgIHJldHVybiBxdWV1ZSh3b3JrZXIsIDEsIHBheWxvYWQpO1xufVxuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFtgZWFjaE9mYF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmVhY2hPZn0gYnV0IHJ1bnMgb25seSBhIHNpbmdsZSBhc3luYyBvcGVyYXRpb24gYXQgYSB0aW1lLlxuICpcbiAqIEBuYW1lIGVhY2hPZlNlcmllc1xuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuZWFjaE9mXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZWFjaE9mfVxuICogQGFsaWFzIGZvckVhY2hPZlNlcmllc1xuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW5cbiAqIGBjb2xsYC5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwga2V5LCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgd2hlbiBhbGwgYGl0ZXJhdGVlYFxuICogZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gSW52b2tlZCB3aXRoIChlcnIpLlxuICovXG52YXIgZWFjaE9mU2VyaWVzID0gZG9MaW1pdChlYWNoT2ZMaW1pdCwgMSk7XG5cbi8qKlxuICogUmVkdWNlcyBgY29sbGAgaW50byBhIHNpbmdsZSB2YWx1ZSB1c2luZyBhbiBhc3luYyBgaXRlcmF0ZWVgIHRvIHJldHVybiBlYWNoXG4gKiBzdWNjZXNzaXZlIHN0ZXAuIGBtZW1vYCBpcyB0aGUgaW5pdGlhbCBzdGF0ZSBvZiB0aGUgcmVkdWN0aW9uLiBUaGlzIGZ1bmN0aW9uXG4gKiBvbmx5IG9wZXJhdGVzIGluIHNlcmllcy5cbiAqXG4gKiBGb3IgcGVyZm9ybWFuY2UgcmVhc29ucywgaXQgbWF5IG1ha2Ugc2Vuc2UgdG8gc3BsaXQgYSBjYWxsIHRvIHRoaXMgZnVuY3Rpb25cbiAqIGludG8gYSBwYXJhbGxlbCBtYXAsIGFuZCB0aGVuIHVzZSB0aGUgbm9ybWFsIGBBcnJheS5wcm90b3R5cGUucmVkdWNlYCBvbiB0aGVcbiAqIHJlc3VsdHMuIFRoaXMgZnVuY3Rpb24gaXMgZm9yIHNpdHVhdGlvbnMgd2hlcmUgZWFjaCBzdGVwIGluIHRoZSByZWR1Y3Rpb25cbiAqIG5lZWRzIHRvIGJlIGFzeW5jOyBpZiB5b3UgY2FuIGdldCB0aGUgZGF0YSBiZWZvcmUgcmVkdWNpbmcgaXQsIHRoZW4gaXQnc1xuICogcHJvYmFibHkgYSBnb29kIGlkZWEgdG8gZG8gc28uXG4gKlxuICogQG5hbWUgcmVkdWNlXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAYWxpYXMgaW5qZWN0XG4gKiBAYWxpYXMgZm9sZGxcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0geyp9IG1lbW8gLSBUaGUgaW5pdGlhbCBzdGF0ZSBvZiB0aGUgcmVkdWN0aW9uLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEEgZnVuY3Rpb24gYXBwbGllZCB0byBlYWNoIGl0ZW0gaW4gdGhlXG4gKiBhcnJheSB0byBwcm9kdWNlIHRoZSBuZXh0IHN0ZXAgaW4gdGhlIHJlZHVjdGlvbi5cbiAqIFRoZSBgaXRlcmF0ZWVgIHNob3VsZCBjb21wbGV0ZSB3aXRoIHRoZSBuZXh0IHN0YXRlIG9mIHRoZSByZWR1Y3Rpb24uXG4gKiBJZiB0aGUgaXRlcmF0ZWUgY29tcGxldGUgd2l0aCBhbiBlcnJvciwgdGhlIHJlZHVjdGlvbiBpcyBzdG9wcGVkIGFuZCB0aGVcbiAqIG1haW4gYGNhbGxiYWNrYCBpcyBpbW1lZGlhdGVseSBjYWxsZWQgd2l0aCB0aGUgZXJyb3IuXG4gKiBJbnZva2VkIHdpdGggKG1lbW8sIGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhZnRlciBhbGwgdGhlXG4gKiBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLiBSZXN1bHQgaXMgdGhlIHJlZHVjZWQgdmFsdWUuIEludm9rZWQgd2l0aFxuICogKGVyciwgcmVzdWx0KS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMucmVkdWNlKFsxLDIsM10sIDAsIGZ1bmN0aW9uKG1lbW8sIGl0ZW0sIGNhbGxiYWNrKSB7XG4gKiAgICAgLy8gcG9pbnRsZXNzIGFzeW5jOlxuICogICAgIHByb2Nlc3MubmV4dFRpY2soZnVuY3Rpb24oKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsIG1lbW8gKyBpdGVtKVxuICogICAgIH0pO1xuICogfSwgZnVuY3Rpb24oZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyByZXN1bHQgaXMgbm93IGVxdWFsIHRvIHRoZSBsYXN0IHZhbHVlIG9mIG1lbW8sIHdoaWNoIGlzIDZcbiAqIH0pO1xuICovXG5mdW5jdGlvbiByZWR1Y2UoY29sbCwgbWVtbywgaXRlcmF0ZWUsIGNhbGxiYWNrKSB7XG4gICAgY2FsbGJhY2sgPSBvbmNlKGNhbGxiYWNrIHx8IG5vb3ApO1xuICAgIHZhciBfaXRlcmF0ZWUgPSB3cmFwQXN5bmMoaXRlcmF0ZWUpO1xuICAgIGVhY2hPZlNlcmllcyhjb2xsLCBmdW5jdGlvbih4LCBpLCBjYWxsYmFjaykge1xuICAgICAgICBfaXRlcmF0ZWUobWVtbywgeCwgZnVuY3Rpb24oZXJyLCB2KSB7XG4gICAgICAgICAgICBtZW1vID0gdjtcbiAgICAgICAgICAgIGNhbGxiYWNrKGVycik7XG4gICAgICAgIH0pO1xuICAgIH0sIGZ1bmN0aW9uKGVycikge1xuICAgICAgICBjYWxsYmFjayhlcnIsIG1lbW8pO1xuICAgIH0pO1xufVxuXG4vKipcbiAqIFZlcnNpb24gb2YgdGhlIGNvbXBvc2UgZnVuY3Rpb24gdGhhdCBpcyBtb3JlIG5hdHVyYWwgdG8gcmVhZC4gRWFjaCBmdW5jdGlvblxuICogY29uc3VtZXMgdGhlIHJldHVybiB2YWx1ZSBvZiB0aGUgcHJldmlvdXMgZnVuY3Rpb24uIEl0IGlzIHRoZSBlcXVpdmFsZW50IG9mXG4gKiBbY29tcG9zZV17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LmNvbXBvc2V9IHdpdGggdGhlIGFyZ3VtZW50cyByZXZlcnNlZC5cbiAqXG4gKiBFYWNoIGZ1bmN0aW9uIGlzIGV4ZWN1dGVkIHdpdGggdGhlIGB0aGlzYCBiaW5kaW5nIG9mIHRoZSBjb21wb3NlZCBmdW5jdGlvbi5cbiAqXG4gKiBAbmFtZSBzZXFcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmNvbXBvc2Vde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy5jb21wb3NlfVxuICogQGNhdGVnb3J5IENvbnRyb2wgRmxvd1xuICogQHBhcmFtIHsuLi5Bc3luY0Z1bmN0aW9ufSBmdW5jdGlvbnMgLSB0aGUgYXN5bmNocm9ub3VzIGZ1bmN0aW9ucyB0byBjb21wb3NlXG4gKiBAcmV0dXJucyB7RnVuY3Rpb259IGEgZnVuY3Rpb24gdGhhdCBjb21wb3NlcyB0aGUgYGZ1bmN0aW9uc2AgaW4gb3JkZXJcbiAqIEBleGFtcGxlXG4gKlxuICogLy8gUmVxdWlyZXMgbG9kYXNoIChvciB1bmRlcnNjb3JlKSwgZXhwcmVzczMgYW5kIGRyZXNlbmRlJ3Mgb3JtMi5cbiAqIC8vIFBhcnQgb2YgYW4gYXBwLCB0aGF0IGZldGNoZXMgY2F0cyBvZiB0aGUgbG9nZ2VkIHVzZXIuXG4gKiAvLyBUaGlzIGV4YW1wbGUgdXNlcyBgc2VxYCBmdW5jdGlvbiB0byBhdm9pZCBvdmVybmVzdGluZyBhbmQgZXJyb3JcbiAqIC8vIGhhbmRsaW5nIGNsdXR0ZXIuXG4gKiBhcHAuZ2V0KCcvY2F0cycsIGZ1bmN0aW9uKHJlcXVlc3QsIHJlc3BvbnNlKSB7XG4gKiAgICAgdmFyIFVzZXIgPSByZXF1ZXN0Lm1vZGVscy5Vc2VyO1xuICogICAgIGFzeW5jLnNlcShcbiAqICAgICAgICAgXy5iaW5kKFVzZXIuZ2V0LCBVc2VyKSwgIC8vICdVc2VyLmdldCcgaGFzIHNpZ25hdHVyZSAoaWQsIGNhbGxiYWNrKGVyciwgZGF0YSkpXG4gKiAgICAgICAgIGZ1bmN0aW9uKHVzZXIsIGZuKSB7XG4gKiAgICAgICAgICAgICB1c2VyLmdldENhdHMoZm4pOyAgICAgIC8vICdnZXRDYXRzJyBoYXMgc2lnbmF0dXJlIChjYWxsYmFjayhlcnIsIGRhdGEpKVxuICogICAgICAgICB9XG4gKiAgICAgKShyZXEuc2Vzc2lvbi51c2VyX2lkLCBmdW5jdGlvbiAoZXJyLCBjYXRzKSB7XG4gKiAgICAgICAgIGlmIChlcnIpIHtcbiAqICAgICAgICAgICAgIGNvbnNvbGUuZXJyb3IoZXJyKTtcbiAqICAgICAgICAgICAgIHJlc3BvbnNlLmpzb24oeyBzdGF0dXM6ICdlcnJvcicsIG1lc3NhZ2U6IGVyci5tZXNzYWdlIH0pO1xuICogICAgICAgICB9IGVsc2Uge1xuICogICAgICAgICAgICAgcmVzcG9uc2UuanNvbih7IHN0YXR1czogJ29rJywgbWVzc2FnZTogJ0NhdHMgZm91bmQnLCBkYXRhOiBjYXRzIH0pO1xuICogICAgICAgICB9XG4gKiAgICAgfSk7XG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gc2VxKC8qLi4uZnVuY3Rpb25zKi8pIHtcbiAgICB2YXIgX2Z1bmN0aW9ucyA9IGFycmF5TWFwKGFyZ3VtZW50cywgd3JhcEFzeW5jKTtcbiAgICByZXR1cm4gZnVuY3Rpb24oLyouLi5hcmdzKi8pIHtcbiAgICAgICAgdmFyIGFyZ3MgPSBzbGljZShhcmd1bWVudHMpO1xuICAgICAgICB2YXIgdGhhdCA9IHRoaXM7XG5cbiAgICAgICAgdmFyIGNiID0gYXJnc1thcmdzLmxlbmd0aCAtIDFdO1xuICAgICAgICBpZiAodHlwZW9mIGNiID09ICdmdW5jdGlvbicpIHtcbiAgICAgICAgICAgIGFyZ3MucG9wKCk7XG4gICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICBjYiA9IG5vb3A7XG4gICAgICAgIH1cblxuICAgICAgICByZWR1Y2UoX2Z1bmN0aW9ucywgYXJncywgZnVuY3Rpb24obmV3YXJncywgZm4sIGNiKSB7XG4gICAgICAgICAgICBmbi5hcHBseSh0aGF0LCBuZXdhcmdzLmNvbmNhdChmdW5jdGlvbihlcnIvKiwgLi4ubmV4dGFyZ3MqLykge1xuICAgICAgICAgICAgICAgIHZhciBuZXh0YXJncyA9IHNsaWNlKGFyZ3VtZW50cywgMSk7XG4gICAgICAgICAgICAgICAgY2IoZXJyLCBuZXh0YXJncyk7XG4gICAgICAgICAgICB9KSk7XG4gICAgICAgIH0sXG4gICAgICAgIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICAgICAgICAgICAgY2IuYXBwbHkodGhhdCwgW2Vycl0uY29uY2F0KHJlc3VsdHMpKTtcbiAgICAgICAgfSk7XG4gICAgfTtcbn1cblxuLyoqXG4gKiBDcmVhdGVzIGEgZnVuY3Rpb24gd2hpY2ggaXMgYSBjb21wb3NpdGlvbiBvZiB0aGUgcGFzc2VkIGFzeW5jaHJvbm91c1xuICogZnVuY3Rpb25zLiBFYWNoIGZ1bmN0aW9uIGNvbnN1bWVzIHRoZSByZXR1cm4gdmFsdWUgb2YgdGhlIGZ1bmN0aW9uIHRoYXRcbiAqIGZvbGxvd3MuIENvbXBvc2luZyBmdW5jdGlvbnMgYGYoKWAsIGBnKClgLCBhbmQgYGgoKWAgd291bGQgcHJvZHVjZSB0aGUgcmVzdWx0XG4gKiBvZiBgZihnKGgoKSkpYCwgb25seSB0aGlzIHZlcnNpb24gdXNlcyBjYWxsYmFja3MgdG8gb2J0YWluIHRoZSByZXR1cm4gdmFsdWVzLlxuICpcbiAqIEVhY2ggZnVuY3Rpb24gaXMgZXhlY3V0ZWQgd2l0aCB0aGUgYHRoaXNgIGJpbmRpbmcgb2YgdGhlIGNvbXBvc2VkIGZ1bmN0aW9uLlxuICpcbiAqIEBuYW1lIGNvbXBvc2VcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7Li4uQXN5bmNGdW5jdGlvbn0gZnVuY3Rpb25zIC0gdGhlIGFzeW5jaHJvbm91cyBmdW5jdGlvbnMgdG8gY29tcG9zZVxuICogQHJldHVybnMge0Z1bmN0aW9ufSBhbiBhc3luY2hyb25vdXMgZnVuY3Rpb24gdGhhdCBpcyB0aGUgY29tcG9zZWRcbiAqIGFzeW5jaHJvbm91cyBgZnVuY3Rpb25zYFxuICogQGV4YW1wbGVcbiAqXG4gKiBmdW5jdGlvbiBhZGQxKG4sIGNhbGxiYWNrKSB7XG4gKiAgICAgc2V0VGltZW91dChmdW5jdGlvbiAoKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsIG4gKyAxKTtcbiAqICAgICB9LCAxMCk7XG4gKiB9XG4gKlxuICogZnVuY3Rpb24gbXVsMyhuLCBjYWxsYmFjaykge1xuICogICAgIHNldFRpbWVvdXQoZnVuY3Rpb24gKCkge1xuICogICAgICAgICBjYWxsYmFjayhudWxsLCBuICogMyk7XG4gKiAgICAgfSwgMTApO1xuICogfVxuICpcbiAqIHZhciBhZGQxbXVsMyA9IGFzeW5jLmNvbXBvc2UobXVsMywgYWRkMSk7XG4gKiBhZGQxbXVsMyg0LCBmdW5jdGlvbiAoZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyByZXN1bHQgbm93IGVxdWFscyAxNVxuICogfSk7XG4gKi9cbnZhciBjb21wb3NlID0gZnVuY3Rpb24oLyouLi5hcmdzKi8pIHtcbiAgICByZXR1cm4gc2VxLmFwcGx5KG51bGwsIHNsaWNlKGFyZ3VtZW50cykucmV2ZXJzZSgpKTtcbn07XG5cbnZhciBfY29uY2F0ID0gQXJyYXkucHJvdG90eXBlLmNvbmNhdDtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGNvbmNhdGBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5jb25jYXR9IGJ1dCBydW5zIGEgbWF4aW11bSBvZiBgbGltaXRgIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICpcbiAqIEBuYW1lIGNvbmNhdExpbWl0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5jb25jYXRde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5jb25jYXR9XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEEgZnVuY3Rpb24gdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluIGBjb2xsYCxcbiAqIHdoaWNoIHNob3VsZCB1c2UgYW4gYXJyYXkgYXMgaXRzIHJlc3VsdC4gSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHRzIGlzIGFuIGFycmF5XG4gKiBjb250YWluaW5nIHRoZSBjb25jYXRlbmF0ZWQgcmVzdWx0cyBvZiB0aGUgYGl0ZXJhdGVlYCBmdW5jdGlvbi4gSW52b2tlZCB3aXRoXG4gKiAoZXJyLCByZXN1bHRzKS5cbiAqL1xudmFyIGNvbmNhdExpbWl0ID0gZnVuY3Rpb24oY29sbCwgbGltaXQsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIGNhbGxiYWNrID0gY2FsbGJhY2sgfHwgbm9vcDtcbiAgICB2YXIgX2l0ZXJhdGVlID0gd3JhcEFzeW5jKGl0ZXJhdGVlKTtcbiAgICBtYXBMaW1pdChjb2xsLCBsaW1pdCwgZnVuY3Rpb24odmFsLCBjYWxsYmFjaykge1xuICAgICAgICBfaXRlcmF0ZWUodmFsLCBmdW5jdGlvbihlcnIgLyosIC4uLmFyZ3MqLykge1xuICAgICAgICAgICAgaWYgKGVycikgcmV0dXJuIGNhbGxiYWNrKGVycik7XG4gICAgICAgICAgICByZXR1cm4gY2FsbGJhY2sobnVsbCwgc2xpY2UoYXJndW1lbnRzLCAxKSk7XG4gICAgICAgIH0pO1xuICAgIH0sIGZ1bmN0aW9uKGVyciwgbWFwUmVzdWx0cykge1xuICAgICAgICB2YXIgcmVzdWx0ID0gW107XG4gICAgICAgIGZvciAodmFyIGkgPSAwOyBpIDwgbWFwUmVzdWx0cy5sZW5ndGg7IGkrKykge1xuICAgICAgICAgICAgaWYgKG1hcFJlc3VsdHNbaV0pIHtcbiAgICAgICAgICAgICAgICByZXN1bHQgPSBfY29uY2F0LmFwcGx5KHJlc3VsdCwgbWFwUmVzdWx0c1tpXSk7XG4gICAgICAgICAgICB9XG4gICAgICAgIH1cblxuICAgICAgICByZXR1cm4gY2FsbGJhY2soZXJyLCByZXN1bHQpO1xuICAgIH0pO1xufTtcblxuLyoqXG4gKiBBcHBsaWVzIGBpdGVyYXRlZWAgdG8gZWFjaCBpdGVtIGluIGBjb2xsYCwgY29uY2F0ZW5hdGluZyB0aGUgcmVzdWx0cy4gUmV0dXJuc1xuICogdGhlIGNvbmNhdGVuYXRlZCBsaXN0LiBUaGUgYGl0ZXJhdGVlYHMgYXJlIGNhbGxlZCBpbiBwYXJhbGxlbCwgYW5kIHRoZVxuICogcmVzdWx0cyBhcmUgY29uY2F0ZW5hdGVkIGFzIHRoZXkgcmV0dXJuLiBUaGVyZSBpcyBubyBndWFyYW50ZWUgdGhhdCB0aGVcbiAqIHJlc3VsdHMgYXJyYXkgd2lsbCBiZSByZXR1cm5lZCBpbiB0aGUgb3JpZ2luYWwgb3JkZXIgb2YgYGNvbGxgIHBhc3NlZCB0byB0aGVcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb24uXG4gKlxuICogQG5hbWUgY29uY2F0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEEgZnVuY3Rpb24gdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluIGBjb2xsYCxcbiAqIHdoaWNoIHNob3VsZCB1c2UgYW4gYXJyYXkgYXMgaXRzIHJlc3VsdC4gSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2soZXJyKV0gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhZnRlciBhbGwgdGhlXG4gKiBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLCBvciBhbiBlcnJvciBvY2N1cnMuIFJlc3VsdHMgaXMgYW4gYXJyYXlcbiAqIGNvbnRhaW5pbmcgdGhlIGNvbmNhdGVuYXRlZCByZXN1bHRzIG9mIHRoZSBgaXRlcmF0ZWVgIGZ1bmN0aW9uLiBJbnZva2VkIHdpdGhcbiAqIChlcnIsIHJlc3VsdHMpLlxuICogQGV4YW1wbGVcbiAqXG4gKiBhc3luYy5jb25jYXQoWydkaXIxJywnZGlyMicsJ2RpcjMnXSwgZnMucmVhZGRpciwgZnVuY3Rpb24oZXJyLCBmaWxlcykge1xuICogICAgIC8vIGZpbGVzIGlzIG5vdyBhIGxpc3Qgb2YgZmlsZW5hbWVzIHRoYXQgZXhpc3QgaW4gdGhlIDMgZGlyZWN0b3JpZXNcbiAqIH0pO1xuICovXG52YXIgY29uY2F0ID0gZG9MaW1pdChjb25jYXRMaW1pdCwgSW5maW5pdHkpO1xuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFtgY29uY2F0YF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmNvbmNhdH0gYnV0IHJ1bnMgb25seSBhIHNpbmdsZSBhc3luYyBvcGVyYXRpb24gYXQgYSB0aW1lLlxuICpcbiAqIEBuYW1lIGNvbmNhdFNlcmllc1xuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuY29uY2F0XXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuY29uY2F0fVxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIGZ1bmN0aW9uIHRvIGFwcGx5IHRvIGVhY2ggaXRlbSBpbiBgY29sbGAuXG4gKiBUaGUgaXRlcmF0ZWUgc2hvdWxkIGNvbXBsZXRlIHdpdGggYW4gYXJyYXkgYW4gYXJyYXkgb2YgcmVzdWx0cy5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrKGVycildIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHRzIGlzIGFuIGFycmF5XG4gKiBjb250YWluaW5nIHRoZSBjb25jYXRlbmF0ZWQgcmVzdWx0cyBvZiB0aGUgYGl0ZXJhdGVlYCBmdW5jdGlvbi4gSW52b2tlZCB3aXRoXG4gKiAoZXJyLCByZXN1bHRzKS5cbiAqL1xudmFyIGNvbmNhdFNlcmllcyA9IGRvTGltaXQoY29uY2F0TGltaXQsIDEpO1xuXG4vKipcbiAqIFJldHVybnMgYSBmdW5jdGlvbiB0aGF0IHdoZW4gY2FsbGVkLCBjYWxscy1iYWNrIHdpdGggdGhlIHZhbHVlcyBwcm92aWRlZC5cbiAqIFVzZWZ1bCBhcyB0aGUgZmlyc3QgZnVuY3Rpb24gaW4gYSBbYHdhdGVyZmFsbGBde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy53YXRlcmZhbGx9LCBvciBmb3IgcGx1Z2dpbmcgdmFsdWVzIGluIHRvXG4gKiBbYGF1dG9gXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cuYXV0b30uXG4gKlxuICogQG5hbWUgY29uc3RhbnRcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6VXRpbHNcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0gey4uLip9IGFyZ3VtZW50cy4uLiAtIEFueSBudW1iZXIgb2YgYXJndW1lbnRzIHRvIGF1dG9tYXRpY2FsbHkgaW52b2tlXG4gKiBjYWxsYmFjayB3aXRoLlxuICogQHJldHVybnMge0FzeW5jRnVuY3Rpb259IFJldHVybnMgYSBmdW5jdGlvbiB0aGF0IHdoZW4gaW52b2tlZCwgYXV0b21hdGljYWxseVxuICogaW52b2tlcyB0aGUgY2FsbGJhY2sgd2l0aCB0aGUgcHJldmlvdXMgZ2l2ZW4gYXJndW1lbnRzLlxuICogQGV4YW1wbGVcbiAqXG4gKiBhc3luYy53YXRlcmZhbGwoW1xuICogICAgIGFzeW5jLmNvbnN0YW50KDQyKSxcbiAqICAgICBmdW5jdGlvbiAodmFsdWUsIG5leHQpIHtcbiAqICAgICAgICAgLy8gdmFsdWUgPT09IDQyXG4gKiAgICAgfSxcbiAqICAgICAvLy4uLlxuICogXSwgY2FsbGJhY2spO1xuICpcbiAqIGFzeW5jLndhdGVyZmFsbChbXG4gKiAgICAgYXN5bmMuY29uc3RhbnQoZmlsZW5hbWUsIFwidXRmOFwiKSxcbiAqICAgICBmcy5yZWFkRmlsZSxcbiAqICAgICBmdW5jdGlvbiAoZmlsZURhdGEsIG5leHQpIHtcbiAqICAgICAgICAgLy8uLi5cbiAqICAgICB9XG4gKiAgICAgLy8uLi5cbiAqIF0sIGNhbGxiYWNrKTtcbiAqXG4gKiBhc3luYy5hdXRvKHtcbiAqICAgICBob3N0bmFtZTogYXN5bmMuY29uc3RhbnQoXCJodHRwczovL3NlcnZlci5uZXQvXCIpLFxuICogICAgIHBvcnQ6IGZpbmRGcmVlUG9ydCxcbiAqICAgICBsYXVuY2hTZXJ2ZXI6IFtcImhvc3RuYW1lXCIsIFwicG9ydFwiLCBmdW5jdGlvbiAob3B0aW9ucywgY2IpIHtcbiAqICAgICAgICAgc3RhcnRTZXJ2ZXIob3B0aW9ucywgY2IpO1xuICogICAgIH1dLFxuICogICAgIC8vLi4uXG4gKiB9LCBjYWxsYmFjayk7XG4gKi9cbnZhciBjb25zdGFudCA9IGZ1bmN0aW9uKC8qLi4udmFsdWVzKi8pIHtcbiAgICB2YXIgdmFsdWVzID0gc2xpY2UoYXJndW1lbnRzKTtcbiAgICB2YXIgYXJncyA9IFtudWxsXS5jb25jYXQodmFsdWVzKTtcbiAgICByZXR1cm4gZnVuY3Rpb24gKC8qLi4uaWdub3JlZEFyZ3MsIGNhbGxiYWNrKi8pIHtcbiAgICAgICAgdmFyIGNhbGxiYWNrID0gYXJndW1lbnRzW2FyZ3VtZW50cy5sZW5ndGggLSAxXTtcbiAgICAgICAgcmV0dXJuIGNhbGxiYWNrLmFwcGx5KHRoaXMsIGFyZ3MpO1xuICAgIH07XG59O1xuXG4vKipcbiAqIFRoaXMgbWV0aG9kIHJldHVybnMgdGhlIGZpcnN0IGFyZ3VtZW50IGl0IHJlY2VpdmVzLlxuICpcbiAqIEBzdGF0aWNcbiAqIEBzaW5jZSAwLjEuMFxuICogQG1lbWJlck9mIF9cbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0geyp9IHZhbHVlIEFueSB2YWx1ZS5cbiAqIEByZXR1cm5zIHsqfSBSZXR1cm5zIGB2YWx1ZWAuXG4gKiBAZXhhbXBsZVxuICpcbiAqIHZhciBvYmplY3QgPSB7ICdhJzogMSB9O1xuICpcbiAqIGNvbnNvbGUubG9nKF8uaWRlbnRpdHkob2JqZWN0KSA9PT0gb2JqZWN0KTtcbiAqIC8vID0+IHRydWVcbiAqL1xuZnVuY3Rpb24gaWRlbnRpdHkodmFsdWUpIHtcbiAgcmV0dXJuIHZhbHVlO1xufVxuXG5mdW5jdGlvbiBfY3JlYXRlVGVzdGVyKGNoZWNrLCBnZXRSZXN1bHQpIHtcbiAgICByZXR1cm4gZnVuY3Rpb24oZWFjaGZuLCBhcnIsIGl0ZXJhdGVlLCBjYikge1xuICAgICAgICBjYiA9IGNiIHx8IG5vb3A7XG4gICAgICAgIHZhciB0ZXN0UGFzc2VkID0gZmFsc2U7XG4gICAgICAgIHZhciB0ZXN0UmVzdWx0O1xuICAgICAgICBlYWNoZm4oYXJyLCBmdW5jdGlvbih2YWx1ZSwgXywgY2FsbGJhY2spIHtcbiAgICAgICAgICAgIGl0ZXJhdGVlKHZhbHVlLCBmdW5jdGlvbihlcnIsIHJlc3VsdCkge1xuICAgICAgICAgICAgICAgIGlmIChlcnIpIHtcbiAgICAgICAgICAgICAgICAgICAgY2FsbGJhY2soZXJyKTtcbiAgICAgICAgICAgICAgICB9IGVsc2UgaWYgKGNoZWNrKHJlc3VsdCkgJiYgIXRlc3RSZXN1bHQpIHtcbiAgICAgICAgICAgICAgICAgICAgdGVzdFBhc3NlZCA9IHRydWU7XG4gICAgICAgICAgICAgICAgICAgIHRlc3RSZXN1bHQgPSBnZXRSZXN1bHQodHJ1ZSwgdmFsdWUpO1xuICAgICAgICAgICAgICAgICAgICBjYWxsYmFjayhudWxsLCBicmVha0xvb3ApO1xuICAgICAgICAgICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICAgICAgICAgIGNhbGxiYWNrKCk7XG4gICAgICAgICAgICAgICAgfVxuICAgICAgICAgICAgfSk7XG4gICAgICAgIH0sIGZ1bmN0aW9uKGVycikge1xuICAgICAgICAgICAgaWYgKGVycikge1xuICAgICAgICAgICAgICAgIGNiKGVycik7XG4gICAgICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgICAgIGNiKG51bGwsIHRlc3RQYXNzZWQgPyB0ZXN0UmVzdWx0IDogZ2V0UmVzdWx0KGZhbHNlKSk7XG4gICAgICAgICAgICB9XG4gICAgICAgIH0pO1xuICAgIH07XG59XG5cbmZ1bmN0aW9uIF9maW5kR2V0UmVzdWx0KHYsIHgpIHtcbiAgICByZXR1cm4geDtcbn1cblxuLyoqXG4gKiBSZXR1cm5zIHRoZSBmaXJzdCB2YWx1ZSBpbiBgY29sbGAgdGhhdCBwYXNzZXMgYW4gYXN5bmMgdHJ1dGggdGVzdC4gVGhlXG4gKiBgaXRlcmF0ZWVgIGlzIGFwcGxpZWQgaW4gcGFyYWxsZWwsIG1lYW5pbmcgdGhlIGZpcnN0IGl0ZXJhdGVlIHRvIHJldHVyblxuICogYHRydWVgIHdpbGwgZmlyZSB0aGUgZGV0ZWN0IGBjYWxsYmFja2Agd2l0aCB0aGF0IHJlc3VsdC4gVGhhdCBtZWFucyB0aGVcbiAqIHJlc3VsdCBtaWdodCBub3QgYmUgdGhlIGZpcnN0IGl0ZW0gaW4gdGhlIG9yaWdpbmFsIGBjb2xsYCAoaW4gdGVybXMgb2Ygb3JkZXIpXG4gKiB0aGF0IHBhc3NlcyB0aGUgdGVzdC5cblxuICogSWYgb3JkZXIgd2l0aGluIHRoZSBvcmlnaW5hbCBgY29sbGAgaXMgaW1wb3J0YW50LCB0aGVuIGxvb2sgYXRcbiAqIFtgZGV0ZWN0U2VyaWVzYF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmRldGVjdFNlcmllc30uXG4gKlxuICogQG5hbWUgZGV0ZWN0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAYWxpYXMgZmluZFxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25zXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQSB0cnV0aCB0ZXN0IHRvIGFwcGx5IHRvIGVhY2ggaXRlbSBpbiBgY29sbGAuXG4gKiBUaGUgaXRlcmF0ZWUgbXVzdCBjb21wbGV0ZSB3aXRoIGEgYm9vbGVhbiB2YWx1ZSBhcyBpdHMgcmVzdWx0LlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYXMgc29vbiBhcyBhbnlcbiAqIGl0ZXJhdGVlIHJldHVybnMgYHRydWVgLCBvciBhZnRlciBhbGwgdGhlIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQuXG4gKiBSZXN1bHQgd2lsbCBiZSB0aGUgZmlyc3QgaXRlbSBpbiB0aGUgYXJyYXkgdGhhdCBwYXNzZXMgdGhlIHRydXRoIHRlc3RcbiAqIChpdGVyYXRlZSkgb3IgdGhlIHZhbHVlIGB1bmRlZmluZWRgIGlmIG5vbmUgcGFzc2VkLiBJbnZva2VkIHdpdGhcbiAqIChlcnIsIHJlc3VsdCkuXG4gKiBAZXhhbXBsZVxuICpcbiAqIGFzeW5jLmRldGVjdChbJ2ZpbGUxJywnZmlsZTInLCdmaWxlMyddLCBmdW5jdGlvbihmaWxlUGF0aCwgY2FsbGJhY2spIHtcbiAqICAgICBmcy5hY2Nlc3MoZmlsZVBhdGgsIGZ1bmN0aW9uKGVycikge1xuICogICAgICAgICBjYWxsYmFjayhudWxsLCAhZXJyKVxuICogICAgIH0pO1xuICogfSwgZnVuY3Rpb24oZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyByZXN1bHQgbm93IGVxdWFscyB0aGUgZmlyc3QgZmlsZSBpbiB0aGUgbGlzdCB0aGF0IGV4aXN0c1xuICogfSk7XG4gKi9cbnZhciBkZXRlY3QgPSBkb1BhcmFsbGVsKF9jcmVhdGVUZXN0ZXIoaWRlbnRpdHksIF9maW5kR2V0UmVzdWx0KSk7XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2BkZXRlY3RgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZGV0ZWN0fSBidXQgcnVucyBhIG1heGltdW0gb2YgYGxpbWl0YCBhc3luYyBvcGVyYXRpb25zIGF0IGFcbiAqIHRpbWUuXG4gKlxuICogQG5hbWUgZGV0ZWN0TGltaXRcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmRldGVjdF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmRldGVjdH1cbiAqIEBhbGlhcyBmaW5kTGltaXRcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uc1xuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEEgdHJ1dGggdGVzdCB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW4gYGNvbGxgLlxuICogVGhlIGl0ZXJhdGVlIG11c3QgY29tcGxldGUgd2l0aCBhIGJvb2xlYW4gdmFsdWUgYXMgaXRzIHJlc3VsdC5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFzIHNvb24gYXMgYW55XG4gKiBpdGVyYXRlZSByZXR1cm5zIGB0cnVlYCwgb3IgYWZ0ZXIgYWxsIHRoZSBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLlxuICogUmVzdWx0IHdpbGwgYmUgdGhlIGZpcnN0IGl0ZW0gaW4gdGhlIGFycmF5IHRoYXQgcGFzc2VzIHRoZSB0cnV0aCB0ZXN0XG4gKiAoaXRlcmF0ZWUpIG9yIHRoZSB2YWx1ZSBgdW5kZWZpbmVkYCBpZiBub25lIHBhc3NlZC4gSW52b2tlZCB3aXRoXG4gKiAoZXJyLCByZXN1bHQpLlxuICovXG52YXIgZGV0ZWN0TGltaXQgPSBkb1BhcmFsbGVsTGltaXQoX2NyZWF0ZVRlc3RlcihpZGVudGl0eSwgX2ZpbmRHZXRSZXN1bHQpKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGRldGVjdGBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5kZXRlY3R9IGJ1dCBydW5zIG9ubHkgYSBzaW5nbGUgYXN5bmMgb3BlcmF0aW9uIGF0IGEgdGltZS5cbiAqXG4gKiBAbmFtZSBkZXRlY3RTZXJpZXNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmRldGVjdF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmRldGVjdH1cbiAqIEBhbGlhcyBmaW5kU2VyaWVzXG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvbnNcbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluIGBjb2xsYC5cbiAqIFRoZSBpdGVyYXRlZSBtdXN0IGNvbXBsZXRlIHdpdGggYSBib29sZWFuIHZhbHVlIGFzIGl0cyByZXN1bHQuXG4gKiBJbnZva2VkIHdpdGggKGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhcyBzb29uIGFzIGFueVxuICogaXRlcmF0ZWUgcmV0dXJucyBgdHJ1ZWAsIG9yIGFmdGVyIGFsbCB0aGUgYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC5cbiAqIFJlc3VsdCB3aWxsIGJlIHRoZSBmaXJzdCBpdGVtIGluIHRoZSBhcnJheSB0aGF0IHBhc3NlcyB0aGUgdHJ1dGggdGVzdFxuICogKGl0ZXJhdGVlKSBvciB0aGUgdmFsdWUgYHVuZGVmaW5lZGAgaWYgbm9uZSBwYXNzZWQuIEludm9rZWQgd2l0aFxuICogKGVyciwgcmVzdWx0KS5cbiAqL1xudmFyIGRldGVjdFNlcmllcyA9IGRvTGltaXQoZGV0ZWN0TGltaXQsIDEpO1xuXG5mdW5jdGlvbiBjb25zb2xlRnVuYyhuYW1lKSB7XG4gICAgcmV0dXJuIGZ1bmN0aW9uIChmbi8qLCAuLi5hcmdzKi8pIHtcbiAgICAgICAgdmFyIGFyZ3MgPSBzbGljZShhcmd1bWVudHMsIDEpO1xuICAgICAgICBhcmdzLnB1c2goZnVuY3Rpb24gKGVyci8qLCAuLi5hcmdzKi8pIHtcbiAgICAgICAgICAgIHZhciBhcmdzID0gc2xpY2UoYXJndW1lbnRzLCAxKTtcbiAgICAgICAgICAgIGlmICh0eXBlb2YgY29uc29sZSA9PT0gJ29iamVjdCcpIHtcbiAgICAgICAgICAgICAgICBpZiAoZXJyKSB7XG4gICAgICAgICAgICAgICAgICAgIGlmIChjb25zb2xlLmVycm9yKSB7XG4gICAgICAgICAgICAgICAgICAgICAgICBjb25zb2xlLmVycm9yKGVycik7XG4gICAgICAgICAgICAgICAgICAgIH1cbiAgICAgICAgICAgICAgICB9IGVsc2UgaWYgKGNvbnNvbGVbbmFtZV0pIHtcbiAgICAgICAgICAgICAgICAgICAgYXJyYXlFYWNoKGFyZ3MsIGZ1bmN0aW9uICh4KSB7XG4gICAgICAgICAgICAgICAgICAgICAgICBjb25zb2xlW25hbWVdKHgpO1xuICAgICAgICAgICAgICAgICAgICB9KTtcbiAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICB9XG4gICAgICAgIH0pO1xuICAgICAgICB3cmFwQXN5bmMoZm4pLmFwcGx5KG51bGwsIGFyZ3MpO1xuICAgIH07XG59XG5cbi8qKlxuICogTG9ncyB0aGUgcmVzdWx0IG9mIGFuIFtgYXN5bmNgIGZ1bmN0aW9uXXtAbGluayBBc3luY0Z1bmN0aW9ufSB0byB0aGVcbiAqIGBjb25zb2xlYCB1c2luZyBgY29uc29sZS5kaXJgIHRvIGRpc3BsYXkgdGhlIHByb3BlcnRpZXMgb2YgdGhlIHJlc3VsdGluZyBvYmplY3QuXG4gKiBPbmx5IHdvcmtzIGluIE5vZGUuanMgb3IgaW4gYnJvd3NlcnMgdGhhdCBzdXBwb3J0IGBjb25zb2xlLmRpcmAgYW5kXG4gKiBgY29uc29sZS5lcnJvcmAgKHN1Y2ggYXMgRkYgYW5kIENocm9tZSkuXG4gKiBJZiBtdWx0aXBsZSBhcmd1bWVudHMgYXJlIHJldHVybmVkIGZyb20gdGhlIGFzeW5jIGZ1bmN0aW9uLFxuICogYGNvbnNvbGUuZGlyYCBpcyBjYWxsZWQgb24gZWFjaCBhcmd1bWVudCBpbiBvcmRlci5cbiAqXG4gKiBAbmFtZSBkaXJcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6VXRpbHNcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGZ1bmN0aW9uIC0gVGhlIGZ1bmN0aW9uIHlvdSB3YW50IHRvIGV2ZW50dWFsbHkgYXBwbHlcbiAqIGFsbCBhcmd1bWVudHMgdG8uXG4gKiBAcGFyYW0gey4uLip9IGFyZ3VtZW50cy4uLiAtIEFueSBudW1iZXIgb2YgYXJndW1lbnRzIHRvIGFwcGx5IHRvIHRoZSBmdW5jdGlvbi5cbiAqIEBleGFtcGxlXG4gKlxuICogLy8gaW4gYSBtb2R1bGVcbiAqIHZhciBoZWxsbyA9IGZ1bmN0aW9uKG5hbWUsIGNhbGxiYWNrKSB7XG4gKiAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwge2hlbGxvOiBuYW1lfSk7XG4gKiAgICAgfSwgMTAwMCk7XG4gKiB9O1xuICpcbiAqIC8vIGluIHRoZSBub2RlIHJlcGxcbiAqIG5vZGU+IGFzeW5jLmRpcihoZWxsbywgJ3dvcmxkJyk7XG4gKiB7aGVsbG86ICd3b3JsZCd9XG4gKi9cbnZhciBkaXIgPSBjb25zb2xlRnVuYygnZGlyJyk7XG5cbi8qKlxuICogVGhlIHBvc3QtY2hlY2sgdmVyc2lvbiBvZiBbYGR1cmluZ2Bde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy5kdXJpbmd9LiBUbyByZWZsZWN0IHRoZSBkaWZmZXJlbmNlIGluXG4gKiB0aGUgb3JkZXIgb2Ygb3BlcmF0aW9ucywgdGhlIGFyZ3VtZW50cyBgdGVzdGAgYW5kIGBmbmAgYXJlIHN3aXRjaGVkLlxuICpcbiAqIEFsc28gYSB2ZXJzaW9uIG9mIFtgZG9XaGlsc3RgXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cuZG9XaGlsc3R9IHdpdGggYXN5bmNocm9ub3VzIGB0ZXN0YCBmdW5jdGlvbi5cbiAqIEBuYW1lIGRvRHVyaW5nXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5kdXJpbmdde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy5kdXJpbmd9XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGZuIC0gQW4gYXN5bmMgZnVuY3Rpb24gd2hpY2ggaXMgY2FsbGVkIGVhY2ggdGltZVxuICogYHRlc3RgIHBhc3Nlcy4gSW52b2tlZCB3aXRoIChjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IHRlc3QgLSBhc3luY2hyb25vdXMgdHJ1dGggdGVzdCB0byBwZXJmb3JtIGJlZm9yZSBlYWNoXG4gKiBleGVjdXRpb24gb2YgYGZuYC4gSW52b2tlZCB3aXRoICguLi5hcmdzLCBjYWxsYmFjayksIHdoZXJlIGAuLi5hcmdzYCBhcmUgdGhlXG4gKiBub24tZXJyb3IgYXJncyBmcm9tIHRoZSBwcmV2aW91cyBjYWxsYmFjayBvZiBgZm5gLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFmdGVyIHRoZSB0ZXN0XG4gKiBmdW5jdGlvbiBoYXMgZmFpbGVkIGFuZCByZXBlYXRlZCBleGVjdXRpb24gb2YgYGZuYCBoYXMgc3RvcHBlZC4gYGNhbGxiYWNrYFxuICogd2lsbCBiZSBwYXNzZWQgYW4gZXJyb3IgaWYgb25lIG9jY3VycmVkLCBvdGhlcndpc2UgYG51bGxgLlxuICovXG5mdW5jdGlvbiBkb0R1cmluZyhmbiwgdGVzdCwgY2FsbGJhY2spIHtcbiAgICBjYWxsYmFjayA9IG9ubHlPbmNlKGNhbGxiYWNrIHx8IG5vb3ApO1xuICAgIHZhciBfZm4gPSB3cmFwQXN5bmMoZm4pO1xuICAgIHZhciBfdGVzdCA9IHdyYXBBc3luYyh0ZXN0KTtcblxuICAgIGZ1bmN0aW9uIG5leHQoZXJyLyosIC4uLmFyZ3MqLykge1xuICAgICAgICBpZiAoZXJyKSByZXR1cm4gY2FsbGJhY2soZXJyKTtcbiAgICAgICAgdmFyIGFyZ3MgPSBzbGljZShhcmd1bWVudHMsIDEpO1xuICAgICAgICBhcmdzLnB1c2goY2hlY2spO1xuICAgICAgICBfdGVzdC5hcHBseSh0aGlzLCBhcmdzKTtcbiAgICB9XG5cbiAgICBmdW5jdGlvbiBjaGVjayhlcnIsIHRydXRoKSB7XG4gICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICAgICAgICBpZiAoIXRydXRoKSByZXR1cm4gY2FsbGJhY2sobnVsbCk7XG4gICAgICAgIF9mbihuZXh0KTtcbiAgICB9XG5cbiAgICBjaGVjayhudWxsLCB0cnVlKTtcblxufVxuXG4vKipcbiAqIFRoZSBwb3N0LWNoZWNrIHZlcnNpb24gb2YgW2B3aGlsc3RgXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cud2hpbHN0fS4gVG8gcmVmbGVjdCB0aGUgZGlmZmVyZW5jZSBpblxuICogdGhlIG9yZGVyIG9mIG9wZXJhdGlvbnMsIHRoZSBhcmd1bWVudHMgYHRlc3RgIGFuZCBgaXRlcmF0ZWVgIGFyZSBzd2l0Y2hlZC5cbiAqXG4gKiBgZG9XaGlsc3RgIGlzIHRvIGB3aGlsc3RgIGFzIGBkbyB3aGlsZWAgaXMgdG8gYHdoaWxlYCBpbiBwbGFpbiBKYXZhU2NyaXB0LlxuICpcbiAqIEBuYW1lIGRvV2hpbHN0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy53aGlsc3Rde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy53aGlsc3R9XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQSBmdW5jdGlvbiB3aGljaCBpcyBjYWxsZWQgZWFjaCB0aW1lIGB0ZXN0YFxuICogcGFzc2VzLiBJbnZva2VkIHdpdGggKGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IHRlc3QgLSBzeW5jaHJvbm91cyB0cnV0aCB0ZXN0IHRvIHBlcmZvcm0gYWZ0ZXIgZWFjaFxuICogZXhlY3V0aW9uIG9mIGBpdGVyYXRlZWAuIEludm9rZWQgd2l0aCBhbnkgbm9uLWVycm9yIGNhbGxiYWNrIHJlc3VsdHMgb2ZcbiAqIGBpdGVyYXRlZWAuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgdGhlIHRlc3RcbiAqIGZ1bmN0aW9uIGhhcyBmYWlsZWQgYW5kIHJlcGVhdGVkIGV4ZWN1dGlvbiBvZiBgaXRlcmF0ZWVgIGhhcyBzdG9wcGVkLlxuICogYGNhbGxiYWNrYCB3aWxsIGJlIHBhc3NlZCBhbiBlcnJvciBhbmQgYW55IGFyZ3VtZW50cyBwYXNzZWQgdG8gdGhlIGZpbmFsXG4gKiBgaXRlcmF0ZWVgJ3MgY2FsbGJhY2suIEludm9rZWQgd2l0aCAoZXJyLCBbcmVzdWx0c10pO1xuICovXG5mdW5jdGlvbiBkb1doaWxzdChpdGVyYXRlZSwgdGVzdCwgY2FsbGJhY2spIHtcbiAgICBjYWxsYmFjayA9IG9ubHlPbmNlKGNhbGxiYWNrIHx8IG5vb3ApO1xuICAgIHZhciBfaXRlcmF0ZWUgPSB3cmFwQXN5bmMoaXRlcmF0ZWUpO1xuICAgIHZhciBuZXh0ID0gZnVuY3Rpb24oZXJyLyosIC4uLmFyZ3MqLykge1xuICAgICAgICBpZiAoZXJyKSByZXR1cm4gY2FsbGJhY2soZXJyKTtcbiAgICAgICAgdmFyIGFyZ3MgPSBzbGljZShhcmd1bWVudHMsIDEpO1xuICAgICAgICBpZiAodGVzdC5hcHBseSh0aGlzLCBhcmdzKSkgcmV0dXJuIF9pdGVyYXRlZShuZXh0KTtcbiAgICAgICAgY2FsbGJhY2suYXBwbHkobnVsbCwgW251bGxdLmNvbmNhdChhcmdzKSk7XG4gICAgfTtcbiAgICBfaXRlcmF0ZWUobmV4dCk7XG59XG5cbi8qKlxuICogTGlrZSBbJ2RvV2hpbHN0J117QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LmRvV2hpbHN0fSwgZXhjZXB0IHRoZSBgdGVzdGAgaXMgaW52ZXJ0ZWQuIE5vdGUgdGhlXG4gKiBhcmd1bWVudCBvcmRlcmluZyBkaWZmZXJzIGZyb20gYHVudGlsYC5cbiAqXG4gKiBAbmFtZSBkb1VudGlsXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5kb1doaWxzdF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LmRvV2hpbHN0fVxuICogQGNhdGVnb3J5IENvbnRyb2wgRmxvd1xuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIGZ1bmN0aW9uIHdoaWNoIGlzIGNhbGxlZCBlYWNoIHRpbWVcbiAqIGB0ZXN0YCBmYWlscy4gSW52b2tlZCB3aXRoIChjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSB0ZXN0IC0gc3luY2hyb25vdXMgdHJ1dGggdGVzdCB0byBwZXJmb3JtIGFmdGVyIGVhY2hcbiAqIGV4ZWN1dGlvbiBvZiBgaXRlcmF0ZWVgLiBJbnZva2VkIHdpdGggYW55IG5vbi1lcnJvciBjYWxsYmFjayByZXN1bHRzIG9mXG4gKiBgaXRlcmF0ZWVgLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFmdGVyIHRoZSB0ZXN0XG4gKiBmdW5jdGlvbiBoYXMgcGFzc2VkIGFuZCByZXBlYXRlZCBleGVjdXRpb24gb2YgYGl0ZXJhdGVlYCBoYXMgc3RvcHBlZC4gYGNhbGxiYWNrYFxuICogd2lsbCBiZSBwYXNzZWQgYW4gZXJyb3IgYW5kIGFueSBhcmd1bWVudHMgcGFzc2VkIHRvIHRoZSBmaW5hbCBgaXRlcmF0ZWVgJ3NcbiAqIGNhbGxiYWNrLiBJbnZva2VkIHdpdGggKGVyciwgW3Jlc3VsdHNdKTtcbiAqL1xuZnVuY3Rpb24gZG9VbnRpbChpdGVyYXRlZSwgdGVzdCwgY2FsbGJhY2spIHtcbiAgICBkb1doaWxzdChpdGVyYXRlZSwgZnVuY3Rpb24oKSB7XG4gICAgICAgIHJldHVybiAhdGVzdC5hcHBseSh0aGlzLCBhcmd1bWVudHMpO1xuICAgIH0sIGNhbGxiYWNrKTtcbn1cblxuLyoqXG4gKiBMaWtlIFtgd2hpbHN0YF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LndoaWxzdH0sIGV4Y2VwdCB0aGUgYHRlc3RgIGlzIGFuIGFzeW5jaHJvbm91cyBmdW5jdGlvbiB0aGF0XG4gKiBpcyBwYXNzZWQgYSBjYWxsYmFjayBpbiB0aGUgZm9ybSBvZiBgZnVuY3Rpb24gKGVyciwgdHJ1dGgpYC4gSWYgZXJyb3IgaXNcbiAqIHBhc3NlZCB0byBgdGVzdGAgb3IgYGZuYCwgdGhlIG1haW4gY2FsbGJhY2sgaXMgaW1tZWRpYXRlbHkgY2FsbGVkIHdpdGggdGhlXG4gKiB2YWx1ZSBvZiB0aGUgZXJyb3IuXG4gKlxuICogQG5hbWUgZHVyaW5nXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy53aGlsc3Rde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy53aGlsc3R9XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IHRlc3QgLSBhc3luY2hyb25vdXMgdHJ1dGggdGVzdCB0byBwZXJmb3JtIGJlZm9yZSBlYWNoXG4gKiBleGVjdXRpb24gb2YgYGZuYC4gSW52b2tlZCB3aXRoIChjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGZuIC0gQW4gYXN5bmMgZnVuY3Rpb24gd2hpY2ggaXMgY2FsbGVkIGVhY2ggdGltZVxuICogYHRlc3RgIHBhc3Nlcy4gSW52b2tlZCB3aXRoIChjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgdGhlIHRlc3RcbiAqIGZ1bmN0aW9uIGhhcyBmYWlsZWQgYW5kIHJlcGVhdGVkIGV4ZWN1dGlvbiBvZiBgZm5gIGhhcyBzdG9wcGVkLiBgY2FsbGJhY2tgXG4gKiB3aWxsIGJlIHBhc3NlZCBhbiBlcnJvciwgaWYgb25lIG9jY3VycmVkLCBvdGhlcndpc2UgYG51bGxgLlxuICogQGV4YW1wbGVcbiAqXG4gKiB2YXIgY291bnQgPSAwO1xuICpcbiAqIGFzeW5jLmR1cmluZyhcbiAqICAgICBmdW5jdGlvbiAoY2FsbGJhY2spIHtcbiAqICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwsIGNvdW50IDwgNSk7XG4gKiAgICAgfSxcbiAqICAgICBmdW5jdGlvbiAoY2FsbGJhY2spIHtcbiAqICAgICAgICAgY291bnQrKztcbiAqICAgICAgICAgc2V0VGltZW91dChjYWxsYmFjaywgMTAwMCk7XG4gKiAgICAgfSxcbiAqICAgICBmdW5jdGlvbiAoZXJyKSB7XG4gKiAgICAgICAgIC8vIDUgc2Vjb25kcyBoYXZlIHBhc3NlZFxuICogICAgIH1cbiAqICk7XG4gKi9cbmZ1bmN0aW9uIGR1cmluZyh0ZXN0LCBmbiwgY2FsbGJhY2spIHtcbiAgICBjYWxsYmFjayA9IG9ubHlPbmNlKGNhbGxiYWNrIHx8IG5vb3ApO1xuICAgIHZhciBfZm4gPSB3cmFwQXN5bmMoZm4pO1xuICAgIHZhciBfdGVzdCA9IHdyYXBBc3luYyh0ZXN0KTtcblxuICAgIGZ1bmN0aW9uIG5leHQoZXJyKSB7XG4gICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICAgICAgICBfdGVzdChjaGVjayk7XG4gICAgfVxuXG4gICAgZnVuY3Rpb24gY2hlY2soZXJyLCB0cnV0aCkge1xuICAgICAgICBpZiAoZXJyKSByZXR1cm4gY2FsbGJhY2soZXJyKTtcbiAgICAgICAgaWYgKCF0cnV0aCkgcmV0dXJuIGNhbGxiYWNrKG51bGwpO1xuICAgICAgICBfZm4obmV4dCk7XG4gICAgfVxuXG4gICAgX3Rlc3QoY2hlY2spO1xufVxuXG5mdW5jdGlvbiBfd2l0aG91dEluZGV4KGl0ZXJhdGVlKSB7XG4gICAgcmV0dXJuIGZ1bmN0aW9uICh2YWx1ZSwgaW5kZXgsIGNhbGxiYWNrKSB7XG4gICAgICAgIHJldHVybiBpdGVyYXRlZSh2YWx1ZSwgY2FsbGJhY2spO1xuICAgIH07XG59XG5cbi8qKlxuICogQXBwbGllcyB0aGUgZnVuY3Rpb24gYGl0ZXJhdGVlYCB0byBlYWNoIGl0ZW0gaW4gYGNvbGxgLCBpbiBwYXJhbGxlbC5cbiAqIFRoZSBgaXRlcmF0ZWVgIGlzIGNhbGxlZCB3aXRoIGFuIGl0ZW0gZnJvbSB0aGUgbGlzdCwgYW5kIGEgY2FsbGJhY2sgZm9yIHdoZW5cbiAqIGl0IGhhcyBmaW5pc2hlZC4gSWYgdGhlIGBpdGVyYXRlZWAgcGFzc2VzIGFuIGVycm9yIHRvIGl0cyBgY2FsbGJhY2tgLCB0aGVcbiAqIG1haW4gYGNhbGxiYWNrYCAoZm9yIHRoZSBgZWFjaGAgZnVuY3Rpb24pIGlzIGltbWVkaWF0ZWx5IGNhbGxlZCB3aXRoIHRoZVxuICogZXJyb3IuXG4gKlxuICogTm90ZSwgdGhhdCBzaW5jZSB0aGlzIGZ1bmN0aW9uIGFwcGxpZXMgYGl0ZXJhdGVlYCB0byBlYWNoIGl0ZW0gaW4gcGFyYWxsZWwsXG4gKiB0aGVyZSBpcyBubyBndWFyYW50ZWUgdGhhdCB0aGUgaXRlcmF0ZWUgZnVuY3Rpb25zIHdpbGwgY29tcGxldGUgaW4gb3JkZXIuXG4gKlxuICogQG5hbWUgZWFjaFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQGFsaWFzIGZvckVhY2hcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgZnVuY3Rpb24gdG8gYXBwbHkgdG9cbiAqIGVhY2ggaXRlbSBpbiBgY29sbGAuIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogVGhlIGFycmF5IGluZGV4IGlzIG5vdCBwYXNzZWQgdG8gdGhlIGl0ZXJhdGVlLlxuICogSWYgeW91IG5lZWQgdGhlIGluZGV4LCB1c2UgYGVhY2hPZmAuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgd2hlbiBhbGxcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gSW52b2tlZCB3aXRoIChlcnIpLlxuICogQGV4YW1wbGVcbiAqXG4gKiAvLyBhc3N1bWluZyBvcGVuRmlsZXMgaXMgYW4gYXJyYXkgb2YgZmlsZSBuYW1lcyBhbmQgc2F2ZUZpbGUgaXMgYSBmdW5jdGlvblxuICogLy8gdG8gc2F2ZSB0aGUgbW9kaWZpZWQgY29udGVudHMgb2YgdGhhdCBmaWxlOlxuICpcbiAqIGFzeW5jLmVhY2gob3BlbkZpbGVzLCBzYXZlRmlsZSwgZnVuY3Rpb24oZXJyKXtcbiAqICAgLy8gaWYgYW55IG9mIHRoZSBzYXZlcyBwcm9kdWNlZCBhbiBlcnJvciwgZXJyIHdvdWxkIGVxdWFsIHRoYXQgZXJyb3JcbiAqIH0pO1xuICpcbiAqIC8vIGFzc3VtaW5nIG9wZW5GaWxlcyBpcyBhbiBhcnJheSBvZiBmaWxlIG5hbWVzXG4gKiBhc3luYy5lYWNoKG9wZW5GaWxlcywgZnVuY3Rpb24oZmlsZSwgY2FsbGJhY2spIHtcbiAqXG4gKiAgICAgLy8gUGVyZm9ybSBvcGVyYXRpb24gb24gZmlsZSBoZXJlLlxuICogICAgIGNvbnNvbGUubG9nKCdQcm9jZXNzaW5nIGZpbGUgJyArIGZpbGUpO1xuICpcbiAqICAgICBpZiggZmlsZS5sZW5ndGggPiAzMiApIHtcbiAqICAgICAgIGNvbnNvbGUubG9nKCdUaGlzIGZpbGUgbmFtZSBpcyB0b28gbG9uZycpO1xuICogICAgICAgY2FsbGJhY2soJ0ZpbGUgbmFtZSB0b28gbG9uZycpO1xuICogICAgIH0gZWxzZSB7XG4gKiAgICAgICAvLyBEbyB3b3JrIHRvIHByb2Nlc3MgZmlsZSBoZXJlXG4gKiAgICAgICBjb25zb2xlLmxvZygnRmlsZSBwcm9jZXNzZWQnKTtcbiAqICAgICAgIGNhbGxiYWNrKCk7XG4gKiAgICAgfVxuICogfSwgZnVuY3Rpb24oZXJyKSB7XG4gKiAgICAgLy8gaWYgYW55IG9mIHRoZSBmaWxlIHByb2Nlc3NpbmcgcHJvZHVjZWQgYW4gZXJyb3IsIGVyciB3b3VsZCBlcXVhbCB0aGF0IGVycm9yXG4gKiAgICAgaWYoIGVyciApIHtcbiAqICAgICAgIC8vIE9uZSBvZiB0aGUgaXRlcmF0aW9ucyBwcm9kdWNlZCBhbiBlcnJvci5cbiAqICAgICAgIC8vIEFsbCBwcm9jZXNzaW5nIHdpbGwgbm93IHN0b3AuXG4gKiAgICAgICBjb25zb2xlLmxvZygnQSBmaWxlIGZhaWxlZCB0byBwcm9jZXNzJyk7XG4gKiAgICAgfSBlbHNlIHtcbiAqICAgICAgIGNvbnNvbGUubG9nKCdBbGwgZmlsZXMgaGF2ZSBiZWVuIHByb2Nlc3NlZCBzdWNjZXNzZnVsbHknKTtcbiAqICAgICB9XG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gZWFjaExpbWl0KGNvbGwsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIGVhY2hPZihjb2xsLCBfd2l0aG91dEluZGV4KHdyYXBBc3luYyhpdGVyYXRlZSkpLCBjYWxsYmFjayk7XG59XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2BlYWNoYF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmVhY2h9IGJ1dCBydW5zIGEgbWF4aW11bSBvZiBgbGltaXRgIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICpcbiAqIEBuYW1lIGVhY2hMaW1pdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuZWFjaF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmVhY2h9XG4gKiBAYWxpYXMgZm9yRWFjaExpbWl0XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIGZ1bmN0aW9uIHRvIGFwcGx5IHRvIGVhY2ggaXRlbSBpblxuICogYGNvbGxgLlxuICogVGhlIGFycmF5IGluZGV4IGlzIG5vdCBwYXNzZWQgdG8gdGhlIGl0ZXJhdGVlLlxuICogSWYgeW91IG5lZWQgdGhlIGluZGV4LCB1c2UgYGVhY2hPZkxpbWl0YC5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIHdoZW4gYWxsXG4gKiBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLCBvciBhbiBlcnJvciBvY2N1cnMuIEludm9rZWQgd2l0aCAoZXJyKS5cbiAqL1xuZnVuY3Rpb24gZWFjaExpbWl0JDEoY29sbCwgbGltaXQsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIF9lYWNoT2ZMaW1pdChsaW1pdCkoY29sbCwgX3dpdGhvdXRJbmRleCh3cmFwQXN5bmMoaXRlcmF0ZWUpKSwgY2FsbGJhY2spO1xufVxuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFtgZWFjaGBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5lYWNofSBidXQgcnVucyBvbmx5IGEgc2luZ2xlIGFzeW5jIG9wZXJhdGlvbiBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgZWFjaFNlcmllc1xuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuZWFjaF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmVhY2h9XG4gKiBAYWxpYXMgZm9yRWFjaFNlcmllc1xuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoXG4gKiBpdGVtIGluIGBjb2xsYC5cbiAqIFRoZSBhcnJheSBpbmRleCBpcyBub3QgcGFzc2VkIHRvIHRoZSBpdGVyYXRlZS5cbiAqIElmIHlvdSBuZWVkIHRoZSBpbmRleCwgdXNlIGBlYWNoT2ZTZXJpZXNgLlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgd2hlbiBhbGxcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gSW52b2tlZCB3aXRoIChlcnIpLlxuICovXG52YXIgZWFjaFNlcmllcyA9IGRvTGltaXQoZWFjaExpbWl0JDEsIDEpO1xuXG4vKipcbiAqIFdyYXAgYW4gYXN5bmMgZnVuY3Rpb24gYW5kIGVuc3VyZSBpdCBjYWxscyBpdHMgY2FsbGJhY2sgb24gYSBsYXRlciB0aWNrIG9mXG4gKiB0aGUgZXZlbnQgbG9vcC4gIElmIHRoZSBmdW5jdGlvbiBhbHJlYWR5IGNhbGxzIGl0cyBjYWxsYmFjayBvbiBhIG5leHQgdGljayxcbiAqIG5vIGV4dHJhIGRlZmVycmFsIGlzIGFkZGVkLiBUaGlzIGlzIHVzZWZ1bCBmb3IgcHJldmVudGluZyBzdGFjayBvdmVyZmxvd3NcbiAqIChgUmFuZ2VFcnJvcjogTWF4aW11bSBjYWxsIHN0YWNrIHNpemUgZXhjZWVkZWRgKSBhbmQgZ2VuZXJhbGx5IGtlZXBpbmdcbiAqIFtaYWxnb10oaHR0cDovL2Jsb2cuaXpzLm1lL3Bvc3QvNTkxNDI3NDIxNDMvZGVzaWduaW5nLWFwaXMtZm9yLWFzeW5jaHJvbnkpXG4gKiBjb250YWluZWQuIEVTMjAxNyBgYXN5bmNgIGZ1bmN0aW9ucyBhcmUgcmV0dXJuZWQgYXMtaXMgLS0gdGhleSBhcmUgaW1tdW5lXG4gKiB0byBaYWxnbydzIGNvcnJ1cHRpbmcgaW5mbHVlbmNlcywgYXMgdGhleSBhbHdheXMgcmVzb2x2ZSBvbiBhIGxhdGVyIHRpY2suXG4gKlxuICogQG5hbWUgZW5zdXJlQXN5bmNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6VXRpbHNcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGZuIC0gYW4gYXN5bmMgZnVuY3Rpb24sIG9uZSB0aGF0IGV4cGVjdHMgYSBub2RlLXN0eWxlXG4gKiBjYWxsYmFjayBhcyBpdHMgbGFzdCBhcmd1bWVudC5cbiAqIEByZXR1cm5zIHtBc3luY0Z1bmN0aW9ufSBSZXR1cm5zIGEgd3JhcHBlZCBmdW5jdGlvbiB3aXRoIHRoZSBleGFjdCBzYW1lIGNhbGxcbiAqIHNpZ25hdHVyZSBhcyB0aGUgZnVuY3Rpb24gcGFzc2VkIGluLlxuICogQGV4YW1wbGVcbiAqXG4gKiBmdW5jdGlvbiBzb21ldGltZXNBc3luYyhhcmcsIGNhbGxiYWNrKSB7XG4gKiAgICAgaWYgKGNhY2hlW2FyZ10pIHtcbiAqICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwsIGNhY2hlW2FyZ10pOyAvLyB0aGlzIHdvdWxkIGJlIHN5bmNocm9ub3VzISFcbiAqICAgICB9IGVsc2Uge1xuICogICAgICAgICBkb1NvbWVJTyhhcmcsIGNhbGxiYWNrKTsgLy8gdGhpcyBJTyB3b3VsZCBiZSBhc3luY2hyb25vdXNcbiAqICAgICB9XG4gKiB9XG4gKlxuICogLy8gdGhpcyBoYXMgYSByaXNrIG9mIHN0YWNrIG92ZXJmbG93cyBpZiBtYW55IHJlc3VsdHMgYXJlIGNhY2hlZCBpbiBhIHJvd1xuICogYXN5bmMubWFwU2VyaWVzKGFyZ3MsIHNvbWV0aW1lc0FzeW5jLCBkb25lKTtcbiAqXG4gKiAvLyB0aGlzIHdpbGwgZGVmZXIgc29tZXRpbWVzQXN5bmMncyBjYWxsYmFjayBpZiBuZWNlc3NhcnksXG4gKiAvLyBwcmV2ZW50aW5nIHN0YWNrIG92ZXJmbG93c1xuICogYXN5bmMubWFwU2VyaWVzKGFyZ3MsIGFzeW5jLmVuc3VyZUFzeW5jKHNvbWV0aW1lc0FzeW5jKSwgZG9uZSk7XG4gKi9cbmZ1bmN0aW9uIGVuc3VyZUFzeW5jKGZuKSB7XG4gICAgaWYgKGlzQXN5bmMoZm4pKSByZXR1cm4gZm47XG4gICAgcmV0dXJuIGluaXRpYWxQYXJhbXMoZnVuY3Rpb24gKGFyZ3MsIGNhbGxiYWNrKSB7XG4gICAgICAgIHZhciBzeW5jID0gdHJ1ZTtcbiAgICAgICAgYXJncy5wdXNoKGZ1bmN0aW9uICgpIHtcbiAgICAgICAgICAgIHZhciBpbm5lckFyZ3MgPSBhcmd1bWVudHM7XG4gICAgICAgICAgICBpZiAoc3luYykge1xuICAgICAgICAgICAgICAgIHNldEltbWVkaWF0ZSQxKGZ1bmN0aW9uICgpIHtcbiAgICAgICAgICAgICAgICAgICAgY2FsbGJhY2suYXBwbHkobnVsbCwgaW5uZXJBcmdzKTtcbiAgICAgICAgICAgICAgICB9KTtcbiAgICAgICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICAgICAgY2FsbGJhY2suYXBwbHkobnVsbCwgaW5uZXJBcmdzKTtcbiAgICAgICAgICAgIH1cbiAgICAgICAgfSk7XG4gICAgICAgIGZuLmFwcGx5KHRoaXMsIGFyZ3MpO1xuICAgICAgICBzeW5jID0gZmFsc2U7XG4gICAgfSk7XG59XG5cbmZ1bmN0aW9uIG5vdElkKHYpIHtcbiAgICByZXR1cm4gIXY7XG59XG5cbi8qKlxuICogUmV0dXJucyBgdHJ1ZWAgaWYgZXZlcnkgZWxlbWVudCBpbiBgY29sbGAgc2F0aXNmaWVzIGFuIGFzeW5jIHRlc3QuIElmIGFueVxuICogaXRlcmF0ZWUgY2FsbCByZXR1cm5zIGBmYWxzZWAsIHRoZSBtYWluIGBjYWxsYmFja2AgaXMgaW1tZWRpYXRlbHkgY2FsbGVkLlxuICpcbiAqIEBuYW1lIGV2ZXJ5XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAYWxpYXMgYWxsXG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtXG4gKiBpbiB0aGUgY29sbGVjdGlvbiBpbiBwYXJhbGxlbC5cbiAqIFRoZSBpdGVyYXRlZSBtdXN0IGNvbXBsZXRlIHdpdGggYSBib29sZWFuIHJlc3VsdCB2YWx1ZS5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFmdGVyIGFsbCB0aGVcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQuIFJlc3VsdCB3aWxsIGJlIGVpdGhlciBgdHJ1ZWAgb3IgYGZhbHNlYFxuICogZGVwZW5kaW5nIG9uIHRoZSB2YWx1ZXMgb2YgdGhlIGFzeW5jIHRlc3RzLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMuZXZlcnkoWydmaWxlMScsJ2ZpbGUyJywnZmlsZTMnXSwgZnVuY3Rpb24oZmlsZVBhdGgsIGNhbGxiYWNrKSB7XG4gKiAgICAgZnMuYWNjZXNzKGZpbGVQYXRoLCBmdW5jdGlvbihlcnIpIHtcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgIWVycilcbiAqICAgICB9KTtcbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0KSB7XG4gKiAgICAgLy8gaWYgcmVzdWx0IGlzIHRydWUgdGhlbiBldmVyeSBmaWxlIGV4aXN0c1xuICogfSk7XG4gKi9cbnZhciBldmVyeSA9IGRvUGFyYWxsZWwoX2NyZWF0ZVRlc3Rlcihub3RJZCwgbm90SWQpKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGV2ZXJ5YF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmV2ZXJ5fSBidXQgcnVucyBhIG1heGltdW0gb2YgYGxpbWl0YCBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqXG4gKiBAbmFtZSBldmVyeUxpbWl0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5ldmVyeV17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmV2ZXJ5fVxuICogQGFsaWFzIGFsbExpbWl0XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtXG4gKiBpbiB0aGUgY29sbGVjdGlvbiBpbiBwYXJhbGxlbC5cbiAqIFRoZSBpdGVyYXRlZSBtdXN0IGNvbXBsZXRlIHdpdGggYSBib29sZWFuIHJlc3VsdCB2YWx1ZS5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFmdGVyIGFsbCB0aGVcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQuIFJlc3VsdCB3aWxsIGJlIGVpdGhlciBgdHJ1ZWAgb3IgYGZhbHNlYFxuICogZGVwZW5kaW5nIG9uIHRoZSB2YWx1ZXMgb2YgdGhlIGFzeW5jIHRlc3RzLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqL1xudmFyIGV2ZXJ5TGltaXQgPSBkb1BhcmFsbGVsTGltaXQoX2NyZWF0ZVRlc3Rlcihub3RJZCwgbm90SWQpKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGV2ZXJ5YF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLmV2ZXJ5fSBidXQgcnVucyBvbmx5IGEgc2luZ2xlIGFzeW5jIG9wZXJhdGlvbiBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgZXZlcnlTZXJpZXNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmV2ZXJ5XXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZXZlcnl9XG4gKiBAYWxpYXMgYWxsU2VyaWVzXG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtXG4gKiBpbiB0aGUgY29sbGVjdGlvbiBpbiBzZXJpZXMuXG4gKiBUaGUgaXRlcmF0ZWUgbXVzdCBjb21wbGV0ZSB3aXRoIGEgYm9vbGVhbiByZXN1bHQgdmFsdWUuXG4gKiBJbnZva2VkIHdpdGggKGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhZnRlciBhbGwgdGhlXG4gKiBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLiBSZXN1bHQgd2lsbCBiZSBlaXRoZXIgYHRydWVgIG9yIGBmYWxzZWBcbiAqIGRlcGVuZGluZyBvbiB0aGUgdmFsdWVzIG9mIHRoZSBhc3luYyB0ZXN0cy4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdCkuXG4gKi9cbnZhciBldmVyeVNlcmllcyA9IGRvTGltaXQoZXZlcnlMaW1pdCwgMSk7XG5cbi8qKlxuICogVGhlIGJhc2UgaW1wbGVtZW50YXRpb24gb2YgYF8ucHJvcGVydHlgIHdpdGhvdXQgc3VwcG9ydCBmb3IgZGVlcCBwYXRocy5cbiAqXG4gKiBAcHJpdmF0ZVxuICogQHBhcmFtIHtzdHJpbmd9IGtleSBUaGUga2V5IG9mIHRoZSBwcm9wZXJ0eSB0byBnZXQuXG4gKiBAcmV0dXJucyB7RnVuY3Rpb259IFJldHVybnMgdGhlIG5ldyBhY2Nlc3NvciBmdW5jdGlvbi5cbiAqL1xuZnVuY3Rpb24gYmFzZVByb3BlcnR5KGtleSkge1xuICByZXR1cm4gZnVuY3Rpb24ob2JqZWN0KSB7XG4gICAgcmV0dXJuIG9iamVjdCA9PSBudWxsID8gdW5kZWZpbmVkIDogb2JqZWN0W2tleV07XG4gIH07XG59XG5cbmZ1bmN0aW9uIGZpbHRlckFycmF5KGVhY2hmbiwgYXJyLCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICB2YXIgdHJ1dGhWYWx1ZXMgPSBuZXcgQXJyYXkoYXJyLmxlbmd0aCk7XG4gICAgZWFjaGZuKGFyciwgZnVuY3Rpb24gKHgsIGluZGV4LCBjYWxsYmFjaykge1xuICAgICAgICBpdGVyYXRlZSh4LCBmdW5jdGlvbiAoZXJyLCB2KSB7XG4gICAgICAgICAgICB0cnV0aFZhbHVlc1tpbmRleF0gPSAhIXY7XG4gICAgICAgICAgICBjYWxsYmFjayhlcnIpO1xuICAgICAgICB9KTtcbiAgICB9LCBmdW5jdGlvbiAoZXJyKSB7XG4gICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICAgICAgICB2YXIgcmVzdWx0cyA9IFtdO1xuICAgICAgICBmb3IgKHZhciBpID0gMDsgaSA8IGFyci5sZW5ndGg7IGkrKykge1xuICAgICAgICAgICAgaWYgKHRydXRoVmFsdWVzW2ldKSByZXN1bHRzLnB1c2goYXJyW2ldKTtcbiAgICAgICAgfVxuICAgICAgICBjYWxsYmFjayhudWxsLCByZXN1bHRzKTtcbiAgICB9KTtcbn1cblxuZnVuY3Rpb24gZmlsdGVyR2VuZXJpYyhlYWNoZm4sIGNvbGwsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIHZhciByZXN1bHRzID0gW107XG4gICAgZWFjaGZuKGNvbGwsIGZ1bmN0aW9uICh4LCBpbmRleCwgY2FsbGJhY2spIHtcbiAgICAgICAgaXRlcmF0ZWUoeCwgZnVuY3Rpb24gKGVyciwgdikge1xuICAgICAgICAgICAgaWYgKGVycikge1xuICAgICAgICAgICAgICAgIGNhbGxiYWNrKGVycik7XG4gICAgICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgICAgIGlmICh2KSB7XG4gICAgICAgICAgICAgICAgICAgIHJlc3VsdHMucHVzaCh7aW5kZXg6IGluZGV4LCB2YWx1ZTogeH0pO1xuICAgICAgICAgICAgICAgIH1cbiAgICAgICAgICAgICAgICBjYWxsYmFjaygpO1xuICAgICAgICAgICAgfVxuICAgICAgICB9KTtcbiAgICB9LCBmdW5jdGlvbiAoZXJyKSB7XG4gICAgICAgIGlmIChlcnIpIHtcbiAgICAgICAgICAgIGNhbGxiYWNrKGVycik7XG4gICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICBjYWxsYmFjayhudWxsLCBhcnJheU1hcChyZXN1bHRzLnNvcnQoZnVuY3Rpb24gKGEsIGIpIHtcbiAgICAgICAgICAgICAgICByZXR1cm4gYS5pbmRleCAtIGIuaW5kZXg7XG4gICAgICAgICAgICB9KSwgYmFzZVByb3BlcnR5KCd2YWx1ZScpKSk7XG4gICAgICAgIH1cbiAgICB9KTtcbn1cblxuZnVuY3Rpb24gX2ZpbHRlcihlYWNoZm4sIGNvbGwsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIHZhciBmaWx0ZXIgPSBpc0FycmF5TGlrZShjb2xsKSA/IGZpbHRlckFycmF5IDogZmlsdGVyR2VuZXJpYztcbiAgICBmaWx0ZXIoZWFjaGZuLCBjb2xsLCB3cmFwQXN5bmMoaXRlcmF0ZWUpLCBjYWxsYmFjayB8fCBub29wKTtcbn1cblxuLyoqXG4gKiBSZXR1cm5zIGEgbmV3IGFycmF5IG9mIGFsbCB0aGUgdmFsdWVzIGluIGBjb2xsYCB3aGljaCBwYXNzIGFuIGFzeW5jIHRydXRoXG4gKiB0ZXN0LiBUaGlzIG9wZXJhdGlvbiBpcyBwZXJmb3JtZWQgaW4gcGFyYWxsZWwsIGJ1dCB0aGUgcmVzdWx0cyBhcnJheSB3aWxsIGJlXG4gKiBpbiB0aGUgc2FtZSBvcmRlciBhcyB0aGUgb3JpZ2luYWwuXG4gKlxuICogQG5hbWUgZmlsdGVyXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAYWxpYXMgc2VsZWN0XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluIGBjb2xsYC5cbiAqIFRoZSBgaXRlcmF0ZWVgIGlzIHBhc3NlZCBhIGBjYWxsYmFjayhlcnIsIHRydXRoVmFsdWUpYCwgd2hpY2ggbXVzdCBiZSBjYWxsZWRcbiAqIHdpdGggYSBib29sZWFuIGFyZ3VtZW50IG9uY2UgaXQgaGFzIGNvbXBsZXRlZC4gSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICogQGV4YW1wbGVcbiAqXG4gKiBhc3luYy5maWx0ZXIoWydmaWxlMScsJ2ZpbGUyJywnZmlsZTMnXSwgZnVuY3Rpb24oZmlsZVBhdGgsIGNhbGxiYWNrKSB7XG4gKiAgICAgZnMuYWNjZXNzKGZpbGVQYXRoLCBmdW5jdGlvbihlcnIpIHtcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgIWVycilcbiAqICAgICB9KTtcbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIC8vIHJlc3VsdHMgbm93IGVxdWFscyBhbiBhcnJheSBvZiB0aGUgZXhpc3RpbmcgZmlsZXNcbiAqIH0pO1xuICovXG52YXIgZmlsdGVyID0gZG9QYXJhbGxlbChfZmlsdGVyKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGZpbHRlcmBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5maWx0ZXJ9IGJ1dCBydW5zIGEgbWF4aW11bSBvZiBgbGltaXRgIGFzeW5jIG9wZXJhdGlvbnMgYXQgYVxuICogdGltZS5cbiAqXG4gKiBAbmFtZSBmaWx0ZXJMaW1pdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuZmlsdGVyXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZmlsdGVyfVxuICogQGFsaWFzIHNlbGVjdExpbWl0XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluIGBjb2xsYC5cbiAqIFRoZSBgaXRlcmF0ZWVgIGlzIHBhc3NlZCBhIGBjYWxsYmFjayhlcnIsIHRydXRoVmFsdWUpYCwgd2hpY2ggbXVzdCBiZSBjYWxsZWRcbiAqIHdpdGggYSBib29sZWFuIGFyZ3VtZW50IG9uY2UgaXQgaGFzIGNvbXBsZXRlZC4gSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICovXG52YXIgZmlsdGVyTGltaXQgPSBkb1BhcmFsbGVsTGltaXQoX2ZpbHRlcik7XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2BmaWx0ZXJgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZmlsdGVyfSBidXQgcnVucyBvbmx5IGEgc2luZ2xlIGFzeW5jIG9wZXJhdGlvbiBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgZmlsdGVyU2VyaWVzXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5maWx0ZXJde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5maWx0ZXJ9XG4gKiBAYWxpYXMgc2VsZWN0U2VyaWVzXG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIHRydXRoIHRlc3QgdG8gYXBwbHkgdG8gZWFjaCBpdGVtIGluIGBjb2xsYC5cbiAqIFRoZSBgaXRlcmF0ZWVgIGlzIHBhc3NlZCBhIGBjYWxsYmFjayhlcnIsIHRydXRoVmFsdWUpYCwgd2hpY2ggbXVzdCBiZSBjYWxsZWRcbiAqIHdpdGggYSBib29sZWFuIGFyZ3VtZW50IG9uY2UgaXQgaGFzIGNvbXBsZXRlZC4gSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpXG4gKi9cbnZhciBmaWx0ZXJTZXJpZXMgPSBkb0xpbWl0KGZpbHRlckxpbWl0LCAxKTtcblxuLyoqXG4gKiBDYWxscyB0aGUgYXN5bmNocm9ub3VzIGZ1bmN0aW9uIGBmbmAgd2l0aCBhIGNhbGxiYWNrIHBhcmFtZXRlciB0aGF0IGFsbG93cyBpdFxuICogdG8gY2FsbCBpdHNlbGYgYWdhaW4sIGluIHNlcmllcywgaW5kZWZpbml0ZWx5LlxuXG4gKiBJZiBhbiBlcnJvciBpcyBwYXNzZWQgdG8gdGhlIGNhbGxiYWNrIHRoZW4gYGVycmJhY2tgIGlzIGNhbGxlZCB3aXRoIHRoZVxuICogZXJyb3IsIGFuZCBleGVjdXRpb24gc3RvcHMsIG90aGVyd2lzZSBpdCB3aWxsIG5ldmVyIGJlIGNhbGxlZC5cbiAqXG4gKiBAbmFtZSBmb3JldmVyXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGZuIC0gYW4gYXN5bmMgZnVuY3Rpb24gdG8gY2FsbCByZXBlYXRlZGx5LlxuICogSW52b2tlZCB3aXRoIChuZXh0KS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtlcnJiYWNrXSAtIHdoZW4gYGZuYCBwYXNzZXMgYW4gZXJyb3IgdG8gaXQncyBjYWxsYmFjayxcbiAqIHRoaXMgZnVuY3Rpb24gd2lsbCBiZSBjYWxsZWQsIGFuZCBleGVjdXRpb24gc3RvcHMuIEludm9rZWQgd2l0aCAoZXJyKS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMuZm9yZXZlcihcbiAqICAgICBmdW5jdGlvbihuZXh0KSB7XG4gKiAgICAgICAgIC8vIG5leHQgaXMgc3VpdGFibGUgZm9yIHBhc3NpbmcgdG8gdGhpbmdzIHRoYXQgbmVlZCBhIGNhbGxiYWNrKGVyciBbLCB3aGF0ZXZlcl0pO1xuICogICAgICAgICAvLyBpdCB3aWxsIHJlc3VsdCBpbiB0aGlzIGZ1bmN0aW9uIGJlaW5nIGNhbGxlZCBhZ2Fpbi5cbiAqICAgICB9LFxuICogICAgIGZ1bmN0aW9uKGVycikge1xuICogICAgICAgICAvLyBpZiBuZXh0IGlzIGNhbGxlZCB3aXRoIGEgdmFsdWUgaW4gaXRzIGZpcnN0IHBhcmFtZXRlciwgaXQgd2lsbCBhcHBlYXJcbiAqICAgICAgICAgLy8gaW4gaGVyZSBhcyAnZXJyJywgYW5kIGV4ZWN1dGlvbiB3aWxsIHN0b3AuXG4gKiAgICAgfVxuICogKTtcbiAqL1xuZnVuY3Rpb24gZm9yZXZlcihmbiwgZXJyYmFjaykge1xuICAgIHZhciBkb25lID0gb25seU9uY2UoZXJyYmFjayB8fCBub29wKTtcbiAgICB2YXIgdGFzayA9IHdyYXBBc3luYyhlbnN1cmVBc3luYyhmbikpO1xuXG4gICAgZnVuY3Rpb24gbmV4dChlcnIpIHtcbiAgICAgICAgaWYgKGVycikgcmV0dXJuIGRvbmUoZXJyKTtcbiAgICAgICAgdGFzayhuZXh0KTtcbiAgICB9XG4gICAgbmV4dCgpO1xufVxuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFtgZ3JvdXBCeWBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5ncm91cEJ5fSBidXQgcnVucyBhIG1heGltdW0gb2YgYGxpbWl0YCBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqXG4gKiBAbmFtZSBncm91cEJ5TGltaXRcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmdyb3VwQnlde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5ncm91cEJ5fVxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7bnVtYmVyfSBsaW1pdCAtIFRoZSBtYXhpbXVtIG51bWJlciBvZiBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW5cbiAqIGBjb2xsYC5cbiAqIFRoZSBpdGVyYXRlZSBzaG91bGQgY29tcGxldGUgd2l0aCBhIGBrZXlgIHRvIGdyb3VwIHRoZSB2YWx1ZSB1bmRlci5cbiAqIEludm9rZWQgd2l0aCAodmFsdWUsIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbCBgaXRlcmF0ZWVgXG4gKiBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHQgaXMgYW4gYE9iamVjdGAgd2hvc2VzXG4gKiBwcm9wZXJ0aWVzIGFyZSBhcnJheXMgb2YgdmFsdWVzIHdoaWNoIHJldHVybmVkIHRoZSBjb3JyZXNwb25kaW5nIGtleS5cbiAqL1xudmFyIGdyb3VwQnlMaW1pdCA9IGZ1bmN0aW9uKGNvbGwsIGxpbWl0LCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICBjYWxsYmFjayA9IGNhbGxiYWNrIHx8IG5vb3A7XG4gICAgdmFyIF9pdGVyYXRlZSA9IHdyYXBBc3luYyhpdGVyYXRlZSk7XG4gICAgbWFwTGltaXQoY29sbCwgbGltaXQsIGZ1bmN0aW9uKHZhbCwgY2FsbGJhY2spIHtcbiAgICAgICAgX2l0ZXJhdGVlKHZhbCwgZnVuY3Rpb24oZXJyLCBrZXkpIHtcbiAgICAgICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwsIHtrZXk6IGtleSwgdmFsOiB2YWx9KTtcbiAgICAgICAgfSk7XG4gICAgfSwgZnVuY3Rpb24oZXJyLCBtYXBSZXN1bHRzKSB7XG4gICAgICAgIHZhciByZXN1bHQgPSB7fTtcbiAgICAgICAgLy8gZnJvbSBNRE4sIGhhbmRsZSBvYmplY3QgaGF2aW5nIGFuIGBoYXNPd25Qcm9wZXJ0eWAgcHJvcFxuICAgICAgICB2YXIgaGFzT3duUHJvcGVydHkgPSBPYmplY3QucHJvdG90eXBlLmhhc093blByb3BlcnR5O1xuXG4gICAgICAgIGZvciAodmFyIGkgPSAwOyBpIDwgbWFwUmVzdWx0cy5sZW5ndGg7IGkrKykge1xuICAgICAgICAgICAgaWYgKG1hcFJlc3VsdHNbaV0pIHtcbiAgICAgICAgICAgICAgICB2YXIga2V5ID0gbWFwUmVzdWx0c1tpXS5rZXk7XG4gICAgICAgICAgICAgICAgdmFyIHZhbCA9IG1hcFJlc3VsdHNbaV0udmFsO1xuXG4gICAgICAgICAgICAgICAgaWYgKGhhc093blByb3BlcnR5LmNhbGwocmVzdWx0LCBrZXkpKSB7XG4gICAgICAgICAgICAgICAgICAgIHJlc3VsdFtrZXldLnB1c2godmFsKTtcbiAgICAgICAgICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgICAgICAgICByZXN1bHRba2V5XSA9IFt2YWxdO1xuICAgICAgICAgICAgICAgIH1cbiAgICAgICAgICAgIH1cbiAgICAgICAgfVxuXG4gICAgICAgIHJldHVybiBjYWxsYmFjayhlcnIsIHJlc3VsdCk7XG4gICAgfSk7XG59O1xuXG4vKipcbiAqIFJldHVybnMgYSBuZXcgb2JqZWN0LCB3aGVyZSBlYWNoIHZhbHVlIGNvcnJlc3BvbmRzIHRvIGFuIGFycmF5IG9mIGl0ZW1zLCBmcm9tXG4gKiBgY29sbGAsIHRoYXQgcmV0dXJuZWQgdGhlIGNvcnJlc3BvbmRpbmcga2V5LiBUaGF0IGlzLCB0aGUga2V5cyBvZiB0aGUgb2JqZWN0XG4gKiBjb3JyZXNwb25kIHRvIHRoZSB2YWx1ZXMgcGFzc2VkIHRvIHRoZSBgaXRlcmF0ZWVgIGNhbGxiYWNrLlxuICpcbiAqIE5vdGU6IFNpbmNlIHRoaXMgZnVuY3Rpb24gYXBwbGllcyB0aGUgYGl0ZXJhdGVlYCB0byBlYWNoIGl0ZW0gaW4gcGFyYWxsZWwsXG4gKiB0aGVyZSBpcyBubyBndWFyYW50ZWUgdGhhdCB0aGUgYGl0ZXJhdGVlYCBmdW5jdGlvbnMgd2lsbCBjb21wbGV0ZSBpbiBvcmRlci5cbiAqIEhvd2V2ZXIsIHRoZSB2YWx1ZXMgZm9yIGVhY2gga2V5IGluIHRoZSBgcmVzdWx0YCB3aWxsIGJlIGluIHRoZSBzYW1lIG9yZGVyIGFzXG4gKiB0aGUgb3JpZ2luYWwgYGNvbGxgLiBGb3IgT2JqZWN0cywgdGhlIHZhbHVlcyB3aWxsIHJvdWdobHkgYmUgaW4gdGhlIG9yZGVyIG9mXG4gKiB0aGUgb3JpZ2luYWwgT2JqZWN0cycga2V5cyAoYnV0IHRoaXMgY2FuIHZhcnkgYWNyb3NzIEphdmFTY3JpcHQgZW5naW5lcykuXG4gKlxuICogQG5hbWUgZ3JvdXBCeVxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW5cbiAqIGBjb2xsYC5cbiAqIFRoZSBpdGVyYXRlZSBzaG91bGQgY29tcGxldGUgd2l0aCBhIGBrZXlgIHRvIGdyb3VwIHRoZSB2YWx1ZSB1bmRlci5cbiAqIEludm9rZWQgd2l0aCAodmFsdWUsIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbCBgaXRlcmF0ZWVgXG4gKiBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHQgaXMgYW4gYE9iamVjdGAgd2hvc2VzXG4gKiBwcm9wZXJ0aWVzIGFyZSBhcnJheXMgb2YgdmFsdWVzIHdoaWNoIHJldHVybmVkIHRoZSBjb3JyZXNwb25kaW5nIGtleS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMuZ3JvdXBCeShbJ3VzZXJJZDEnLCAndXNlcklkMicsICd1c2VySWQzJ10sIGZ1bmN0aW9uKHVzZXJJZCwgY2FsbGJhY2spIHtcbiAqICAgICBkYi5maW5kQnlJZCh1c2VySWQsIGZ1bmN0aW9uKGVyciwgdXNlcikge1xuICogICAgICAgICBpZiAoZXJyKSByZXR1cm4gY2FsbGJhY2soZXJyKTtcbiAqICAgICAgICAgcmV0dXJuIGNhbGxiYWNrKG51bGwsIHVzZXIuYWdlKTtcbiAqICAgICB9KTtcbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0KSB7XG4gKiAgICAgLy8gcmVzdWx0IGlzIG9iamVjdCBjb250YWluaW5nIHRoZSB1c2VySWRzIGdyb3VwZWQgYnkgYWdlXG4gKiAgICAgLy8gZS5nLiB7IDMwOiBbJ3VzZXJJZDEnLCAndXNlcklkMyddLCA0MjogWyd1c2VySWQyJ119O1xuICogfSk7XG4gKi9cbnZhciBncm91cEJ5ID0gZG9MaW1pdChncm91cEJ5TGltaXQsIEluZmluaXR5KTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYGdyb3VwQnlgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZ3JvdXBCeX0gYnV0IHJ1bnMgb25seSBhIHNpbmdsZSBhc3luYyBvcGVyYXRpb24gYXQgYSB0aW1lLlxuICpcbiAqIEBuYW1lIGdyb3VwQnlTZXJpZXNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLmdyb3VwQnlde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5ncm91cEJ5fVxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7bnVtYmVyfSBsaW1pdCAtIFRoZSBtYXhpbXVtIG51bWJlciBvZiBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW5cbiAqIGBjb2xsYC5cbiAqIFRoZSBpdGVyYXRlZSBzaG91bGQgY29tcGxldGUgd2l0aCBhIGBrZXlgIHRvIGdyb3VwIHRoZSB2YWx1ZSB1bmRlci5cbiAqIEludm9rZWQgd2l0aCAodmFsdWUsIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbCBgaXRlcmF0ZWVgXG4gKiBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBSZXN1bHQgaXMgYW4gYE9iamVjdGAgd2hvc2VzXG4gKiBwcm9wZXJ0aWVzIGFyZSBhcnJheXMgb2YgdmFsdWVzIHdoaWNoIHJldHVybmVkIHRoZSBjb3JyZXNwb25kaW5nIGtleS5cbiAqL1xudmFyIGdyb3VwQnlTZXJpZXMgPSBkb0xpbWl0KGdyb3VwQnlMaW1pdCwgMSk7XG5cbi8qKlxuICogTG9ncyB0aGUgcmVzdWx0IG9mIGFuIGBhc3luY2AgZnVuY3Rpb24gdG8gdGhlIGBjb25zb2xlYC4gT25seSB3b3JrcyBpblxuICogTm9kZS5qcyBvciBpbiBicm93c2VycyB0aGF0IHN1cHBvcnQgYGNvbnNvbGUubG9nYCBhbmQgYGNvbnNvbGUuZXJyb3JgIChzdWNoXG4gKiBhcyBGRiBhbmQgQ2hyb21lKS4gSWYgbXVsdGlwbGUgYXJndW1lbnRzIGFyZSByZXR1cm5lZCBmcm9tIHRoZSBhc3luY1xuICogZnVuY3Rpb24sIGBjb25zb2xlLmxvZ2AgaXMgY2FsbGVkIG9uIGVhY2ggYXJndW1lbnQgaW4gb3JkZXIuXG4gKlxuICogQG5hbWUgbG9nXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOlV0aWxzXG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgVXRpbFxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBmdW5jdGlvbiAtIFRoZSBmdW5jdGlvbiB5b3Ugd2FudCB0byBldmVudHVhbGx5IGFwcGx5XG4gKiBhbGwgYXJndW1lbnRzIHRvLlxuICogQHBhcmFtIHsuLi4qfSBhcmd1bWVudHMuLi4gLSBBbnkgbnVtYmVyIG9mIGFyZ3VtZW50cyB0byBhcHBseSB0byB0aGUgZnVuY3Rpb24uXG4gKiBAZXhhbXBsZVxuICpcbiAqIC8vIGluIGEgbW9kdWxlXG4gKiB2YXIgaGVsbG8gPSBmdW5jdGlvbihuYW1lLCBjYWxsYmFjaykge1xuICogICAgIHNldFRpbWVvdXQoZnVuY3Rpb24oKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsICdoZWxsbyAnICsgbmFtZSk7XG4gKiAgICAgfSwgMTAwMCk7XG4gKiB9O1xuICpcbiAqIC8vIGluIHRoZSBub2RlIHJlcGxcbiAqIG5vZGU+IGFzeW5jLmxvZyhoZWxsbywgJ3dvcmxkJyk7XG4gKiAnaGVsbG8gd29ybGQnXG4gKi9cbnZhciBsb2cgPSBjb25zb2xlRnVuYygnbG9nJyk7XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2BtYXBWYWx1ZXNgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMubWFwVmFsdWVzfSBidXQgcnVucyBhIG1heGltdW0gb2YgYGxpbWl0YCBhc3luYyBvcGVyYXRpb25zIGF0IGFcbiAqIHRpbWUuXG4gKlxuICogQG5hbWUgbWFwVmFsdWVzTGltaXRcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29sbGVjdGlvbnNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLm1hcFZhbHVlc117QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLm1hcFZhbHVlc31cbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge09iamVjdH0gb2JqIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7bnVtYmVyfSBsaW1pdCAtIFRoZSBtYXhpbXVtIG51bWJlciBvZiBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIGZ1bmN0aW9uIHRvIGFwcGx5IHRvIGVhY2ggdmFsdWUgYW5kIGtleVxuICogaW4gYGNvbGxgLlxuICogVGhlIGl0ZXJhdGVlIHNob3VsZCBjb21wbGV0ZSB3aXRoIHRoZSB0cmFuc2Zvcm1lZCB2YWx1ZSBhcyBpdHMgcmVzdWx0LlxuICogSW52b2tlZCB3aXRoICh2YWx1ZSwga2V5LCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgd2hlbiBhbGwgYGl0ZXJhdGVlYFxuICogZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gYHJlc3VsdGAgaXMgYSBuZXcgb2JqZWN0IGNvbnNpc3RpbmdcbiAqIG9mIGVhY2gga2V5IGZyb20gYG9iamAsIHdpdGggZWFjaCB0cmFuc2Zvcm1lZCB2YWx1ZSBvbiB0aGUgcmlnaHQtaGFuZCBzaWRlLlxuICogSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdCkuXG4gKi9cbmZ1bmN0aW9uIG1hcFZhbHVlc0xpbWl0KG9iaiwgbGltaXQsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIGNhbGxiYWNrID0gb25jZShjYWxsYmFjayB8fCBub29wKTtcbiAgICB2YXIgbmV3T2JqID0ge307XG4gICAgdmFyIF9pdGVyYXRlZSA9IHdyYXBBc3luYyhpdGVyYXRlZSk7XG4gICAgZWFjaE9mTGltaXQob2JqLCBsaW1pdCwgZnVuY3Rpb24odmFsLCBrZXksIG5leHQpIHtcbiAgICAgICAgX2l0ZXJhdGVlKHZhbCwga2V5LCBmdW5jdGlvbiAoZXJyLCByZXN1bHQpIHtcbiAgICAgICAgICAgIGlmIChlcnIpIHJldHVybiBuZXh0KGVycik7XG4gICAgICAgICAgICBuZXdPYmpba2V5XSA9IHJlc3VsdDtcbiAgICAgICAgICAgIG5leHQoKTtcbiAgICAgICAgfSk7XG4gICAgfSwgZnVuY3Rpb24gKGVycikge1xuICAgICAgICBjYWxsYmFjayhlcnIsIG5ld09iaik7XG4gICAgfSk7XG59XG5cbi8qKlxuICogQSByZWxhdGl2ZSBvZiBbYG1hcGBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9LCBkZXNpZ25lZCBmb3IgdXNlIHdpdGggb2JqZWN0cy5cbiAqXG4gKiBQcm9kdWNlcyBhIG5ldyBPYmplY3QgYnkgbWFwcGluZyBlYWNoIHZhbHVlIG9mIGBvYmpgIHRocm91Z2ggdGhlIGBpdGVyYXRlZWBcbiAqIGZ1bmN0aW9uLiBUaGUgYGl0ZXJhdGVlYCBpcyBjYWxsZWQgZWFjaCBgdmFsdWVgIGFuZCBga2V5YCBmcm9tIGBvYmpgIGFuZCBhXG4gKiBjYWxsYmFjayBmb3Igd2hlbiBpdCBoYXMgZmluaXNoZWQgcHJvY2Vzc2luZy4gRWFjaCBvZiB0aGVzZSBjYWxsYmFja3MgdGFrZXNcbiAqIHR3byBhcmd1bWVudHM6IGFuIGBlcnJvcmAsIGFuZCB0aGUgdHJhbnNmb3JtZWQgaXRlbSBmcm9tIGBvYmpgLiBJZiBgaXRlcmF0ZWVgXG4gKiBwYXNzZXMgYW4gZXJyb3IgdG8gaXRzIGNhbGxiYWNrLCB0aGUgbWFpbiBgY2FsbGJhY2tgIChmb3IgdGhlIGBtYXBWYWx1ZXNgXG4gKiBmdW5jdGlvbikgaXMgaW1tZWRpYXRlbHkgY2FsbGVkIHdpdGggdGhlIGVycm9yLlxuICpcbiAqIE5vdGUsIHRoZSBvcmRlciBvZiB0aGUga2V5cyBpbiB0aGUgcmVzdWx0IGlzIG5vdCBndWFyYW50ZWVkLiAgVGhlIGtleXMgd2lsbFxuICogYmUgcm91Z2hseSBpbiB0aGUgb3JkZXIgdGhleSBjb21wbGV0ZSwgKGJ1dCB0aGlzIGlzIHZlcnkgZW5naW5lLXNwZWNpZmljKVxuICpcbiAqIEBuYW1lIG1hcFZhbHVlc1xuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7T2JqZWN0fSBvYmogLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEEgZnVuY3Rpb24gdG8gYXBwbHkgdG8gZWFjaCB2YWx1ZSBhbmQga2V5XG4gKiBpbiBgY29sbGAuXG4gKiBUaGUgaXRlcmF0ZWUgc2hvdWxkIGNvbXBsZXRlIHdpdGggdGhlIHRyYW5zZm9ybWVkIHZhbHVlIGFzIGl0cyByZXN1bHQuXG4gKiBJbnZva2VkIHdpdGggKHZhbHVlLCBrZXksIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIGFsbCBgaXRlcmF0ZWVgXG4gKiBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZCwgb3IgYW4gZXJyb3Igb2NjdXJzLiBgcmVzdWx0YCBpcyBhIG5ldyBvYmplY3QgY29uc2lzdGluZ1xuICogb2YgZWFjaCBrZXkgZnJvbSBgb2JqYCwgd2l0aCBlYWNoIHRyYW5zZm9ybWVkIHZhbHVlIG9uIHRoZSByaWdodC1oYW5kIHNpZGUuXG4gKiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMubWFwVmFsdWVzKHtcbiAqICAgICBmMTogJ2ZpbGUxJyxcbiAqICAgICBmMjogJ2ZpbGUyJyxcbiAqICAgICBmMzogJ2ZpbGUzJ1xuICogfSwgZnVuY3Rpb24gKGZpbGUsIGtleSwgY2FsbGJhY2spIHtcbiAqICAgZnMuc3RhdChmaWxlLCBjYWxsYmFjayk7XG4gKiB9LCBmdW5jdGlvbihlcnIsIHJlc3VsdCkge1xuICogICAgIC8vIHJlc3VsdCBpcyBub3cgYSBtYXAgb2Ygc3RhdHMgZm9yIGVhY2ggZmlsZSwgZS5nLlxuICogICAgIC8vIHtcbiAqICAgICAvLyAgICAgZjE6IFtzdGF0cyBmb3IgZmlsZTFdLFxuICogICAgIC8vICAgICBmMjogW3N0YXRzIGZvciBmaWxlMl0sXG4gKiAgICAgLy8gICAgIGYzOiBbc3RhdHMgZm9yIGZpbGUzXVxuICogICAgIC8vIH1cbiAqIH0pO1xuICovXG5cbnZhciBtYXBWYWx1ZXMgPSBkb0xpbWl0KG1hcFZhbHVlc0xpbWl0LCBJbmZpbml0eSk7XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2BtYXBWYWx1ZXNgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMubWFwVmFsdWVzfSBidXQgcnVucyBvbmx5IGEgc2luZ2xlIGFzeW5jIG9wZXJhdGlvbiBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgbWFwVmFsdWVzU2VyaWVzXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5tYXBWYWx1ZXNde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXBWYWx1ZXN9XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtPYmplY3R9IG9iaiAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQSBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoIHZhbHVlIGFuZCBrZXlcbiAqIGluIGBjb2xsYC5cbiAqIFRoZSBpdGVyYXRlZSBzaG91bGQgY29tcGxldGUgd2l0aCB0aGUgdHJhbnNmb3JtZWQgdmFsdWUgYXMgaXRzIHJlc3VsdC5cbiAqIEludm9rZWQgd2l0aCAodmFsdWUsIGtleSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIHdoZW4gYWxsIGBpdGVyYXRlZWBcbiAqIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLCBvciBhbiBlcnJvciBvY2N1cnMuIGByZXN1bHRgIGlzIGEgbmV3IG9iamVjdCBjb25zaXN0aW5nXG4gKiBvZiBlYWNoIGtleSBmcm9tIGBvYmpgLCB3aXRoIGVhY2ggdHJhbnNmb3JtZWQgdmFsdWUgb24gdGhlIHJpZ2h0LWhhbmQgc2lkZS5cbiAqIEludm9rZWQgd2l0aCAoZXJyLCByZXN1bHQpLlxuICovXG52YXIgbWFwVmFsdWVzU2VyaWVzID0gZG9MaW1pdChtYXBWYWx1ZXNMaW1pdCwgMSk7XG5cbmZ1bmN0aW9uIGhhcyhvYmosIGtleSkge1xuICAgIHJldHVybiBrZXkgaW4gb2JqO1xufVxuXG4vKipcbiAqIENhY2hlcyB0aGUgcmVzdWx0cyBvZiBhbiBhc3luYyBmdW5jdGlvbi4gV2hlbiBjcmVhdGluZyBhIGhhc2ggdG8gc3RvcmVcbiAqIGZ1bmN0aW9uIHJlc3VsdHMgYWdhaW5zdCwgdGhlIGNhbGxiYWNrIGlzIG9taXR0ZWQgZnJvbSB0aGUgaGFzaCBhbmQgYW5cbiAqIG9wdGlvbmFsIGhhc2ggZnVuY3Rpb24gY2FuIGJlIHVzZWQuXG4gKlxuICogSWYgbm8gaGFzaCBmdW5jdGlvbiBpcyBzcGVjaWZpZWQsIHRoZSBmaXJzdCBhcmd1bWVudCBpcyB1c2VkIGFzIGEgaGFzaCBrZXksXG4gKiB3aGljaCBtYXkgd29yayByZWFzb25hYmx5IGlmIGl0IGlzIGEgc3RyaW5nIG9yIGEgZGF0YSB0eXBlIHRoYXQgY29udmVydHMgdG8gYVxuICogZGlzdGluY3Qgc3RyaW5nLiBOb3RlIHRoYXQgb2JqZWN0cyBhbmQgYXJyYXlzIHdpbGwgbm90IGJlaGF2ZSByZWFzb25hYmx5LlxuICogTmVpdGhlciB3aWxsIGNhc2VzIHdoZXJlIHRoZSBvdGhlciBhcmd1bWVudHMgYXJlIHNpZ25pZmljYW50LiBJbiBzdWNoIGNhc2VzLFxuICogc3BlY2lmeSB5b3VyIG93biBoYXNoIGZ1bmN0aW9uLlxuICpcbiAqIFRoZSBjYWNoZSBvZiByZXN1bHRzIGlzIGV4cG9zZWQgYXMgdGhlIGBtZW1vYCBwcm9wZXJ0eSBvZiB0aGUgZnVuY3Rpb25cbiAqIHJldHVybmVkIGJ5IGBtZW1vaXplYC5cbiAqXG4gKiBAbmFtZSBtZW1vaXplXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOlV0aWxzXG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgVXRpbFxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBmbiAtIFRoZSBhc3luYyBmdW5jdGlvbiB0byBwcm94eSBhbmQgY2FjaGUgcmVzdWx0cyBmcm9tLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaGFzaGVyIC0gQW4gb3B0aW9uYWwgZnVuY3Rpb24gZm9yIGdlbmVyYXRpbmcgYSBjdXN0b20gaGFzaFxuICogZm9yIHN0b3JpbmcgcmVzdWx0cy4gSXQgaGFzIGFsbCB0aGUgYXJndW1lbnRzIGFwcGxpZWQgdG8gaXQgYXBhcnQgZnJvbSB0aGVcbiAqIGNhbGxiYWNrLCBhbmQgbXVzdCBiZSBzeW5jaHJvbm91cy5cbiAqIEByZXR1cm5zIHtBc3luY0Z1bmN0aW9ufSBhIG1lbW9pemVkIHZlcnNpb24gb2YgYGZuYFxuICogQGV4YW1wbGVcbiAqXG4gKiB2YXIgc2xvd19mbiA9IGZ1bmN0aW9uKG5hbWUsIGNhbGxiYWNrKSB7XG4gKiAgICAgLy8gZG8gc29tZXRoaW5nXG4gKiAgICAgY2FsbGJhY2sobnVsbCwgcmVzdWx0KTtcbiAqIH07XG4gKiB2YXIgZm4gPSBhc3luYy5tZW1vaXplKHNsb3dfZm4pO1xuICpcbiAqIC8vIGZuIGNhbiBub3cgYmUgdXNlZCBhcyBpZiBpdCB3ZXJlIHNsb3dfZm5cbiAqIGZuKCdzb21lIG5hbWUnLCBmdW5jdGlvbigpIHtcbiAqICAgICAvLyBjYWxsYmFja1xuICogfSk7XG4gKi9cbmZ1bmN0aW9uIG1lbW9pemUoZm4sIGhhc2hlcikge1xuICAgIHZhciBtZW1vID0gT2JqZWN0LmNyZWF0ZShudWxsKTtcbiAgICB2YXIgcXVldWVzID0gT2JqZWN0LmNyZWF0ZShudWxsKTtcbiAgICBoYXNoZXIgPSBoYXNoZXIgfHwgaWRlbnRpdHk7XG4gICAgdmFyIF9mbiA9IHdyYXBBc3luYyhmbik7XG4gICAgdmFyIG1lbW9pemVkID0gaW5pdGlhbFBhcmFtcyhmdW5jdGlvbiBtZW1vaXplZChhcmdzLCBjYWxsYmFjaykge1xuICAgICAgICB2YXIga2V5ID0gaGFzaGVyLmFwcGx5KG51bGwsIGFyZ3MpO1xuICAgICAgICBpZiAoaGFzKG1lbW8sIGtleSkpIHtcbiAgICAgICAgICAgIHNldEltbWVkaWF0ZSQxKGZ1bmN0aW9uKCkge1xuICAgICAgICAgICAgICAgIGNhbGxiYWNrLmFwcGx5KG51bGwsIG1lbW9ba2V5XSk7XG4gICAgICAgICAgICB9KTtcbiAgICAgICAgfSBlbHNlIGlmIChoYXMocXVldWVzLCBrZXkpKSB7XG4gICAgICAgICAgICBxdWV1ZXNba2V5XS5wdXNoKGNhbGxiYWNrKTtcbiAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgIHF1ZXVlc1trZXldID0gW2NhbGxiYWNrXTtcbiAgICAgICAgICAgIF9mbi5hcHBseShudWxsLCBhcmdzLmNvbmNhdChmdW5jdGlvbigvKmFyZ3MqLykge1xuICAgICAgICAgICAgICAgIHZhciBhcmdzID0gc2xpY2UoYXJndW1lbnRzKTtcbiAgICAgICAgICAgICAgICBtZW1vW2tleV0gPSBhcmdzO1xuICAgICAgICAgICAgICAgIHZhciBxID0gcXVldWVzW2tleV07XG4gICAgICAgICAgICAgICAgZGVsZXRlIHF1ZXVlc1trZXldO1xuICAgICAgICAgICAgICAgIGZvciAodmFyIGkgPSAwLCBsID0gcS5sZW5ndGg7IGkgPCBsOyBpKyspIHtcbiAgICAgICAgICAgICAgICAgICAgcVtpXS5hcHBseShudWxsLCBhcmdzKTtcbiAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICB9KSk7XG4gICAgICAgIH1cbiAgICB9KTtcbiAgICBtZW1vaXplZC5tZW1vID0gbWVtbztcbiAgICBtZW1vaXplZC51bm1lbW9pemVkID0gZm47XG4gICAgcmV0dXJuIG1lbW9pemVkO1xufVxuXG4vKipcbiAqIENhbGxzIGBjYWxsYmFja2Agb24gYSBsYXRlciBsb29wIGFyb3VuZCB0aGUgZXZlbnQgbG9vcC4gSW4gTm9kZS5qcyB0aGlzIGp1c3RcbiAqIGNhbGxzIGBwcm9jZXNzLm5leHRUaWNrYC4gIEluIHRoZSBicm93c2VyIGl0IHdpbGwgdXNlIGBzZXRJbW1lZGlhdGVgIGlmXG4gKiBhdmFpbGFibGUsIG90aGVyd2lzZSBgc2V0VGltZW91dChjYWxsYmFjaywgMClgLCB3aGljaCBtZWFucyBvdGhlciBoaWdoZXJcbiAqIHByaW9yaXR5IGV2ZW50cyBtYXkgcHJlY2VkZSB0aGUgZXhlY3V0aW9uIG9mIGBjYWxsYmFja2AuXG4gKlxuICogVGhpcyBpcyB1c2VkIGludGVybmFsbHkgZm9yIGJyb3dzZXItY29tcGF0aWJpbGl0eSBwdXJwb3Nlcy5cbiAqXG4gKiBAbmFtZSBuZXh0VGlja1xuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpVdGlsc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuc2V0SW1tZWRpYXRlXXtAbGluayBtb2R1bGU6VXRpbHMuc2V0SW1tZWRpYXRlfVxuICogQGNhdGVnb3J5IFV0aWxcbiAqIEBwYXJhbSB7RnVuY3Rpb259IGNhbGxiYWNrIC0gVGhlIGZ1bmN0aW9uIHRvIGNhbGwgb24gYSBsYXRlciBsb29wIGFyb3VuZFxuICogdGhlIGV2ZW50IGxvb3AuIEludm9rZWQgd2l0aCAoYXJncy4uLikuXG4gKiBAcGFyYW0gey4uLip9IGFyZ3MuLi4gLSBhbnkgbnVtYmVyIG9mIGFkZGl0aW9uYWwgYXJndW1lbnRzIHRvIHBhc3MgdG8gdGhlXG4gKiBjYWxsYmFjayBvbiB0aGUgbmV4dCB0aWNrLlxuICogQGV4YW1wbGVcbiAqXG4gKiB2YXIgY2FsbF9vcmRlciA9IFtdO1xuICogYXN5bmMubmV4dFRpY2soZnVuY3Rpb24oKSB7XG4gKiAgICAgY2FsbF9vcmRlci5wdXNoKCd0d28nKTtcbiAqICAgICAvLyBjYWxsX29yZGVyIG5vdyBlcXVhbHMgWydvbmUnLCd0d28nXVxuICogfSk7XG4gKiBjYWxsX29yZGVyLnB1c2goJ29uZScpO1xuICpcbiAqIGFzeW5jLnNldEltbWVkaWF0ZShmdW5jdGlvbiAoYSwgYiwgYykge1xuICogICAgIC8vIGEsIGIsIGFuZCBjIGVxdWFsIDEsIDIsIGFuZCAzXG4gKiB9LCAxLCAyLCAzKTtcbiAqL1xudmFyIF9kZWZlciQxO1xuXG5pZiAoaGFzTmV4dFRpY2spIHtcbiAgICBfZGVmZXIkMSA9IHByb2Nlc3MubmV4dFRpY2s7XG59IGVsc2UgaWYgKGhhc1NldEltbWVkaWF0ZSkge1xuICAgIF9kZWZlciQxID0gc2V0SW1tZWRpYXRlO1xufSBlbHNlIHtcbiAgICBfZGVmZXIkMSA9IGZhbGxiYWNrO1xufVxuXG52YXIgbmV4dFRpY2sgPSB3cmFwKF9kZWZlciQxKTtcblxuZnVuY3Rpb24gX3BhcmFsbGVsKGVhY2hmbiwgdGFza3MsIGNhbGxiYWNrKSB7XG4gICAgY2FsbGJhY2sgPSBjYWxsYmFjayB8fCBub29wO1xuICAgIHZhciByZXN1bHRzID0gaXNBcnJheUxpa2UodGFza3MpID8gW10gOiB7fTtcblxuICAgIGVhY2hmbih0YXNrcywgZnVuY3Rpb24gKHRhc2ssIGtleSwgY2FsbGJhY2spIHtcbiAgICAgICAgd3JhcEFzeW5jKHRhc2spKGZ1bmN0aW9uIChlcnIsIHJlc3VsdCkge1xuICAgICAgICAgICAgaWYgKGFyZ3VtZW50cy5sZW5ndGggPiAyKSB7XG4gICAgICAgICAgICAgICAgcmVzdWx0ID0gc2xpY2UoYXJndW1lbnRzLCAxKTtcbiAgICAgICAgICAgIH1cbiAgICAgICAgICAgIHJlc3VsdHNba2V5XSA9IHJlc3VsdDtcbiAgICAgICAgICAgIGNhbGxiYWNrKGVycik7XG4gICAgICAgIH0pO1xuICAgIH0sIGZ1bmN0aW9uIChlcnIpIHtcbiAgICAgICAgY2FsbGJhY2soZXJyLCByZXN1bHRzKTtcbiAgICB9KTtcbn1cblxuLyoqXG4gKiBSdW4gdGhlIGB0YXNrc2AgY29sbGVjdGlvbiBvZiBmdW5jdGlvbnMgaW4gcGFyYWxsZWwsIHdpdGhvdXQgd2FpdGluZyB1bnRpbFxuICogdGhlIHByZXZpb3VzIGZ1bmN0aW9uIGhhcyBjb21wbGV0ZWQuIElmIGFueSBvZiB0aGUgZnVuY3Rpb25zIHBhc3MgYW4gZXJyb3IgdG9cbiAqIGl0cyBjYWxsYmFjaywgdGhlIG1haW4gYGNhbGxiYWNrYCBpcyBpbW1lZGlhdGVseSBjYWxsZWQgd2l0aCB0aGUgdmFsdWUgb2YgdGhlXG4gKiBlcnJvci4gT25jZSB0aGUgYHRhc2tzYCBoYXZlIGNvbXBsZXRlZCwgdGhlIHJlc3VsdHMgYXJlIHBhc3NlZCB0byB0aGUgZmluYWxcbiAqIGBjYWxsYmFja2AgYXMgYW4gYXJyYXkuXG4gKlxuICogKipOb3RlOioqIGBwYXJhbGxlbGAgaXMgYWJvdXQga2lja2luZy1vZmYgSS9PIHRhc2tzIGluIHBhcmFsbGVsLCBub3QgYWJvdXRcbiAqIHBhcmFsbGVsIGV4ZWN1dGlvbiBvZiBjb2RlLiAgSWYgeW91ciB0YXNrcyBkbyBub3QgdXNlIGFueSB0aW1lcnMgb3IgcGVyZm9ybVxuICogYW55IEkvTywgdGhleSB3aWxsIGFjdHVhbGx5IGJlIGV4ZWN1dGVkIGluIHNlcmllcy4gIEFueSBzeW5jaHJvbm91cyBzZXR1cFxuICogc2VjdGlvbnMgZm9yIGVhY2ggdGFzayB3aWxsIGhhcHBlbiBvbmUgYWZ0ZXIgdGhlIG90aGVyLiAgSmF2YVNjcmlwdCByZW1haW5zXG4gKiBzaW5nbGUtdGhyZWFkZWQuXG4gKlxuICogKipIaW50OioqIFVzZSBbYHJlZmxlY3RgXXtAbGluayBtb2R1bGU6VXRpbHMucmVmbGVjdH0gdG8gY29udGludWUgdGhlXG4gKiBleGVjdXRpb24gb2Ygb3RoZXIgdGFza3Mgd2hlbiBhIHRhc2sgZmFpbHMuXG4gKlxuICogSXQgaXMgYWxzbyBwb3NzaWJsZSB0byB1c2UgYW4gb2JqZWN0IGluc3RlYWQgb2YgYW4gYXJyYXkuIEVhY2ggcHJvcGVydHkgd2lsbFxuICogYmUgcnVuIGFzIGEgZnVuY3Rpb24gYW5kIHRoZSByZXN1bHRzIHdpbGwgYmUgcGFzc2VkIHRvIHRoZSBmaW5hbCBgY2FsbGJhY2tgXG4gKiBhcyBhbiBvYmplY3QgaW5zdGVhZCBvZiBhbiBhcnJheS4gVGhpcyBjYW4gYmUgYSBtb3JlIHJlYWRhYmxlIHdheSBvZiBoYW5kbGluZ1xuICogcmVzdWx0cyBmcm9tIHtAbGluayBhc3luYy5wYXJhbGxlbH0uXG4gKlxuICogQG5hbWUgcGFyYWxsZWxcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSB0YXNrcyAtIEEgY29sbGVjdGlvbiBvZlxuICogW2FzeW5jIGZ1bmN0aW9uc117QGxpbmsgQXN5bmNGdW5jdGlvbn0gdG8gcnVuLlxuICogRWFjaCBhc3luYyBmdW5jdGlvbiBjYW4gY29tcGxldGUgd2l0aCBhbnkgbnVtYmVyIG9mIG9wdGlvbmFsIGByZXN1bHRgIHZhbHVlcy5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBbiBvcHRpb25hbCBjYWxsYmFjayB0byBydW4gb25jZSBhbGwgdGhlXG4gKiBmdW5jdGlvbnMgaGF2ZSBjb21wbGV0ZWQgc3VjY2Vzc2Z1bGx5LiBUaGlzIGZ1bmN0aW9uIGdldHMgYSByZXN1bHRzIGFycmF5XG4gKiAob3Igb2JqZWN0KSBjb250YWluaW5nIGFsbCB0aGUgcmVzdWx0IGFyZ3VtZW50cyBwYXNzZWQgdG8gdGhlIHRhc2sgY2FsbGJhY2tzLlxuICogSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICpcbiAqIEBleGFtcGxlXG4gKiBhc3luYy5wYXJhbGxlbChbXG4gKiAgICAgZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwsICdvbmUnKTtcbiAqICAgICAgICAgfSwgMjAwKTtcbiAqICAgICB9LFxuICogICAgIGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIHNldFRpbWVvdXQoZnVuY3Rpb24oKSB7XG4gKiAgICAgICAgICAgICBjYWxsYmFjayhudWxsLCAndHdvJyk7XG4gKiAgICAgICAgIH0sIDEwMCk7XG4gKiAgICAgfVxuICogXSxcbiAqIC8vIG9wdGlvbmFsIGNhbGxiYWNrXG4gKiBmdW5jdGlvbihlcnIsIHJlc3VsdHMpIHtcbiAqICAgICAvLyB0aGUgcmVzdWx0cyBhcnJheSB3aWxsIGVxdWFsIFsnb25lJywndHdvJ10gZXZlbiB0aG91Z2hcbiAqICAgICAvLyB0aGUgc2Vjb25kIGZ1bmN0aW9uIGhhZCBhIHNob3J0ZXIgdGltZW91dC5cbiAqIH0pO1xuICpcbiAqIC8vIGFuIGV4YW1wbGUgdXNpbmcgYW4gb2JqZWN0IGluc3RlYWQgb2YgYW4gYXJyYXlcbiAqIGFzeW5jLnBhcmFsbGVsKHtcbiAqICAgICBvbmU6IGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIHNldFRpbWVvdXQoZnVuY3Rpb24oKSB7XG4gKiAgICAgICAgICAgICBjYWxsYmFjayhudWxsLCAxKTtcbiAqICAgICAgICAgfSwgMjAwKTtcbiAqICAgICB9LFxuICogICAgIHR3bzogZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwsIDIpO1xuICogICAgICAgICB9LCAxMDApO1xuICogICAgIH1cbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIC8vIHJlc3VsdHMgaXMgbm93IGVxdWFscyB0bzoge29uZTogMSwgdHdvOiAyfVxuICogfSk7XG4gKi9cbmZ1bmN0aW9uIHBhcmFsbGVsTGltaXQodGFza3MsIGNhbGxiYWNrKSB7XG4gICAgX3BhcmFsbGVsKGVhY2hPZiwgdGFza3MsIGNhbGxiYWNrKTtcbn1cblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYHBhcmFsbGVsYF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnBhcmFsbGVsfSBidXQgcnVucyBhIG1heGltdW0gb2YgYGxpbWl0YCBhc3luYyBvcGVyYXRpb25zIGF0IGFcbiAqIHRpbWUuXG4gKlxuICogQG5hbWUgcGFyYWxsZWxMaW1pdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb250cm9sRmxvd1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMucGFyYWxsZWxde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy5wYXJhbGxlbH1cbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSB0YXNrcyAtIEEgY29sbGVjdGlvbiBvZlxuICogW2FzeW5jIGZ1bmN0aW9uc117QGxpbmsgQXN5bmNGdW5jdGlvbn0gdG8gcnVuLlxuICogRWFjaCBhc3luYyBmdW5jdGlvbiBjYW4gY29tcGxldGUgd2l0aCBhbnkgbnVtYmVyIG9mIG9wdGlvbmFsIGByZXN1bHRgIHZhbHVlcy5cbiAqIEBwYXJhbSB7bnVtYmVyfSBsaW1pdCAtIFRoZSBtYXhpbXVtIG51bWJlciBvZiBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBbiBvcHRpb25hbCBjYWxsYmFjayB0byBydW4gb25jZSBhbGwgdGhlXG4gKiBmdW5jdGlvbnMgaGF2ZSBjb21wbGV0ZWQgc3VjY2Vzc2Z1bGx5LiBUaGlzIGZ1bmN0aW9uIGdldHMgYSByZXN1bHRzIGFycmF5XG4gKiAob3Igb2JqZWN0KSBjb250YWluaW5nIGFsbCB0aGUgcmVzdWx0IGFyZ3VtZW50cyBwYXNzZWQgdG8gdGhlIHRhc2sgY2FsbGJhY2tzLlxuICogSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICovXG5mdW5jdGlvbiBwYXJhbGxlbExpbWl0JDEodGFza3MsIGxpbWl0LCBjYWxsYmFjaykge1xuICAgIF9wYXJhbGxlbChfZWFjaE9mTGltaXQobGltaXQpLCB0YXNrcywgY2FsbGJhY2spO1xufVxuXG4vKipcbiAqIEEgcXVldWUgb2YgdGFza3MgZm9yIHRoZSB3b3JrZXIgZnVuY3Rpb24gdG8gY29tcGxldGUuXG4gKiBAdHlwZWRlZiB7T2JqZWN0fSBRdWV1ZU9iamVjdFxuICogQG1lbWJlck9mIG1vZHVsZTpDb250cm9sRmxvd1xuICogQHByb3BlcnR5IHtGdW5jdGlvbn0gbGVuZ3RoIC0gYSBmdW5jdGlvbiByZXR1cm5pbmcgdGhlIG51bWJlciBvZiBpdGVtc1xuICogd2FpdGluZyB0byBiZSBwcm9jZXNzZWQuIEludm9rZSB3aXRoIGBxdWV1ZS5sZW5ndGgoKWAuXG4gKiBAcHJvcGVydHkge2Jvb2xlYW59IHN0YXJ0ZWQgLSBhIGJvb2xlYW4gaW5kaWNhdGluZyB3aGV0aGVyIG9yIG5vdCBhbnlcbiAqIGl0ZW1zIGhhdmUgYmVlbiBwdXNoZWQgYW5kIHByb2Nlc3NlZCBieSB0aGUgcXVldWUuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBydW5uaW5nIC0gYSBmdW5jdGlvbiByZXR1cm5pbmcgdGhlIG51bWJlciBvZiBpdGVtc1xuICogY3VycmVudGx5IGJlaW5nIHByb2Nlc3NlZC4gSW52b2tlIHdpdGggYHF1ZXVlLnJ1bm5pbmcoKWAuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSB3b3JrZXJzTGlzdCAtIGEgZnVuY3Rpb24gcmV0dXJuaW5nIHRoZSBhcnJheSBvZiBpdGVtc1xuICogY3VycmVudGx5IGJlaW5nIHByb2Nlc3NlZC4gSW52b2tlIHdpdGggYHF1ZXVlLndvcmtlcnNMaXN0KClgLlxuICogQHByb3BlcnR5IHtGdW5jdGlvbn0gaWRsZSAtIGEgZnVuY3Rpb24gcmV0dXJuaW5nIGZhbHNlIGlmIHRoZXJlIGFyZSBpdGVtc1xuICogd2FpdGluZyBvciBiZWluZyBwcm9jZXNzZWQsIG9yIHRydWUgaWYgbm90LiBJbnZva2Ugd2l0aCBgcXVldWUuaWRsZSgpYC5cbiAqIEBwcm9wZXJ0eSB7bnVtYmVyfSBjb25jdXJyZW5jeSAtIGFuIGludGVnZXIgZm9yIGRldGVybWluaW5nIGhvdyBtYW55IGB3b3JrZXJgXG4gKiBmdW5jdGlvbnMgc2hvdWxkIGJlIHJ1biBpbiBwYXJhbGxlbC4gVGhpcyBwcm9wZXJ0eSBjYW4gYmUgY2hhbmdlZCBhZnRlciBhXG4gKiBgcXVldWVgIGlzIGNyZWF0ZWQgdG8gYWx0ZXIgdGhlIGNvbmN1cnJlbmN5IG9uLXRoZS1mbHkuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBwdXNoIC0gYWRkIGEgbmV3IHRhc2sgdG8gdGhlIGBxdWV1ZWAuIENhbGxzIGBjYWxsYmFja2BcbiAqIG9uY2UgdGhlIGB3b3JrZXJgIGhhcyBmaW5pc2hlZCBwcm9jZXNzaW5nIHRoZSB0YXNrLiBJbnN0ZWFkIG9mIGEgc2luZ2xlIHRhc2ssXG4gKiBhIGB0YXNrc2AgYXJyYXkgY2FuIGJlIHN1Ym1pdHRlZC4gVGhlIHJlc3BlY3RpdmUgY2FsbGJhY2sgaXMgdXNlZCBmb3IgZXZlcnlcbiAqIHRhc2sgaW4gdGhlIGxpc3QuIEludm9rZSB3aXRoIGBxdWV1ZS5wdXNoKHRhc2ssIFtjYWxsYmFja10pYCxcbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IHVuc2hpZnQgLSBhZGQgYSBuZXcgdGFzayB0byB0aGUgZnJvbnQgb2YgdGhlIGBxdWV1ZWAuXG4gKiBJbnZva2Ugd2l0aCBgcXVldWUudW5zaGlmdCh0YXNrLCBbY2FsbGJhY2tdKWAuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSByZW1vdmUgLSByZW1vdmUgaXRlbXMgZnJvbSB0aGUgcXVldWUgdGhhdCBtYXRjaCBhIHRlc3RcbiAqIGZ1bmN0aW9uLiAgVGhlIHRlc3QgZnVuY3Rpb24gd2lsbCBiZSBwYXNzZWQgYW4gb2JqZWN0IHdpdGggYSBgZGF0YWAgcHJvcGVydHksXG4gKiBhbmQgYSBgcHJpb3JpdHlgIHByb3BlcnR5LCBpZiB0aGlzIGlzIGFcbiAqIFtwcmlvcml0eVF1ZXVlXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cucHJpb3JpdHlRdWV1ZX0gb2JqZWN0LlxuICogSW52b2tlZCB3aXRoIGBxdWV1ZS5yZW1vdmUodGVzdEZuKWAsIHdoZXJlIGB0ZXN0Rm5gIGlzIG9mIHRoZSBmb3JtXG4gKiBgZnVuY3Rpb24gKHtkYXRhLCBwcmlvcml0eX0pIHt9YCBhbmQgcmV0dXJucyBhIEJvb2xlYW4uXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBzYXR1cmF0ZWQgLSBhIGNhbGxiYWNrIHRoYXQgaXMgY2FsbGVkIHdoZW4gdGhlIG51bWJlciBvZlxuICogcnVubmluZyB3b3JrZXJzIGhpdHMgdGhlIGBjb25jdXJyZW5jeWAgbGltaXQsIGFuZCBmdXJ0aGVyIHRhc2tzIHdpbGwgYmVcbiAqIHF1ZXVlZC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IHVuc2F0dXJhdGVkIC0gYSBjYWxsYmFjayB0aGF0IGlzIGNhbGxlZCB3aGVuIHRoZSBudW1iZXJcbiAqIG9mIHJ1bm5pbmcgd29ya2VycyBpcyBsZXNzIHRoYW4gdGhlIGBjb25jdXJyZW5jeWAgJiBgYnVmZmVyYCBsaW1pdHMsIGFuZFxuICogZnVydGhlciB0YXNrcyB3aWxsIG5vdCBiZSBxdWV1ZWQuXG4gKiBAcHJvcGVydHkge251bWJlcn0gYnVmZmVyIC0gQSBtaW5pbXVtIHRocmVzaG9sZCBidWZmZXIgaW4gb3JkZXIgdG8gc2F5IHRoYXRcbiAqIHRoZSBgcXVldWVgIGlzIGB1bnNhdHVyYXRlZGAuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBlbXB0eSAtIGEgY2FsbGJhY2sgdGhhdCBpcyBjYWxsZWQgd2hlbiB0aGUgbGFzdCBpdGVtXG4gKiBmcm9tIHRoZSBgcXVldWVgIGlzIGdpdmVuIHRvIGEgYHdvcmtlcmAuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBkcmFpbiAtIGEgY2FsbGJhY2sgdGhhdCBpcyBjYWxsZWQgd2hlbiB0aGUgbGFzdCBpdGVtXG4gKiBmcm9tIHRoZSBgcXVldWVgIGhhcyByZXR1cm5lZCBmcm9tIHRoZSBgd29ya2VyYC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IGVycm9yIC0gYSBjYWxsYmFjayB0aGF0IGlzIGNhbGxlZCB3aGVuIGEgdGFzayBlcnJvcnMuXG4gKiBIYXMgdGhlIHNpZ25hdHVyZSBgZnVuY3Rpb24oZXJyb3IsIHRhc2spYC5cbiAqIEBwcm9wZXJ0eSB7Ym9vbGVhbn0gcGF1c2VkIC0gYSBib29sZWFuIGZvciBkZXRlcm1pbmluZyB3aGV0aGVyIHRoZSBxdWV1ZSBpc1xuICogaW4gYSBwYXVzZWQgc3RhdGUuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSBwYXVzZSAtIGEgZnVuY3Rpb24gdGhhdCBwYXVzZXMgdGhlIHByb2Nlc3Npbmcgb2YgdGFza3NcbiAqIHVudGlsIGByZXN1bWUoKWAgaXMgY2FsbGVkLiBJbnZva2Ugd2l0aCBgcXVldWUucGF1c2UoKWAuXG4gKiBAcHJvcGVydHkge0Z1bmN0aW9ufSByZXN1bWUgLSBhIGZ1bmN0aW9uIHRoYXQgcmVzdW1lcyB0aGUgcHJvY2Vzc2luZyBvZlxuICogcXVldWVkIHRhc2tzIHdoZW4gdGhlIHF1ZXVlIGlzIHBhdXNlZC4gSW52b2tlIHdpdGggYHF1ZXVlLnJlc3VtZSgpYC5cbiAqIEBwcm9wZXJ0eSB7RnVuY3Rpb259IGtpbGwgLSBhIGZ1bmN0aW9uIHRoYXQgcmVtb3ZlcyB0aGUgYGRyYWluYCBjYWxsYmFjayBhbmRcbiAqIGVtcHRpZXMgcmVtYWluaW5nIHRhc2tzIGZyb20gdGhlIHF1ZXVlIGZvcmNpbmcgaXQgdG8gZ28gaWRsZS4gTm8gbW9yZSB0YXNrc1xuICogc2hvdWxkIGJlIHB1c2hlZCB0byB0aGUgcXVldWUgYWZ0ZXIgY2FsbGluZyB0aGlzIGZ1bmN0aW9uLiBJbnZva2Ugd2l0aCBgcXVldWUua2lsbCgpYC5cbiAqL1xuXG4vKipcbiAqIENyZWF0ZXMgYSBgcXVldWVgIG9iamVjdCB3aXRoIHRoZSBzcGVjaWZpZWQgYGNvbmN1cnJlbmN5YC4gVGFza3MgYWRkZWQgdG8gdGhlXG4gKiBgcXVldWVgIGFyZSBwcm9jZXNzZWQgaW4gcGFyYWxsZWwgKHVwIHRvIHRoZSBgY29uY3VycmVuY3lgIGxpbWl0KS4gSWYgYWxsXG4gKiBgd29ya2VyYHMgYXJlIGluIHByb2dyZXNzLCB0aGUgdGFzayBpcyBxdWV1ZWQgdW50aWwgb25lIGJlY29tZXMgYXZhaWxhYmxlLlxuICogT25jZSBhIGB3b3JrZXJgIGNvbXBsZXRlcyBhIGB0YXNrYCwgdGhhdCBgdGFza2AncyBjYWxsYmFjayBpcyBjYWxsZWQuXG4gKlxuICogQG5hbWUgcXVldWVcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gd29ya2VyIC0gQW4gYXN5bmMgZnVuY3Rpb24gZm9yIHByb2Nlc3NpbmcgYSBxdWV1ZWQgdGFzay5cbiAqIElmIHlvdSB3YW50IHRvIGhhbmRsZSBlcnJvcnMgZnJvbSBhbiBpbmRpdmlkdWFsIHRhc2ssIHBhc3MgYSBjYWxsYmFjayB0b1xuICogYHEucHVzaCgpYC4gSW52b2tlZCB3aXRoICh0YXNrLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge251bWJlcn0gW2NvbmN1cnJlbmN5PTFdIC0gQW4gYGludGVnZXJgIGZvciBkZXRlcm1pbmluZyBob3cgbWFueVxuICogYHdvcmtlcmAgZnVuY3Rpb25zIHNob3VsZCBiZSBydW4gaW4gcGFyYWxsZWwuICBJZiBvbWl0dGVkLCB0aGUgY29uY3VycmVuY3lcbiAqIGRlZmF1bHRzIHRvIGAxYC4gIElmIHRoZSBjb25jdXJyZW5jeSBpcyBgMGAsIGFuIGVycm9yIGlzIHRocm93bi5cbiAqIEByZXR1cm5zIHttb2R1bGU6Q29udHJvbEZsb3cuUXVldWVPYmplY3R9IEEgcXVldWUgb2JqZWN0IHRvIG1hbmFnZSB0aGUgdGFza3MuIENhbGxiYWNrcyBjYW5cbiAqIGF0dGFjaGVkIGFzIGNlcnRhaW4gcHJvcGVydGllcyB0byBsaXN0ZW4gZm9yIHNwZWNpZmljIGV2ZW50cyBkdXJpbmcgdGhlXG4gKiBsaWZlY3ljbGUgb2YgdGhlIHF1ZXVlLlxuICogQGV4YW1wbGVcbiAqXG4gKiAvLyBjcmVhdGUgYSBxdWV1ZSBvYmplY3Qgd2l0aCBjb25jdXJyZW5jeSAyXG4gKiB2YXIgcSA9IGFzeW5jLnF1ZXVlKGZ1bmN0aW9uKHRhc2ssIGNhbGxiYWNrKSB7XG4gKiAgICAgY29uc29sZS5sb2coJ2hlbGxvICcgKyB0YXNrLm5hbWUpO1xuICogICAgIGNhbGxiYWNrKCk7XG4gKiB9LCAyKTtcbiAqXG4gKiAvLyBhc3NpZ24gYSBjYWxsYmFja1xuICogcS5kcmFpbiA9IGZ1bmN0aW9uKCkge1xuICogICAgIGNvbnNvbGUubG9nKCdhbGwgaXRlbXMgaGF2ZSBiZWVuIHByb2Nlc3NlZCcpO1xuICogfTtcbiAqXG4gKiAvLyBhZGQgc29tZSBpdGVtcyB0byB0aGUgcXVldWVcbiAqIHEucHVzaCh7bmFtZTogJ2Zvbyd9LCBmdW5jdGlvbihlcnIpIHtcbiAqICAgICBjb25zb2xlLmxvZygnZmluaXNoZWQgcHJvY2Vzc2luZyBmb28nKTtcbiAqIH0pO1xuICogcS5wdXNoKHtuYW1lOiAnYmFyJ30sIGZ1bmN0aW9uIChlcnIpIHtcbiAqICAgICBjb25zb2xlLmxvZygnZmluaXNoZWQgcHJvY2Vzc2luZyBiYXInKTtcbiAqIH0pO1xuICpcbiAqIC8vIGFkZCBzb21lIGl0ZW1zIHRvIHRoZSBxdWV1ZSAoYmF0Y2gtd2lzZSlcbiAqIHEucHVzaChbe25hbWU6ICdiYXonfSx7bmFtZTogJ2JheSd9LHtuYW1lOiAnYmF4J31dLCBmdW5jdGlvbihlcnIpIHtcbiAqICAgICBjb25zb2xlLmxvZygnZmluaXNoZWQgcHJvY2Vzc2luZyBpdGVtJyk7XG4gKiB9KTtcbiAqXG4gKiAvLyBhZGQgc29tZSBpdGVtcyB0byB0aGUgZnJvbnQgb2YgdGhlIHF1ZXVlXG4gKiBxLnVuc2hpZnQoe25hbWU6ICdiYXInfSwgZnVuY3Rpb24gKGVycikge1xuICogICAgIGNvbnNvbGUubG9nKCdmaW5pc2hlZCBwcm9jZXNzaW5nIGJhcicpO1xuICogfSk7XG4gKi9cbnZhciBxdWV1ZSQxID0gZnVuY3Rpb24gKHdvcmtlciwgY29uY3VycmVuY3kpIHtcbiAgICB2YXIgX3dvcmtlciA9IHdyYXBBc3luYyh3b3JrZXIpO1xuICAgIHJldHVybiBxdWV1ZShmdW5jdGlvbiAoaXRlbXMsIGNiKSB7XG4gICAgICAgIF93b3JrZXIoaXRlbXNbMF0sIGNiKTtcbiAgICB9LCBjb25jdXJyZW5jeSwgMSk7XG59O1xuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFthc3luYy5xdWV1ZV17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnF1ZXVlfSBvbmx5IHRhc2tzIGFyZSBhc3NpZ25lZCBhIHByaW9yaXR5IGFuZFxuICogY29tcGxldGVkIGluIGFzY2VuZGluZyBwcmlvcml0eSBvcmRlci5cbiAqXG4gKiBAbmFtZSBwcmlvcml0eVF1ZXVlXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5xdWV1ZV17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnF1ZXVlfVxuICogQGNhdGVnb3J5IENvbnRyb2wgRmxvd1xuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSB3b3JrZXIgLSBBbiBhc3luYyBmdW5jdGlvbiBmb3IgcHJvY2Vzc2luZyBhIHF1ZXVlZCB0YXNrLlxuICogSWYgeW91IHdhbnQgdG8gaGFuZGxlIGVycm9ycyBmcm9tIGFuIGluZGl2aWR1YWwgdGFzaywgcGFzcyBhIGNhbGxiYWNrIHRvXG4gKiBgcS5wdXNoKClgLlxuICogSW52b2tlZCB3aXRoICh0YXNrLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge251bWJlcn0gY29uY3VycmVuY3kgLSBBbiBgaW50ZWdlcmAgZm9yIGRldGVybWluaW5nIGhvdyBtYW55IGB3b3JrZXJgXG4gKiBmdW5jdGlvbnMgc2hvdWxkIGJlIHJ1biBpbiBwYXJhbGxlbC4gIElmIG9taXR0ZWQsIHRoZSBjb25jdXJyZW5jeSBkZWZhdWx0cyB0b1xuICogYDFgLiAgSWYgdGhlIGNvbmN1cnJlbmN5IGlzIGAwYCwgYW4gZXJyb3IgaXMgdGhyb3duLlxuICogQHJldHVybnMge21vZHVsZTpDb250cm9sRmxvdy5RdWV1ZU9iamVjdH0gQSBwcmlvcml0eVF1ZXVlIG9iamVjdCB0byBtYW5hZ2UgdGhlIHRhc2tzLiBUaGVyZSBhcmUgdHdvXG4gKiBkaWZmZXJlbmNlcyBiZXR3ZWVuIGBxdWV1ZWAgYW5kIGBwcmlvcml0eVF1ZXVlYCBvYmplY3RzOlxuICogKiBgcHVzaCh0YXNrLCBwcmlvcml0eSwgW2NhbGxiYWNrXSlgIC0gYHByaW9yaXR5YCBzaG91bGQgYmUgYSBudW1iZXIuIElmIGFuXG4gKiAgIGFycmF5IG9mIGB0YXNrc2AgaXMgZ2l2ZW4sIGFsbCB0YXNrcyB3aWxsIGJlIGFzc2lnbmVkIHRoZSBzYW1lIHByaW9yaXR5LlxuICogKiBUaGUgYHVuc2hpZnRgIG1ldGhvZCB3YXMgcmVtb3ZlZC5cbiAqL1xudmFyIHByaW9yaXR5UXVldWUgPSBmdW5jdGlvbih3b3JrZXIsIGNvbmN1cnJlbmN5KSB7XG4gICAgLy8gU3RhcnQgd2l0aCBhIG5vcm1hbCBxdWV1ZVxuICAgIHZhciBxID0gcXVldWUkMSh3b3JrZXIsIGNvbmN1cnJlbmN5KTtcblxuICAgIC8vIE92ZXJyaWRlIHB1c2ggdG8gYWNjZXB0IHNlY29uZCBwYXJhbWV0ZXIgcmVwcmVzZW50aW5nIHByaW9yaXR5XG4gICAgcS5wdXNoID0gZnVuY3Rpb24oZGF0YSwgcHJpb3JpdHksIGNhbGxiYWNrKSB7XG4gICAgICAgIGlmIChjYWxsYmFjayA9PSBudWxsKSBjYWxsYmFjayA9IG5vb3A7XG4gICAgICAgIGlmICh0eXBlb2YgY2FsbGJhY2sgIT09ICdmdW5jdGlvbicpIHtcbiAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcigndGFzayBjYWxsYmFjayBtdXN0IGJlIGEgZnVuY3Rpb24nKTtcbiAgICAgICAgfVxuICAgICAgICBxLnN0YXJ0ZWQgPSB0cnVlO1xuICAgICAgICBpZiAoIWlzQXJyYXkoZGF0YSkpIHtcbiAgICAgICAgICAgIGRhdGEgPSBbZGF0YV07XG4gICAgICAgIH1cbiAgICAgICAgaWYgKGRhdGEubGVuZ3RoID09PSAwKSB7XG4gICAgICAgICAgICAvLyBjYWxsIGRyYWluIGltbWVkaWF0ZWx5IGlmIHRoZXJlIGFyZSBubyB0YXNrc1xuICAgICAgICAgICAgcmV0dXJuIHNldEltbWVkaWF0ZSQxKGZ1bmN0aW9uKCkge1xuICAgICAgICAgICAgICAgIHEuZHJhaW4oKTtcbiAgICAgICAgICAgIH0pO1xuICAgICAgICB9XG5cbiAgICAgICAgcHJpb3JpdHkgPSBwcmlvcml0eSB8fCAwO1xuICAgICAgICB2YXIgbmV4dE5vZGUgPSBxLl90YXNrcy5oZWFkO1xuICAgICAgICB3aGlsZSAobmV4dE5vZGUgJiYgcHJpb3JpdHkgPj0gbmV4dE5vZGUucHJpb3JpdHkpIHtcbiAgICAgICAgICAgIG5leHROb2RlID0gbmV4dE5vZGUubmV4dDtcbiAgICAgICAgfVxuXG4gICAgICAgIGZvciAodmFyIGkgPSAwLCBsID0gZGF0YS5sZW5ndGg7IGkgPCBsOyBpKyspIHtcbiAgICAgICAgICAgIHZhciBpdGVtID0ge1xuICAgICAgICAgICAgICAgIGRhdGE6IGRhdGFbaV0sXG4gICAgICAgICAgICAgICAgcHJpb3JpdHk6IHByaW9yaXR5LFxuICAgICAgICAgICAgICAgIGNhbGxiYWNrOiBjYWxsYmFja1xuICAgICAgICAgICAgfTtcblxuICAgICAgICAgICAgaWYgKG5leHROb2RlKSB7XG4gICAgICAgICAgICAgICAgcS5fdGFza3MuaW5zZXJ0QmVmb3JlKG5leHROb2RlLCBpdGVtKTtcbiAgICAgICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICAgICAgcS5fdGFza3MucHVzaChpdGVtKTtcbiAgICAgICAgICAgIH1cbiAgICAgICAgfVxuICAgICAgICBzZXRJbW1lZGlhdGUkMShxLnByb2Nlc3MpO1xuICAgIH07XG5cbiAgICAvLyBSZW1vdmUgdW5zaGlmdCBmdW5jdGlvblxuICAgIGRlbGV0ZSBxLnVuc2hpZnQ7XG5cbiAgICByZXR1cm4gcTtcbn07XG5cbi8qKlxuICogUnVucyB0aGUgYHRhc2tzYCBhcnJheSBvZiBmdW5jdGlvbnMgaW4gcGFyYWxsZWwsIHdpdGhvdXQgd2FpdGluZyB1bnRpbCB0aGVcbiAqIHByZXZpb3VzIGZ1bmN0aW9uIGhhcyBjb21wbGV0ZWQuIE9uY2UgYW55IG9mIHRoZSBgdGFza3NgIGNvbXBsZXRlIG9yIHBhc3MgYW5cbiAqIGVycm9yIHRvIGl0cyBjYWxsYmFjaywgdGhlIG1haW4gYGNhbGxiYWNrYCBpcyBpbW1lZGlhdGVseSBjYWxsZWQuIEl0J3NcbiAqIGVxdWl2YWxlbnQgdG8gYFByb21pc2UucmFjZSgpYC5cbiAqXG4gKiBAbmFtZSByYWNlXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FycmF5fSB0YXNrcyAtIEFuIGFycmF5IGNvbnRhaW5pbmcgW2FzeW5jIGZ1bmN0aW9uc117QGxpbmsgQXN5bmNGdW5jdGlvbn1cbiAqIHRvIHJ1bi4gRWFjaCBmdW5jdGlvbiBjYW4gY29tcGxldGUgd2l0aCBhbiBvcHRpb25hbCBgcmVzdWx0YCB2YWx1ZS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IGNhbGxiYWNrIC0gQSBjYWxsYmFjayB0byBydW4gb25jZSBhbnkgb2YgdGhlIGZ1bmN0aW9ucyBoYXZlXG4gKiBjb21wbGV0ZWQuIFRoaXMgZnVuY3Rpb24gZ2V0cyBhbiBlcnJvciBvciByZXN1bHQgZnJvbSB0aGUgZmlyc3QgZnVuY3Rpb24gdGhhdFxuICogY29tcGxldGVkLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqIEByZXR1cm5zIHVuZGVmaW5lZFxuICogQGV4YW1wbGVcbiAqXG4gKiBhc3luYy5yYWNlKFtcbiAqICAgICBmdW5jdGlvbihjYWxsYmFjaykge1xuICogICAgICAgICBzZXRUaW1lb3V0KGZ1bmN0aW9uKCkge1xuICogICAgICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ29uZScpO1xuICogICAgICAgICB9LCAyMDApO1xuICogICAgIH0sXG4gKiAgICAgZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwsICd0d28nKTtcbiAqICAgICAgICAgfSwgMTAwKTtcbiAqICAgICB9XG4gKiBdLFxuICogLy8gbWFpbiBjYWxsYmFja1xuICogZnVuY3Rpb24oZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyB0aGUgcmVzdWx0IHdpbGwgYmUgZXF1YWwgdG8gJ3R3bycgYXMgaXQgZmluaXNoZXMgZWFybGllclxuICogfSk7XG4gKi9cbmZ1bmN0aW9uIHJhY2UodGFza3MsIGNhbGxiYWNrKSB7XG4gICAgY2FsbGJhY2sgPSBvbmNlKGNhbGxiYWNrIHx8IG5vb3ApO1xuICAgIGlmICghaXNBcnJheSh0YXNrcykpIHJldHVybiBjYWxsYmFjayhuZXcgVHlwZUVycm9yKCdGaXJzdCBhcmd1bWVudCB0byByYWNlIG11c3QgYmUgYW4gYXJyYXkgb2YgZnVuY3Rpb25zJykpO1xuICAgIGlmICghdGFza3MubGVuZ3RoKSByZXR1cm4gY2FsbGJhY2soKTtcbiAgICBmb3IgKHZhciBpID0gMCwgbCA9IHRhc2tzLmxlbmd0aDsgaSA8IGw7IGkrKykge1xuICAgICAgICB3cmFwQXN5bmModGFza3NbaV0pKGNhbGxiYWNrKTtcbiAgICB9XG59XG5cbi8qKlxuICogU2FtZSBhcyBbYHJlZHVjZWBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5yZWR1Y2V9LCBvbmx5IG9wZXJhdGVzIG9uIGBhcnJheWAgaW4gcmV2ZXJzZSBvcmRlci5cbiAqXG4gKiBAbmFtZSByZWR1Y2VSaWdodFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMucmVkdWNlXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMucmVkdWNlfVxuICogQGFsaWFzIGZvbGRyXG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheX0gYXJyYXkgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHsqfSBtZW1vIC0gVGhlIGluaXRpYWwgc3RhdGUgb2YgdGhlIHJlZHVjdGlvbi5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBIGZ1bmN0aW9uIGFwcGxpZWQgdG8gZWFjaCBpdGVtIGluIHRoZVxuICogYXJyYXkgdG8gcHJvZHVjZSB0aGUgbmV4dCBzdGVwIGluIHRoZSByZWR1Y3Rpb24uXG4gKiBUaGUgYGl0ZXJhdGVlYCBzaG91bGQgY29tcGxldGUgd2l0aCB0aGUgbmV4dCBzdGF0ZSBvZiB0aGUgcmVkdWN0aW9uLlxuICogSWYgdGhlIGl0ZXJhdGVlIGNvbXBsZXRlIHdpdGggYW4gZXJyb3IsIHRoZSByZWR1Y3Rpb24gaXMgc3RvcHBlZCBhbmQgdGhlXG4gKiBtYWluIGBjYWxsYmFja2AgaXMgaW1tZWRpYXRlbHkgY2FsbGVkIHdpdGggdGhlIGVycm9yLlxuICogSW52b2tlZCB3aXRoIChtZW1vLCBpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC4gUmVzdWx0IGlzIHRoZSByZWR1Y2VkIHZhbHVlLiBJbnZva2VkIHdpdGhcbiAqIChlcnIsIHJlc3VsdCkuXG4gKi9cbmZ1bmN0aW9uIHJlZHVjZVJpZ2h0IChhcnJheSwgbWVtbywgaXRlcmF0ZWUsIGNhbGxiYWNrKSB7XG4gICAgdmFyIHJldmVyc2VkID0gc2xpY2UoYXJyYXkpLnJldmVyc2UoKTtcbiAgICByZWR1Y2UocmV2ZXJzZWQsIG1lbW8sIGl0ZXJhdGVlLCBjYWxsYmFjayk7XG59XG5cbi8qKlxuICogV3JhcHMgdGhlIGFzeW5jIGZ1bmN0aW9uIGluIGFub3RoZXIgZnVuY3Rpb24gdGhhdCBhbHdheXMgY29tcGxldGVzIHdpdGggYVxuICogcmVzdWx0IG9iamVjdCwgZXZlbiB3aGVuIGl0IGVycm9ycy5cbiAqXG4gKiBUaGUgcmVzdWx0IG9iamVjdCBoYXMgZWl0aGVyIHRoZSBwcm9wZXJ0eSBgZXJyb3JgIG9yIGB2YWx1ZWAuXG4gKlxuICogQG5hbWUgcmVmbGVjdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpVdGlsc1xuICogQG1ldGhvZFxuICogQGNhdGVnb3J5IFV0aWxcbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gZm4gLSBUaGUgYXN5bmMgZnVuY3Rpb24geW91IHdhbnQgdG8gd3JhcFxuICogQHJldHVybnMge0Z1bmN0aW9ufSAtIEEgZnVuY3Rpb24gdGhhdCBhbHdheXMgcGFzc2VzIG51bGwgdG8gaXQncyBjYWxsYmFjayBhc1xuICogdGhlIGVycm9yLiBUaGUgc2Vjb25kIGFyZ3VtZW50IHRvIHRoZSBjYWxsYmFjayB3aWxsIGJlIGFuIGBvYmplY3RgIHdpdGhcbiAqIGVpdGhlciBhbiBgZXJyb3JgIG9yIGEgYHZhbHVlYCBwcm9wZXJ0eS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMucGFyYWxsZWwoW1xuICogICAgIGFzeW5jLnJlZmxlY3QoZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgLy8gZG8gc29tZSBzdHVmZiAuLi5cbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ29uZScpO1xuICogICAgIH0pLFxuICogICAgIGFzeW5jLnJlZmxlY3QoZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgLy8gZG8gc29tZSBtb3JlIHN0dWZmIGJ1dCBlcnJvciAuLi5cbiAqICAgICAgICAgY2FsbGJhY2soJ2JhZCBzdHVmZiBoYXBwZW5lZCcpO1xuICogICAgIH0pLFxuICogICAgIGFzeW5jLnJlZmxlY3QoZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgLy8gZG8gc29tZSBtb3JlIHN0dWZmIC4uLlxuICogICAgICAgICBjYWxsYmFjayhudWxsLCAndHdvJyk7XG4gKiAgICAgfSlcbiAqIF0sXG4gKiAvLyBvcHRpb25hbCBjYWxsYmFja1xuICogZnVuY3Rpb24oZXJyLCByZXN1bHRzKSB7XG4gKiAgICAgLy8gdmFsdWVzXG4gKiAgICAgLy8gcmVzdWx0c1swXS52YWx1ZSA9ICdvbmUnXG4gKiAgICAgLy8gcmVzdWx0c1sxXS5lcnJvciA9ICdiYWQgc3R1ZmYgaGFwcGVuZWQnXG4gKiAgICAgLy8gcmVzdWx0c1syXS52YWx1ZSA9ICd0d28nXG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gcmVmbGVjdChmbikge1xuICAgIHZhciBfZm4gPSB3cmFwQXN5bmMoZm4pO1xuICAgIHJldHVybiBpbml0aWFsUGFyYW1zKGZ1bmN0aW9uIHJlZmxlY3RPbihhcmdzLCByZWZsZWN0Q2FsbGJhY2spIHtcbiAgICAgICAgYXJncy5wdXNoKGZ1bmN0aW9uIGNhbGxiYWNrKGVycm9yLCBjYkFyZykge1xuICAgICAgICAgICAgaWYgKGVycm9yKSB7XG4gICAgICAgICAgICAgICAgcmVmbGVjdENhbGxiYWNrKG51bGwsIHsgZXJyb3I6IGVycm9yIH0pO1xuICAgICAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgICAgICB2YXIgdmFsdWU7XG4gICAgICAgICAgICAgICAgaWYgKGFyZ3VtZW50cy5sZW5ndGggPD0gMikge1xuICAgICAgICAgICAgICAgICAgICB2YWx1ZSA9IGNiQXJnO1xuICAgICAgICAgICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICAgICAgICAgIHZhbHVlID0gc2xpY2UoYXJndW1lbnRzLCAxKTtcbiAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICAgICAgcmVmbGVjdENhbGxiYWNrKG51bGwsIHsgdmFsdWU6IHZhbHVlIH0pO1xuICAgICAgICAgICAgfVxuICAgICAgICB9KTtcblxuICAgICAgICByZXR1cm4gX2ZuLmFwcGx5KHRoaXMsIGFyZ3MpO1xuICAgIH0pO1xufVxuXG4vKipcbiAqIEEgaGVscGVyIGZ1bmN0aW9uIHRoYXQgd3JhcHMgYW4gYXJyYXkgb3IgYW4gb2JqZWN0IG9mIGZ1bmN0aW9ucyB3aXRoIGByZWZsZWN0YC5cbiAqXG4gKiBAbmFtZSByZWZsZWN0QWxsXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOlV0aWxzXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5yZWZsZWN0XXtAbGluayBtb2R1bGU6VXRpbHMucmVmbGVjdH1cbiAqIEBjYXRlZ29yeSBVdGlsXG4gKiBAcGFyYW0ge0FycmF5fE9iamVjdHxJdGVyYWJsZX0gdGFza3MgLSBUaGUgY29sbGVjdGlvbiBvZlxuICogW2FzeW5jIGZ1bmN0aW9uc117QGxpbmsgQXN5bmNGdW5jdGlvbn0gdG8gd3JhcCBpbiBgYXN5bmMucmVmbGVjdGAuXG4gKiBAcmV0dXJucyB7QXJyYXl9IFJldHVybnMgYW4gYXJyYXkgb2YgYXN5bmMgZnVuY3Rpb25zLCBlYWNoIHdyYXBwZWQgaW5cbiAqIGBhc3luYy5yZWZsZWN0YFxuICogQGV4YW1wbGVcbiAqXG4gKiBsZXQgdGFza3MgPSBbXG4gKiAgICAgZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwsICdvbmUnKTtcbiAqICAgICAgICAgfSwgMjAwKTtcbiAqICAgICB9LFxuICogICAgIGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIC8vIGRvIHNvbWUgbW9yZSBzdHVmZiBidXQgZXJyb3IgLi4uXG4gKiAgICAgICAgIGNhbGxiYWNrKG5ldyBFcnJvcignYmFkIHN0dWZmIGhhcHBlbmVkJykpO1xuICogICAgIH0sXG4gKiAgICAgZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwsICd0d28nKTtcbiAqICAgICAgICAgfSwgMTAwKTtcbiAqICAgICB9XG4gKiBdO1xuICpcbiAqIGFzeW5jLnBhcmFsbGVsKGFzeW5jLnJlZmxlY3RBbGwodGFza3MpLFxuICogLy8gb3B0aW9uYWwgY2FsbGJhY2tcbiAqIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIC8vIHZhbHVlc1xuICogICAgIC8vIHJlc3VsdHNbMF0udmFsdWUgPSAnb25lJ1xuICogICAgIC8vIHJlc3VsdHNbMV0uZXJyb3IgPSBFcnJvcignYmFkIHN0dWZmIGhhcHBlbmVkJylcbiAqICAgICAvLyByZXN1bHRzWzJdLnZhbHVlID0gJ3R3bydcbiAqIH0pO1xuICpcbiAqIC8vIGFuIGV4YW1wbGUgdXNpbmcgYW4gb2JqZWN0IGluc3RlYWQgb2YgYW4gYXJyYXlcbiAqIGxldCB0YXNrcyA9IHtcbiAqICAgICBvbmU6IGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIHNldFRpbWVvdXQoZnVuY3Rpb24oKSB7XG4gKiAgICAgICAgICAgICBjYWxsYmFjayhudWxsLCAnb25lJyk7XG4gKiAgICAgICAgIH0sIDIwMCk7XG4gKiAgICAgfSxcbiAqICAgICB0d286IGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKCd0d28nKTtcbiAqICAgICB9LFxuICogICAgIHRocmVlOiBmdW5jdGlvbihjYWxsYmFjaykge1xuICogICAgICAgICBzZXRUaW1lb3V0KGZ1bmN0aW9uKCkge1xuICogICAgICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ3RocmVlJyk7XG4gKiAgICAgICAgIH0sIDEwMCk7XG4gKiAgICAgfVxuICogfTtcbiAqXG4gKiBhc3luYy5wYXJhbGxlbChhc3luYy5yZWZsZWN0QWxsKHRhc2tzKSxcbiAqIC8vIG9wdGlvbmFsIGNhbGxiYWNrXG4gKiBmdW5jdGlvbihlcnIsIHJlc3VsdHMpIHtcbiAqICAgICAvLyB2YWx1ZXNcbiAqICAgICAvLyByZXN1bHRzLm9uZS52YWx1ZSA9ICdvbmUnXG4gKiAgICAgLy8gcmVzdWx0cy50d28uZXJyb3IgPSAndHdvJ1xuICogICAgIC8vIHJlc3VsdHMudGhyZWUudmFsdWUgPSAndGhyZWUnXG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gcmVmbGVjdEFsbCh0YXNrcykge1xuICAgIHZhciByZXN1bHRzO1xuICAgIGlmIChpc0FycmF5KHRhc2tzKSkge1xuICAgICAgICByZXN1bHRzID0gYXJyYXlNYXAodGFza3MsIHJlZmxlY3QpO1xuICAgIH0gZWxzZSB7XG4gICAgICAgIHJlc3VsdHMgPSB7fTtcbiAgICAgICAgYmFzZUZvck93bih0YXNrcywgZnVuY3Rpb24odGFzaywga2V5KSB7XG4gICAgICAgICAgICByZXN1bHRzW2tleV0gPSByZWZsZWN0LmNhbGwodGhpcywgdGFzayk7XG4gICAgICAgIH0pO1xuICAgIH1cbiAgICByZXR1cm4gcmVzdWx0cztcbn1cblxuZnVuY3Rpb24gcmVqZWN0JDEoZWFjaGZuLCBhcnIsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIF9maWx0ZXIoZWFjaGZuLCBhcnIsIGZ1bmN0aW9uKHZhbHVlLCBjYikge1xuICAgICAgICBpdGVyYXRlZSh2YWx1ZSwgZnVuY3Rpb24oZXJyLCB2KSB7XG4gICAgICAgICAgICBjYihlcnIsICF2KTtcbiAgICAgICAgfSk7XG4gICAgfSwgY2FsbGJhY2spO1xufVxuXG4vKipcbiAqIFRoZSBvcHBvc2l0ZSBvZiBbYGZpbHRlcmBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5maWx0ZXJ9LiBSZW1vdmVzIHZhbHVlcyB0aGF0IHBhc3MgYW4gYGFzeW5jYCB0cnV0aCB0ZXN0LlxuICpcbiAqIEBuYW1lIHJlamVjdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMuZmlsdGVyXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuZmlsdGVyfVxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgdHJ1dGggdGVzdCB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW5cbiAqIGBjb2xsYC5cbiAqIFRoZSBzaG91bGQgY29tcGxldGUgd2l0aCBhIGJvb2xlYW4gdmFsdWUgYXMgaXRzIGByZXN1bHRgLlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC4gSW52b2tlZCB3aXRoIChlcnIsIHJlc3VsdHMpLlxuICogQGV4YW1wbGVcbiAqXG4gKiBhc3luYy5yZWplY3QoWydmaWxlMScsJ2ZpbGUyJywnZmlsZTMnXSwgZnVuY3Rpb24oZmlsZVBhdGgsIGNhbGxiYWNrKSB7XG4gKiAgICAgZnMuYWNjZXNzKGZpbGVQYXRoLCBmdW5jdGlvbihlcnIpIHtcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgIWVycilcbiAqICAgICB9KTtcbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIC8vIHJlc3VsdHMgbm93IGVxdWFscyBhbiBhcnJheSBvZiBtaXNzaW5nIGZpbGVzXG4gKiAgICAgY3JlYXRlRmlsZXMocmVzdWx0cyk7XG4gKiB9KTtcbiAqL1xudmFyIHJlamVjdCA9IGRvUGFyYWxsZWwocmVqZWN0JDEpO1xuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFtgcmVqZWN0YF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLnJlamVjdH0gYnV0IHJ1bnMgYSBtYXhpbXVtIG9mIGBsaW1pdGAgYXN5bmMgb3BlcmF0aW9ucyBhdCBhXG4gKiB0aW1lLlxuICpcbiAqIEBuYW1lIHJlamVjdExpbWl0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5yZWplY3Rde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5yZWplY3R9XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtudW1iZXJ9IGxpbWl0IC0gVGhlIG1heGltdW0gbnVtYmVyIG9mIGFzeW5jIG9wZXJhdGlvbnMgYXQgYSB0aW1lLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyB0cnV0aCB0ZXN0IHRvIGFwcGx5IHRvIGVhY2ggaXRlbSBpblxuICogYGNvbGxgLlxuICogVGhlIHNob3VsZCBjb21wbGV0ZSB3aXRoIGEgYm9vbGVhbiB2YWx1ZSBhcyBpdHMgYHJlc3VsdGAuXG4gKiBJbnZva2VkIHdpdGggKGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhZnRlciBhbGwgdGhlXG4gKiBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0cykuXG4gKi9cbnZhciByZWplY3RMaW1pdCA9IGRvUGFyYWxsZWxMaW1pdChyZWplY3QkMSk7XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2ByZWplY3RgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMucmVqZWN0fSBidXQgcnVucyBvbmx5IGEgc2luZ2xlIGFzeW5jIG9wZXJhdGlvbiBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgcmVqZWN0U2VyaWVzXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5yZWplY3Rde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5yZWplY3R9XG4gKiBAY2F0ZWdvcnkgQ29sbGVjdGlvblxuICogQHBhcmFtIHtBcnJheXxJdGVyYWJsZXxPYmplY3R9IGNvbGwgLSBBIGNvbGxlY3Rpb24gdG8gaXRlcmF0ZSBvdmVyLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyB0cnV0aCB0ZXN0IHRvIGFwcGx5IHRvIGVhY2ggaXRlbSBpblxuICogYGNvbGxgLlxuICogVGhlIHNob3VsZCBjb21wbGV0ZSB3aXRoIGEgYm9vbGVhbiB2YWx1ZSBhcyBpdHMgYHJlc3VsdGAuXG4gKiBJbnZva2VkIHdpdGggKGl0ZW0sIGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhZnRlciBhbGwgdGhlXG4gKiBgaXRlcmF0ZWVgIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0cykuXG4gKi9cbnZhciByZWplY3RTZXJpZXMgPSBkb0xpbWl0KHJlamVjdExpbWl0LCAxKTtcblxuLyoqXG4gKiBDcmVhdGVzIGEgZnVuY3Rpb24gdGhhdCByZXR1cm5zIGB2YWx1ZWAuXG4gKlxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIF9cbiAqIEBzaW5jZSAyLjQuMFxuICogQGNhdGVnb3J5IFV0aWxcbiAqIEBwYXJhbSB7Kn0gdmFsdWUgVGhlIHZhbHVlIHRvIHJldHVybiBmcm9tIHRoZSBuZXcgZnVuY3Rpb24uXG4gKiBAcmV0dXJucyB7RnVuY3Rpb259IFJldHVybnMgdGhlIG5ldyBjb25zdGFudCBmdW5jdGlvbi5cbiAqIEBleGFtcGxlXG4gKlxuICogdmFyIG9iamVjdHMgPSBfLnRpbWVzKDIsIF8uY29uc3RhbnQoeyAnYSc6IDEgfSkpO1xuICpcbiAqIGNvbnNvbGUubG9nKG9iamVjdHMpO1xuICogLy8gPT4gW3sgJ2EnOiAxIH0sIHsgJ2EnOiAxIH1dXG4gKlxuICogY29uc29sZS5sb2cob2JqZWN0c1swXSA9PT0gb2JqZWN0c1sxXSk7XG4gKiAvLyA9PiB0cnVlXG4gKi9cbmZ1bmN0aW9uIGNvbnN0YW50JDEodmFsdWUpIHtcbiAgcmV0dXJuIGZ1bmN0aW9uKCkge1xuICAgIHJldHVybiB2YWx1ZTtcbiAgfTtcbn1cblxuLyoqXG4gKiBBdHRlbXB0cyB0byBnZXQgYSBzdWNjZXNzZnVsIHJlc3BvbnNlIGZyb20gYHRhc2tgIG5vIG1vcmUgdGhhbiBgdGltZXNgIHRpbWVzXG4gKiBiZWZvcmUgcmV0dXJuaW5nIGFuIGVycm9yLiBJZiB0aGUgdGFzayBpcyBzdWNjZXNzZnVsLCB0aGUgYGNhbGxiYWNrYCB3aWxsIGJlXG4gKiBwYXNzZWQgdGhlIHJlc3VsdCBvZiB0aGUgc3VjY2Vzc2Z1bCB0YXNrLiBJZiBhbGwgYXR0ZW1wdHMgZmFpbCwgdGhlIGNhbGxiYWNrXG4gKiB3aWxsIGJlIHBhc3NlZCB0aGUgZXJyb3IgYW5kIHJlc3VsdCAoaWYgYW55KSBvZiB0aGUgZmluYWwgYXR0ZW1wdC5cbiAqXG4gKiBAbmFtZSByZXRyeVxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb250cm9sRmxvd1xuICogQG1ldGhvZFxuICogQGNhdGVnb3J5IENvbnRyb2wgRmxvd1xuICogQHNlZSBbYXN5bmMucmV0cnlhYmxlXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cucmV0cnlhYmxlfVxuICogQHBhcmFtIHtPYmplY3R8bnVtYmVyfSBbb3B0cyA9IHt0aW1lczogNSwgaW50ZXJ2YWw6IDB9fCA1XSAtIENhbiBiZSBlaXRoZXIgYW5cbiAqIG9iamVjdCB3aXRoIGB0aW1lc2AgYW5kIGBpbnRlcnZhbGAgb3IgYSBudW1iZXIuXG4gKiAqIGB0aW1lc2AgLSBUaGUgbnVtYmVyIG9mIGF0dGVtcHRzIHRvIG1ha2UgYmVmb3JlIGdpdmluZyB1cC4gIFRoZSBkZWZhdWx0XG4gKiAgIGlzIGA1YC5cbiAqICogYGludGVydmFsYCAtIFRoZSB0aW1lIHRvIHdhaXQgYmV0d2VlbiByZXRyaWVzLCBpbiBtaWxsaXNlY29uZHMuICBUaGVcbiAqICAgZGVmYXVsdCBpcyBgMGAuIFRoZSBpbnRlcnZhbCBtYXkgYWxzbyBiZSBzcGVjaWZpZWQgYXMgYSBmdW5jdGlvbiBvZiB0aGVcbiAqICAgcmV0cnkgY291bnQgKHNlZSBleGFtcGxlKS5cbiAqICogYGVycm9yRmlsdGVyYCAtIEFuIG9wdGlvbmFsIHN5bmNocm9ub3VzIGZ1bmN0aW9uIHRoYXQgaXMgaW52b2tlZCBvblxuICogICBlcnJvbmVvdXMgcmVzdWx0LiBJZiBpdCByZXR1cm5zIGB0cnVlYCB0aGUgcmV0cnkgYXR0ZW1wdHMgd2lsbCBjb250aW51ZTtcbiAqICAgaWYgdGhlIGZ1bmN0aW9uIHJldHVybnMgYGZhbHNlYCB0aGUgcmV0cnkgZmxvdyBpcyBhYm9ydGVkIHdpdGggdGhlIGN1cnJlbnRcbiAqICAgYXR0ZW1wdCdzIGVycm9yIGFuZCByZXN1bHQgYmVpbmcgcmV0dXJuZWQgdG8gdGhlIGZpbmFsIGNhbGxiYWNrLlxuICogICBJbnZva2VkIHdpdGggKGVycikuXG4gKiAqIElmIGBvcHRzYCBpcyBhIG51bWJlciwgdGhlIG51bWJlciBzcGVjaWZpZXMgdGhlIG51bWJlciBvZiB0aW1lcyB0byByZXRyeSxcbiAqICAgd2l0aCB0aGUgZGVmYXVsdCBpbnRlcnZhbCBvZiBgMGAuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IHRhc2sgLSBBbiBhc3luYyBmdW5jdGlvbiB0byByZXRyeS5cbiAqIEludm9rZWQgd2l0aCAoY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEFuIG9wdGlvbmFsIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIHRoZVxuICogdGFzayBoYXMgc3VjY2VlZGVkLCBvciBhZnRlciB0aGUgZmluYWwgZmFpbGVkIGF0dGVtcHQuIEl0IHJlY2VpdmVzIHRoZSBgZXJyYFxuICogYW5kIGByZXN1bHRgIGFyZ3VtZW50cyBvZiB0aGUgbGFzdCBhdHRlbXB0IGF0IGNvbXBsZXRpbmcgdGhlIGB0YXNrYC4gSW52b2tlZFxuICogd2l0aCAoZXJyLCByZXN1bHRzKS5cbiAqXG4gKiBAZXhhbXBsZVxuICpcbiAqIC8vIFRoZSBgcmV0cnlgIGZ1bmN0aW9uIGNhbiBiZSB1c2VkIGFzIGEgc3RhbmQtYWxvbmUgY29udHJvbCBmbG93IGJ5IHBhc3NpbmdcbiAqIC8vIGEgY2FsbGJhY2ssIGFzIHNob3duIGJlbG93OlxuICpcbiAqIC8vIHRyeSBjYWxsaW5nIGFwaU1ldGhvZCAzIHRpbWVzXG4gKiBhc3luYy5yZXRyeSgzLCBhcGlNZXRob2QsIGZ1bmN0aW9uKGVyciwgcmVzdWx0KSB7XG4gKiAgICAgLy8gZG8gc29tZXRoaW5nIHdpdGggdGhlIHJlc3VsdFxuICogfSk7XG4gKlxuICogLy8gdHJ5IGNhbGxpbmcgYXBpTWV0aG9kIDMgdGltZXMsIHdhaXRpbmcgMjAwIG1zIGJldHdlZW4gZWFjaCByZXRyeVxuICogYXN5bmMucmV0cnkoe3RpbWVzOiAzLCBpbnRlcnZhbDogMjAwfSwgYXBpTWV0aG9kLCBmdW5jdGlvbihlcnIsIHJlc3VsdCkge1xuICogICAgIC8vIGRvIHNvbWV0aGluZyB3aXRoIHRoZSByZXN1bHRcbiAqIH0pO1xuICpcbiAqIC8vIHRyeSBjYWxsaW5nIGFwaU1ldGhvZCAxMCB0aW1lcyB3aXRoIGV4cG9uZW50aWFsIGJhY2tvZmZcbiAqIC8vIChpLmUuIGludGVydmFscyBvZiAxMDAsIDIwMCwgNDAwLCA4MDAsIDE2MDAsIC4uLiBtaWxsaXNlY29uZHMpXG4gKiBhc3luYy5yZXRyeSh7XG4gKiAgIHRpbWVzOiAxMCxcbiAqICAgaW50ZXJ2YWw6IGZ1bmN0aW9uKHJldHJ5Q291bnQpIHtcbiAqICAgICByZXR1cm4gNTAgKiBNYXRoLnBvdygyLCByZXRyeUNvdW50KTtcbiAqICAgfVxuICogfSwgYXBpTWV0aG9kLCBmdW5jdGlvbihlcnIsIHJlc3VsdCkge1xuICogICAgIC8vIGRvIHNvbWV0aGluZyB3aXRoIHRoZSByZXN1bHRcbiAqIH0pO1xuICpcbiAqIC8vIHRyeSBjYWxsaW5nIGFwaU1ldGhvZCB0aGUgZGVmYXVsdCA1IHRpbWVzIG5vIGRlbGF5IGJldHdlZW4gZWFjaCByZXRyeVxuICogYXN5bmMucmV0cnkoYXBpTWV0aG9kLCBmdW5jdGlvbihlcnIsIHJlc3VsdCkge1xuICogICAgIC8vIGRvIHNvbWV0aGluZyB3aXRoIHRoZSByZXN1bHRcbiAqIH0pO1xuICpcbiAqIC8vIHRyeSBjYWxsaW5nIGFwaU1ldGhvZCBvbmx5IHdoZW4gZXJyb3IgY29uZGl0aW9uIHNhdGlzZmllcywgYWxsIG90aGVyXG4gKiAvLyBlcnJvcnMgd2lsbCBhYm9ydCB0aGUgcmV0cnkgY29udHJvbCBmbG93IGFuZCByZXR1cm4gdG8gZmluYWwgY2FsbGJhY2tcbiAqIGFzeW5jLnJldHJ5KHtcbiAqICAgZXJyb3JGaWx0ZXI6IGZ1bmN0aW9uKGVycikge1xuICogICAgIHJldHVybiBlcnIubWVzc2FnZSA9PT0gJ1RlbXBvcmFyeSBlcnJvcic7IC8vIG9ubHkgcmV0cnkgb24gYSBzcGVjaWZpYyBlcnJvclxuICogICB9XG4gKiB9LCBhcGlNZXRob2QsIGZ1bmN0aW9uKGVyciwgcmVzdWx0KSB7XG4gKiAgICAgLy8gZG8gc29tZXRoaW5nIHdpdGggdGhlIHJlc3VsdFxuICogfSk7XG4gKlxuICogLy8gdG8gcmV0cnkgaW5kaXZpZHVhbCBtZXRob2RzIHRoYXQgYXJlIG5vdCBhcyByZWxpYWJsZSB3aXRoaW4gb3RoZXJcbiAqIC8vIGNvbnRyb2wgZmxvdyBmdW5jdGlvbnMsIHVzZSB0aGUgYHJldHJ5YWJsZWAgd3JhcHBlcjpcbiAqIGFzeW5jLmF1dG8oe1xuICogICAgIHVzZXJzOiBhcGkuZ2V0VXNlcnMuYmluZChhcGkpLFxuICogICAgIHBheW1lbnRzOiBhc3luYy5yZXRyeWFibGUoMywgYXBpLmdldFBheW1lbnRzLmJpbmQoYXBpKSlcbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIC8vIGRvIHNvbWV0aGluZyB3aXRoIHRoZSByZXN1bHRzXG4gKiB9KTtcbiAqXG4gKi9cbmZ1bmN0aW9uIHJldHJ5KG9wdHMsIHRhc2ssIGNhbGxiYWNrKSB7XG4gICAgdmFyIERFRkFVTFRfVElNRVMgPSA1O1xuICAgIHZhciBERUZBVUxUX0lOVEVSVkFMID0gMDtcblxuICAgIHZhciBvcHRpb25zID0ge1xuICAgICAgICB0aW1lczogREVGQVVMVF9USU1FUyxcbiAgICAgICAgaW50ZXJ2YWxGdW5jOiBjb25zdGFudCQxKERFRkFVTFRfSU5URVJWQUwpXG4gICAgfTtcblxuICAgIGZ1bmN0aW9uIHBhcnNlVGltZXMoYWNjLCB0KSB7XG4gICAgICAgIGlmICh0eXBlb2YgdCA9PT0gJ29iamVjdCcpIHtcbiAgICAgICAgICAgIGFjYy50aW1lcyA9ICt0LnRpbWVzIHx8IERFRkFVTFRfVElNRVM7XG5cbiAgICAgICAgICAgIGFjYy5pbnRlcnZhbEZ1bmMgPSB0eXBlb2YgdC5pbnRlcnZhbCA9PT0gJ2Z1bmN0aW9uJyA/XG4gICAgICAgICAgICAgICAgdC5pbnRlcnZhbCA6XG4gICAgICAgICAgICAgICAgY29uc3RhbnQkMSgrdC5pbnRlcnZhbCB8fCBERUZBVUxUX0lOVEVSVkFMKTtcblxuICAgICAgICAgICAgYWNjLmVycm9yRmlsdGVyID0gdC5lcnJvckZpbHRlcjtcbiAgICAgICAgfSBlbHNlIGlmICh0eXBlb2YgdCA9PT0gJ251bWJlcicgfHwgdHlwZW9mIHQgPT09ICdzdHJpbmcnKSB7XG4gICAgICAgICAgICBhY2MudGltZXMgPSArdCB8fCBERUZBVUxUX1RJTUVTO1xuICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgICAgdGhyb3cgbmV3IEVycm9yKFwiSW52YWxpZCBhcmd1bWVudHMgZm9yIGFzeW5jLnJldHJ5XCIpO1xuICAgICAgICB9XG4gICAgfVxuXG4gICAgaWYgKGFyZ3VtZW50cy5sZW5ndGggPCAzICYmIHR5cGVvZiBvcHRzID09PSAnZnVuY3Rpb24nKSB7XG4gICAgICAgIGNhbGxiYWNrID0gdGFzayB8fCBub29wO1xuICAgICAgICB0YXNrID0gb3B0cztcbiAgICB9IGVsc2Uge1xuICAgICAgICBwYXJzZVRpbWVzKG9wdGlvbnMsIG9wdHMpO1xuICAgICAgICBjYWxsYmFjayA9IGNhbGxiYWNrIHx8IG5vb3A7XG4gICAgfVxuXG4gICAgaWYgKHR5cGVvZiB0YXNrICE9PSAnZnVuY3Rpb24nKSB7XG4gICAgICAgIHRocm93IG5ldyBFcnJvcihcIkludmFsaWQgYXJndW1lbnRzIGZvciBhc3luYy5yZXRyeVwiKTtcbiAgICB9XG5cbiAgICB2YXIgX3Rhc2sgPSB3cmFwQXN5bmModGFzayk7XG5cbiAgICB2YXIgYXR0ZW1wdCA9IDE7XG4gICAgZnVuY3Rpb24gcmV0cnlBdHRlbXB0KCkge1xuICAgICAgICBfdGFzayhmdW5jdGlvbihlcnIpIHtcbiAgICAgICAgICAgIGlmIChlcnIgJiYgYXR0ZW1wdCsrIDwgb3B0aW9ucy50aW1lcyAmJlxuICAgICAgICAgICAgICAgICh0eXBlb2Ygb3B0aW9ucy5lcnJvckZpbHRlciAhPSAnZnVuY3Rpb24nIHx8XG4gICAgICAgICAgICAgICAgICAgIG9wdGlvbnMuZXJyb3JGaWx0ZXIoZXJyKSkpIHtcbiAgICAgICAgICAgICAgICBzZXRUaW1lb3V0KHJldHJ5QXR0ZW1wdCwgb3B0aW9ucy5pbnRlcnZhbEZ1bmMoYXR0ZW1wdCkpO1xuICAgICAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgICAgICBjYWxsYmFjay5hcHBseShudWxsLCBhcmd1bWVudHMpO1xuICAgICAgICAgICAgfVxuICAgICAgICB9KTtcbiAgICB9XG5cbiAgICByZXRyeUF0dGVtcHQoKTtcbn1cblxuLyoqXG4gKiBBIGNsb3NlIHJlbGF0aXZlIG9mIFtgcmV0cnlgXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cucmV0cnl9LiAgVGhpcyBtZXRob2RcbiAqIHdyYXBzIGEgdGFzayBhbmQgbWFrZXMgaXQgcmV0cnlhYmxlLCByYXRoZXIgdGhhbiBpbW1lZGlhdGVseSBjYWxsaW5nIGl0XG4gKiB3aXRoIHJldHJpZXMuXG4gKlxuICogQG5hbWUgcmV0cnlhYmxlXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5yZXRyeV17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnJldHJ5fVxuICogQGNhdGVnb3J5IENvbnRyb2wgRmxvd1xuICogQHBhcmFtIHtPYmplY3R8bnVtYmVyfSBbb3B0cyA9IHt0aW1lczogNSwgaW50ZXJ2YWw6IDB9fCA1XSAtIG9wdGlvbmFsXG4gKiBvcHRpb25zLCBleGFjdGx5IHRoZSBzYW1lIGFzIGZyb20gYHJldHJ5YFxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSB0YXNrIC0gdGhlIGFzeW5jaHJvbm91cyBmdW5jdGlvbiB0byB3cmFwLlxuICogVGhpcyBmdW5jdGlvbiB3aWxsIGJlIHBhc3NlZCBhbnkgYXJndW1lbnRzIHBhc3NlZCB0byB0aGUgcmV0dXJuZWQgd3JhcHBlci5cbiAqIEludm9rZWQgd2l0aCAoLi4uYXJncywgY2FsbGJhY2spLlxuICogQHJldHVybnMge0FzeW5jRnVuY3Rpb259IFRoZSB3cmFwcGVkIGZ1bmN0aW9uLCB3aGljaCB3aGVuIGludm9rZWQsIHdpbGxcbiAqIHJldHJ5IG9uIGFuIGVycm9yLCBiYXNlZCBvbiB0aGUgcGFyYW1ldGVycyBzcGVjaWZpZWQgaW4gYG9wdHNgLlxuICogVGhpcyBmdW5jdGlvbiB3aWxsIGFjY2VwdCB0aGUgc2FtZSBwYXJhbWV0ZXJzIGFzIGB0YXNrYC5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMuYXV0byh7XG4gKiAgICAgZGVwMTogYXN5bmMucmV0cnlhYmxlKDMsIGdldEZyb21GbGFreVNlcnZpY2UpLFxuICogICAgIHByb2Nlc3M6IFtcImRlcDFcIiwgYXN5bmMucmV0cnlhYmxlKDMsIGZ1bmN0aW9uIChyZXN1bHRzLCBjYikge1xuICogICAgICAgICBtYXliZVByb2Nlc3NEYXRhKHJlc3VsdHMuZGVwMSwgY2IpO1xuICogICAgIH0pXVxuICogfSwgY2FsbGJhY2spO1xuICovXG52YXIgcmV0cnlhYmxlID0gZnVuY3Rpb24gKG9wdHMsIHRhc2spIHtcbiAgICBpZiAoIXRhc2spIHtcbiAgICAgICAgdGFzayA9IG9wdHM7XG4gICAgICAgIG9wdHMgPSBudWxsO1xuICAgIH1cbiAgICB2YXIgX3Rhc2sgPSB3cmFwQXN5bmModGFzayk7XG4gICAgcmV0dXJuIGluaXRpYWxQYXJhbXMoZnVuY3Rpb24gKGFyZ3MsIGNhbGxiYWNrKSB7XG4gICAgICAgIGZ1bmN0aW9uIHRhc2tGbihjYikge1xuICAgICAgICAgICAgX3Rhc2suYXBwbHkobnVsbCwgYXJncy5jb25jYXQoY2IpKTtcbiAgICAgICAgfVxuXG4gICAgICAgIGlmIChvcHRzKSByZXRyeShvcHRzLCB0YXNrRm4sIGNhbGxiYWNrKTtcbiAgICAgICAgZWxzZSByZXRyeSh0YXNrRm4sIGNhbGxiYWNrKTtcblxuICAgIH0pO1xufTtcblxuLyoqXG4gKiBSdW4gdGhlIGZ1bmN0aW9ucyBpbiB0aGUgYHRhc2tzYCBjb2xsZWN0aW9uIGluIHNlcmllcywgZWFjaCBvbmUgcnVubmluZyBvbmNlXG4gKiB0aGUgcHJldmlvdXMgZnVuY3Rpb24gaGFzIGNvbXBsZXRlZC4gSWYgYW55IGZ1bmN0aW9ucyBpbiB0aGUgc2VyaWVzIHBhc3MgYW5cbiAqIGVycm9yIHRvIGl0cyBjYWxsYmFjaywgbm8gbW9yZSBmdW5jdGlvbnMgYXJlIHJ1biwgYW5kIGBjYWxsYmFja2AgaXNcbiAqIGltbWVkaWF0ZWx5IGNhbGxlZCB3aXRoIHRoZSB2YWx1ZSBvZiB0aGUgZXJyb3IuIE90aGVyd2lzZSwgYGNhbGxiYWNrYFxuICogcmVjZWl2ZXMgYW4gYXJyYXkgb2YgcmVzdWx0cyB3aGVuIGB0YXNrc2AgaGF2ZSBjb21wbGV0ZWQuXG4gKlxuICogSXQgaXMgYWxzbyBwb3NzaWJsZSB0byB1c2UgYW4gb2JqZWN0IGluc3RlYWQgb2YgYW4gYXJyYXkuIEVhY2ggcHJvcGVydHkgd2lsbFxuICogYmUgcnVuIGFzIGEgZnVuY3Rpb24sIGFuZCB0aGUgcmVzdWx0cyB3aWxsIGJlIHBhc3NlZCB0byB0aGUgZmluYWwgYGNhbGxiYWNrYFxuICogYXMgYW4gb2JqZWN0IGluc3RlYWQgb2YgYW4gYXJyYXkuIFRoaXMgY2FuIGJlIGEgbW9yZSByZWFkYWJsZSB3YXkgb2YgaGFuZGxpbmdcbiAqICByZXN1bHRzIGZyb20ge0BsaW5rIGFzeW5jLnNlcmllc30uXG4gKlxuICogKipOb3RlKiogdGhhdCB3aGlsZSBtYW55IGltcGxlbWVudGF0aW9ucyBwcmVzZXJ2ZSB0aGUgb3JkZXIgb2Ygb2JqZWN0XG4gKiBwcm9wZXJ0aWVzLCB0aGUgW0VDTUFTY3JpcHQgTGFuZ3VhZ2UgU3BlY2lmaWNhdGlvbl0oaHR0cDovL3d3dy5lY21hLWludGVybmF0aW9uYWwub3JnL2VjbWEtMjYyLzUuMS8jc2VjLTguNilcbiAqIGV4cGxpY2l0bHkgc3RhdGVzIHRoYXRcbiAqXG4gKiA+IFRoZSBtZWNoYW5pY3MgYW5kIG9yZGVyIG9mIGVudW1lcmF0aW5nIHRoZSBwcm9wZXJ0aWVzIGlzIG5vdCBzcGVjaWZpZWQuXG4gKlxuICogU28gaWYgeW91IHJlbHkgb24gdGhlIG9yZGVyIGluIHdoaWNoIHlvdXIgc2VyaWVzIG9mIGZ1bmN0aW9ucyBhcmUgZXhlY3V0ZWQsXG4gKiBhbmQgd2FudCB0aGlzIHRvIHdvcmsgb24gYWxsIHBsYXRmb3JtcywgY29uc2lkZXIgdXNpbmcgYW4gYXJyYXkuXG4gKlxuICogQG5hbWUgc2VyaWVzXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gdGFza3MgLSBBIGNvbGxlY3Rpb24gY29udGFpbmluZ1xuICogW2FzeW5jIGZ1bmN0aW9uc117QGxpbmsgQXN5bmNGdW5jdGlvbn0gdG8gcnVuIGluIHNlcmllcy5cbiAqIEVhY2ggZnVuY3Rpb24gY2FuIGNvbXBsZXRlIHdpdGggYW55IG51bWJlciBvZiBvcHRpb25hbCBgcmVzdWx0YCB2YWx1ZXMuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQW4gb3B0aW9uYWwgY2FsbGJhY2sgdG8gcnVuIG9uY2UgYWxsIHRoZVxuICogZnVuY3Rpb25zIGhhdmUgY29tcGxldGVkLiBUaGlzIGZ1bmN0aW9uIGdldHMgYSByZXN1bHRzIGFycmF5IChvciBvYmplY3QpXG4gKiBjb250YWluaW5nIGFsbCB0aGUgcmVzdWx0IGFyZ3VtZW50cyBwYXNzZWQgdG8gdGhlIGB0YXNrYCBjYWxsYmFja3MuIEludm9rZWRcbiAqIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqIEBleGFtcGxlXG4gKiBhc3luYy5zZXJpZXMoW1xuICogICAgIGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIC8vIGRvIHNvbWUgc3R1ZmYgLi4uXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsICdvbmUnKTtcbiAqICAgICB9LFxuICogICAgIGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIC8vIGRvIHNvbWUgbW9yZSBzdHVmZiAuLi5cbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ3R3bycpO1xuICogICAgIH1cbiAqIF0sXG4gKiAvLyBvcHRpb25hbCBjYWxsYmFja1xuICogZnVuY3Rpb24oZXJyLCByZXN1bHRzKSB7XG4gKiAgICAgLy8gcmVzdWx0cyBpcyBub3cgZXF1YWwgdG8gWydvbmUnLCAndHdvJ11cbiAqIH0pO1xuICpcbiAqIGFzeW5jLnNlcmllcyh7XG4gKiAgICAgb25lOiBmdW5jdGlvbihjYWxsYmFjaykge1xuICogICAgICAgICBzZXRUaW1lb3V0KGZ1bmN0aW9uKCkge1xuICogICAgICAgICAgICAgY2FsbGJhY2sobnVsbCwgMSk7XG4gKiAgICAgICAgIH0sIDIwMCk7XG4gKiAgICAgfSxcbiAqICAgICB0d286IGZ1bmN0aW9uKGNhbGxiYWNrKXtcbiAqICAgICAgICAgc2V0VGltZW91dChmdW5jdGlvbigpIHtcbiAqICAgICAgICAgICAgIGNhbGxiYWNrKG51bGwsIDIpO1xuICogICAgICAgICB9LCAxMDApO1xuICogICAgIH1cbiAqIH0sIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIC8vIHJlc3VsdHMgaXMgbm93IGVxdWFsIHRvOiB7b25lOiAxLCB0d286IDJ9XG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gc2VyaWVzKHRhc2tzLCBjYWxsYmFjaykge1xuICAgIF9wYXJhbGxlbChlYWNoT2ZTZXJpZXMsIHRhc2tzLCBjYWxsYmFjayk7XG59XG5cbi8qKlxuICogUmV0dXJucyBgdHJ1ZWAgaWYgYXQgbGVhc3Qgb25lIGVsZW1lbnQgaW4gdGhlIGBjb2xsYCBzYXRpc2ZpZXMgYW4gYXN5bmMgdGVzdC5cbiAqIElmIGFueSBpdGVyYXRlZSBjYWxsIHJldHVybnMgYHRydWVgLCB0aGUgbWFpbiBgY2FsbGJhY2tgIGlzIGltbWVkaWF0ZWx5XG4gKiBjYWxsZWQuXG4gKlxuICogQG5hbWUgc29tZVxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQGFsaWFzIGFueVxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyB0cnV0aCB0ZXN0IHRvIGFwcGx5IHRvIGVhY2ggaXRlbVxuICogaW4gdGhlIGNvbGxlY3Rpb25zIGluIHBhcmFsbGVsLlxuICogVGhlIGl0ZXJhdGVlIHNob3VsZCBjb21wbGV0ZSB3aXRoIGEgYm9vbGVhbiBgcmVzdWx0YCB2YWx1ZS5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFzIHNvb24gYXMgYW55XG4gKiBpdGVyYXRlZSByZXR1cm5zIGB0cnVlYCwgb3IgYWZ0ZXIgYWxsIHRoZSBpdGVyYXRlZSBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC5cbiAqIFJlc3VsdCB3aWxsIGJlIGVpdGhlciBgdHJ1ZWAgb3IgYGZhbHNlYCBkZXBlbmRpbmcgb24gdGhlIHZhbHVlcyBvZiB0aGUgYXN5bmNcbiAqIHRlc3RzLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMuc29tZShbJ2ZpbGUxJywnZmlsZTInLCdmaWxlMyddLCBmdW5jdGlvbihmaWxlUGF0aCwgY2FsbGJhY2spIHtcbiAqICAgICBmcy5hY2Nlc3MoZmlsZVBhdGgsIGZ1bmN0aW9uKGVycikge1xuICogICAgICAgICBjYWxsYmFjayhudWxsLCAhZXJyKVxuICogICAgIH0pO1xuICogfSwgZnVuY3Rpb24oZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyBpZiByZXN1bHQgaXMgdHJ1ZSB0aGVuIGF0IGxlYXN0IG9uZSBvZiB0aGUgZmlsZXMgZXhpc3RzXG4gKiB9KTtcbiAqL1xudmFyIHNvbWUgPSBkb1BhcmFsbGVsKF9jcmVhdGVUZXN0ZXIoQm9vbGVhbiwgaWRlbnRpdHkpKTtcblxuLyoqXG4gKiBUaGUgc2FtZSBhcyBbYHNvbWVgXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuc29tZX0gYnV0IHJ1bnMgYSBtYXhpbXVtIG9mIGBsaW1pdGAgYXN5bmMgb3BlcmF0aW9ucyBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgc29tZUxpbWl0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5zb21lXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuc29tZX1cbiAqIEBhbGlhcyBhbnlMaW1pdFxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7bnVtYmVyfSBsaW1pdCAtIFRoZSBtYXhpbXVtIG51bWJlciBvZiBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyB0cnV0aCB0ZXN0IHRvIGFwcGx5IHRvIGVhY2ggaXRlbVxuICogaW4gdGhlIGNvbGxlY3Rpb25zIGluIHBhcmFsbGVsLlxuICogVGhlIGl0ZXJhdGVlIHNob3VsZCBjb21wbGV0ZSB3aXRoIGEgYm9vbGVhbiBgcmVzdWx0YCB2YWx1ZS5cbiAqIEludm9rZWQgd2l0aCAoaXRlbSwgY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFzIHNvb24gYXMgYW55XG4gKiBpdGVyYXRlZSByZXR1cm5zIGB0cnVlYCwgb3IgYWZ0ZXIgYWxsIHRoZSBpdGVyYXRlZSBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC5cbiAqIFJlc3VsdCB3aWxsIGJlIGVpdGhlciBgdHJ1ZWAgb3IgYGZhbHNlYCBkZXBlbmRpbmcgb24gdGhlIHZhbHVlcyBvZiB0aGUgYXN5bmNcbiAqIHRlc3RzLiBJbnZva2VkIHdpdGggKGVyciwgcmVzdWx0KS5cbiAqL1xudmFyIHNvbWVMaW1pdCA9IGRvUGFyYWxsZWxMaW1pdChfY3JlYXRlVGVzdGVyKEJvb2xlYW4sIGlkZW50aXR5KSk7XG5cbi8qKlxuICogVGhlIHNhbWUgYXMgW2Bzb21lYF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLnNvbWV9IGJ1dCBydW5zIG9ubHkgYSBzaW5nbGUgYXN5bmMgb3BlcmF0aW9uIGF0IGEgdGltZS5cbiAqXG4gKiBAbmFtZSBzb21lU2VyaWVzXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbGxlY3Rpb25zXG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5zb21lXXtAbGluayBtb2R1bGU6Q29sbGVjdGlvbnMuc29tZX1cbiAqIEBhbGlhcyBhbnlTZXJpZXNcbiAqIEBjYXRlZ29yeSBDb2xsZWN0aW9uXG4gKiBAcGFyYW0ge0FycmF5fEl0ZXJhYmxlfE9iamVjdH0gY29sbCAtIEEgY29sbGVjdGlvbiB0byBpdGVyYXRlIG92ZXIuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgdHJ1dGggdGVzdCB0byBhcHBseSB0byBlYWNoIGl0ZW1cbiAqIGluIHRoZSBjb2xsZWN0aW9ucyBpbiBzZXJpZXMuXG4gKiBUaGUgaXRlcmF0ZWUgc2hvdWxkIGNvbXBsZXRlIHdpdGggYSBib29sZWFuIGByZXN1bHRgIHZhbHVlLlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYXMgc29vbiBhcyBhbnlcbiAqIGl0ZXJhdGVlIHJldHVybnMgYHRydWVgLCBvciBhZnRlciBhbGwgdGhlIGl0ZXJhdGVlIGZ1bmN0aW9ucyBoYXZlIGZpbmlzaGVkLlxuICogUmVzdWx0IHdpbGwgYmUgZWl0aGVyIGB0cnVlYCBvciBgZmFsc2VgIGRlcGVuZGluZyBvbiB0aGUgdmFsdWVzIG9mIHRoZSBhc3luY1xuICogdGVzdHMuIEludm9rZWQgd2l0aCAoZXJyLCByZXN1bHQpLlxuICovXG52YXIgc29tZVNlcmllcyA9IGRvTGltaXQoc29tZUxpbWl0LCAxKTtcblxuLyoqXG4gKiBTb3J0cyBhIGxpc3QgYnkgdGhlIHJlc3VsdHMgb2YgcnVubmluZyBlYWNoIGBjb2xsYCB2YWx1ZSB0aHJvdWdoIGFuIGFzeW5jXG4gKiBgaXRlcmF0ZWVgLlxuICpcbiAqIEBuYW1lIHNvcnRCeVxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBBbiBhc3luYyBmdW5jdGlvbiB0byBhcHBseSB0byBlYWNoIGl0ZW0gaW5cbiAqIGBjb2xsYC5cbiAqIFRoZSBpdGVyYXRlZSBzaG91bGQgY29tcGxldGUgd2l0aCBhIHZhbHVlIHRvIHVzZSBhcyB0aGUgc29ydCBjcml0ZXJpYSBhc1xuICogaXRzIGByZXN1bHRgLlxuICogSW52b2tlZCB3aXRoIChpdGVtLCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBjYWxsYmFjayAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFmdGVyIGFsbCB0aGVcbiAqIGBpdGVyYXRlZWAgZnVuY3Rpb25zIGhhdmUgZmluaXNoZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gUmVzdWx0cyBpcyB0aGUgaXRlbXNcbiAqIGZyb20gdGhlIG9yaWdpbmFsIGBjb2xsYCBzb3J0ZWQgYnkgdGhlIHZhbHVlcyByZXR1cm5lZCBieSB0aGUgYGl0ZXJhdGVlYFxuICogY2FsbHMuIEludm9rZWQgd2l0aCAoZXJyLCByZXN1bHRzKS5cbiAqIEBleGFtcGxlXG4gKlxuICogYXN5bmMuc29ydEJ5KFsnZmlsZTEnLCdmaWxlMicsJ2ZpbGUzJ10sIGZ1bmN0aW9uKGZpbGUsIGNhbGxiYWNrKSB7XG4gKiAgICAgZnMuc3RhdChmaWxlLCBmdW5jdGlvbihlcnIsIHN0YXRzKSB7XG4gKiAgICAgICAgIGNhbGxiYWNrKGVyciwgc3RhdHMubXRpbWUpO1xuICogICAgIH0pO1xuICogfSwgZnVuY3Rpb24oZXJyLCByZXN1bHRzKSB7XG4gKiAgICAgLy8gcmVzdWx0cyBpcyBub3cgdGhlIG9yaWdpbmFsIGFycmF5IG9mIGZpbGVzIHNvcnRlZCBieVxuICogICAgIC8vIG1vZGlmaWVkIGRhdGVcbiAqIH0pO1xuICpcbiAqIC8vIEJ5IG1vZGlmeWluZyB0aGUgY2FsbGJhY2sgcGFyYW1ldGVyIHRoZVxuICogLy8gc29ydGluZyBvcmRlciBjYW4gYmUgaW5mbHVlbmNlZDpcbiAqXG4gKiAvLyBhc2NlbmRpbmcgb3JkZXJcbiAqIGFzeW5jLnNvcnRCeShbMSw5LDMsNV0sIGZ1bmN0aW9uKHgsIGNhbGxiYWNrKSB7XG4gKiAgICAgY2FsbGJhY2sobnVsbCwgeCk7XG4gKiB9LCBmdW5jdGlvbihlcnIscmVzdWx0KSB7XG4gKiAgICAgLy8gcmVzdWx0IGNhbGxiYWNrXG4gKiB9KTtcbiAqXG4gKiAvLyBkZXNjZW5kaW5nIG9yZGVyXG4gKiBhc3luYy5zb3J0QnkoWzEsOSwzLDVdLCBmdW5jdGlvbih4LCBjYWxsYmFjaykge1xuICogICAgIGNhbGxiYWNrKG51bGwsIHgqLTEpOyAgICAvLzwtIHgqLTEgaW5zdGVhZCBvZiB4LCB0dXJucyB0aGUgb3JkZXIgYXJvdW5kXG4gKiB9LCBmdW5jdGlvbihlcnIscmVzdWx0KSB7XG4gKiAgICAgLy8gcmVzdWx0IGNhbGxiYWNrXG4gKiB9KTtcbiAqL1xuZnVuY3Rpb24gc29ydEJ5IChjb2xsLCBpdGVyYXRlZSwgY2FsbGJhY2spIHtcbiAgICB2YXIgX2l0ZXJhdGVlID0gd3JhcEFzeW5jKGl0ZXJhdGVlKTtcbiAgICBtYXAoY29sbCwgZnVuY3Rpb24gKHgsIGNhbGxiYWNrKSB7XG4gICAgICAgIF9pdGVyYXRlZSh4LCBmdW5jdGlvbiAoZXJyLCBjcml0ZXJpYSkge1xuICAgICAgICAgICAgaWYgKGVycikgcmV0dXJuIGNhbGxiYWNrKGVycik7XG4gICAgICAgICAgICBjYWxsYmFjayhudWxsLCB7dmFsdWU6IHgsIGNyaXRlcmlhOiBjcml0ZXJpYX0pO1xuICAgICAgICB9KTtcbiAgICB9LCBmdW5jdGlvbiAoZXJyLCByZXN1bHRzKSB7XG4gICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICAgICAgICBjYWxsYmFjayhudWxsLCBhcnJheU1hcChyZXN1bHRzLnNvcnQoY29tcGFyYXRvciksIGJhc2VQcm9wZXJ0eSgndmFsdWUnKSkpO1xuICAgIH0pO1xuXG4gICAgZnVuY3Rpb24gY29tcGFyYXRvcihsZWZ0LCByaWdodCkge1xuICAgICAgICB2YXIgYSA9IGxlZnQuY3JpdGVyaWEsIGIgPSByaWdodC5jcml0ZXJpYTtcbiAgICAgICAgcmV0dXJuIGEgPCBiID8gLTEgOiBhID4gYiA/IDEgOiAwO1xuICAgIH1cbn1cblxuLyoqXG4gKiBTZXRzIGEgdGltZSBsaW1pdCBvbiBhbiBhc3luY2hyb25vdXMgZnVuY3Rpb24uIElmIHRoZSBmdW5jdGlvbiBkb2VzIG5vdCBjYWxsXG4gKiBpdHMgY2FsbGJhY2sgd2l0aGluIHRoZSBzcGVjaWZpZWQgbWlsbGlzZWNvbmRzLCBpdCB3aWxsIGJlIGNhbGxlZCB3aXRoIGFcbiAqIHRpbWVvdXQgZXJyb3IuIFRoZSBjb2RlIHByb3BlcnR5IGZvciB0aGUgZXJyb3Igb2JqZWN0IHdpbGwgYmUgYCdFVElNRURPVVQnYC5cbiAqXG4gKiBAbmFtZSB0aW1lb3V0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOlV0aWxzXG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgVXRpbFxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBhc3luY0ZuIC0gVGhlIGFzeW5jIGZ1bmN0aW9uIHRvIGxpbWl0IGluIHRpbWUuXG4gKiBAcGFyYW0ge251bWJlcn0gbWlsbGlzZWNvbmRzIC0gVGhlIHNwZWNpZmllZCB0aW1lIGxpbWl0LlxuICogQHBhcmFtIHsqfSBbaW5mb10gLSBBbnkgdmFyaWFibGUgeW91IHdhbnQgYXR0YWNoZWQgKGBzdHJpbmdgLCBgb2JqZWN0YCwgZXRjKVxuICogdG8gdGltZW91dCBFcnJvciBmb3IgbW9yZSBpbmZvcm1hdGlvbi4uXG4gKiBAcmV0dXJucyB7QXN5bmNGdW5jdGlvbn0gUmV0dXJucyBhIHdyYXBwZWQgZnVuY3Rpb24gdGhhdCBjYW4gYmUgdXNlZCB3aXRoIGFueVxuICogb2YgdGhlIGNvbnRyb2wgZmxvdyBmdW5jdGlvbnMuXG4gKiBJbnZva2UgdGhpcyBmdW5jdGlvbiB3aXRoIHRoZSBzYW1lIHBhcmFtZXRlcnMgYXMgeW91IHdvdWxkIGBhc3luY0Z1bmNgLlxuICogQGV4YW1wbGVcbiAqXG4gKiBmdW5jdGlvbiBteUZ1bmN0aW9uKGZvbywgY2FsbGJhY2spIHtcbiAqICAgICBkb0FzeW5jVGFzayhmb28sIGZ1bmN0aW9uKGVyciwgZGF0YSkge1xuICogICAgICAgICAvLyBoYW5kbGUgZXJyb3JzXG4gKiAgICAgICAgIGlmIChlcnIpIHJldHVybiBjYWxsYmFjayhlcnIpO1xuICpcbiAqICAgICAgICAgLy8gZG8gc29tZSBzdHVmZiAuLi5cbiAqXG4gKiAgICAgICAgIC8vIHJldHVybiBwcm9jZXNzZWQgZGF0YVxuICogICAgICAgICByZXR1cm4gY2FsbGJhY2sobnVsbCwgZGF0YSk7XG4gKiAgICAgfSk7XG4gKiB9XG4gKlxuICogdmFyIHdyYXBwZWQgPSBhc3luYy50aW1lb3V0KG15RnVuY3Rpb24sIDEwMDApO1xuICpcbiAqIC8vIGNhbGwgYHdyYXBwZWRgIGFzIHlvdSB3b3VsZCBgbXlGdW5jdGlvbmBcbiAqIHdyYXBwZWQoeyBiYXI6ICdiYXInIH0sIGZ1bmN0aW9uKGVyciwgZGF0YSkge1xuICogICAgIC8vIGlmIGBteUZ1bmN0aW9uYCB0YWtlcyA8IDEwMDAgbXMgdG8gZXhlY3V0ZSwgYGVycmBcbiAqICAgICAvLyBhbmQgYGRhdGFgIHdpbGwgaGF2ZSB0aGVpciBleHBlY3RlZCB2YWx1ZXNcbiAqXG4gKiAgICAgLy8gZWxzZSBgZXJyYCB3aWxsIGJlIGFuIEVycm9yIHdpdGggdGhlIGNvZGUgJ0VUSU1FRE9VVCdcbiAqIH0pO1xuICovXG5mdW5jdGlvbiB0aW1lb3V0KGFzeW5jRm4sIG1pbGxpc2Vjb25kcywgaW5mbykge1xuICAgIHZhciBmbiA9IHdyYXBBc3luYyhhc3luY0ZuKTtcblxuICAgIHJldHVybiBpbml0aWFsUGFyYW1zKGZ1bmN0aW9uIChhcmdzLCBjYWxsYmFjaykge1xuICAgICAgICB2YXIgdGltZWRPdXQgPSBmYWxzZTtcbiAgICAgICAgdmFyIHRpbWVyO1xuXG4gICAgICAgIGZ1bmN0aW9uIHRpbWVvdXRDYWxsYmFjaygpIHtcbiAgICAgICAgICAgIHZhciBuYW1lID0gYXN5bmNGbi5uYW1lIHx8ICdhbm9ueW1vdXMnO1xuICAgICAgICAgICAgdmFyIGVycm9yICA9IG5ldyBFcnJvcignQ2FsbGJhY2sgZnVuY3Rpb24gXCInICsgbmFtZSArICdcIiB0aW1lZCBvdXQuJyk7XG4gICAgICAgICAgICBlcnJvci5jb2RlID0gJ0VUSU1FRE9VVCc7XG4gICAgICAgICAgICBpZiAoaW5mbykge1xuICAgICAgICAgICAgICAgIGVycm9yLmluZm8gPSBpbmZvO1xuICAgICAgICAgICAgfVxuICAgICAgICAgICAgdGltZWRPdXQgPSB0cnVlO1xuICAgICAgICAgICAgY2FsbGJhY2soZXJyb3IpO1xuICAgICAgICB9XG5cbiAgICAgICAgYXJncy5wdXNoKGZ1bmN0aW9uICgpIHtcbiAgICAgICAgICAgIGlmICghdGltZWRPdXQpIHtcbiAgICAgICAgICAgICAgICBjYWxsYmFjay5hcHBseShudWxsLCBhcmd1bWVudHMpO1xuICAgICAgICAgICAgICAgIGNsZWFyVGltZW91dCh0aW1lcik7XG4gICAgICAgICAgICB9XG4gICAgICAgIH0pO1xuXG4gICAgICAgIC8vIHNldHVwIHRpbWVyIGFuZCBjYWxsIG9yaWdpbmFsIGZ1bmN0aW9uXG4gICAgICAgIHRpbWVyID0gc2V0VGltZW91dCh0aW1lb3V0Q2FsbGJhY2ssIG1pbGxpc2Vjb25kcyk7XG4gICAgICAgIGZuLmFwcGx5KG51bGwsIGFyZ3MpO1xuICAgIH0pO1xufVxuXG4vKiBCdWlsdC1pbiBtZXRob2QgcmVmZXJlbmNlcyBmb3IgdGhvc2Ugd2l0aCB0aGUgc2FtZSBuYW1lIGFzIG90aGVyIGBsb2Rhc2hgIG1ldGhvZHMuICovXG52YXIgbmF0aXZlQ2VpbCA9IE1hdGguY2VpbDtcbnZhciBuYXRpdmVNYXggPSBNYXRoLm1heDtcblxuLyoqXG4gKiBUaGUgYmFzZSBpbXBsZW1lbnRhdGlvbiBvZiBgXy5yYW5nZWAgYW5kIGBfLnJhbmdlUmlnaHRgIHdoaWNoIGRvZXNuJ3RcbiAqIGNvZXJjZSBhcmd1bWVudHMuXG4gKlxuICogQHByaXZhdGVcbiAqIEBwYXJhbSB7bnVtYmVyfSBzdGFydCBUaGUgc3RhcnQgb2YgdGhlIHJhbmdlLlxuICogQHBhcmFtIHtudW1iZXJ9IGVuZCBUaGUgZW5kIG9mIHRoZSByYW5nZS5cbiAqIEBwYXJhbSB7bnVtYmVyfSBzdGVwIFRoZSB2YWx1ZSB0byBpbmNyZW1lbnQgb3IgZGVjcmVtZW50IGJ5LlxuICogQHBhcmFtIHtib29sZWFufSBbZnJvbVJpZ2h0XSBTcGVjaWZ5IGl0ZXJhdGluZyBmcm9tIHJpZ2h0IHRvIGxlZnQuXG4gKiBAcmV0dXJucyB7QXJyYXl9IFJldHVybnMgdGhlIHJhbmdlIG9mIG51bWJlcnMuXG4gKi9cbmZ1bmN0aW9uIGJhc2VSYW5nZShzdGFydCwgZW5kLCBzdGVwLCBmcm9tUmlnaHQpIHtcbiAgdmFyIGluZGV4ID0gLTEsXG4gICAgICBsZW5ndGggPSBuYXRpdmVNYXgobmF0aXZlQ2VpbCgoZW5kIC0gc3RhcnQpIC8gKHN0ZXAgfHwgMSkpLCAwKSxcbiAgICAgIHJlc3VsdCA9IEFycmF5KGxlbmd0aCk7XG5cbiAgd2hpbGUgKGxlbmd0aC0tKSB7XG4gICAgcmVzdWx0W2Zyb21SaWdodCA/IGxlbmd0aCA6ICsraW5kZXhdID0gc3RhcnQ7XG4gICAgc3RhcnQgKz0gc3RlcDtcbiAgfVxuICByZXR1cm4gcmVzdWx0O1xufVxuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFt0aW1lc117QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnRpbWVzfSBidXQgcnVucyBhIG1heGltdW0gb2YgYGxpbWl0YCBhc3luYyBvcGVyYXRpb25zIGF0IGFcbiAqIHRpbWUuXG4gKlxuICogQG5hbWUgdGltZXNMaW1pdFxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb250cm9sRmxvd1xuICogQG1ldGhvZFxuICogQHNlZSBbYXN5bmMudGltZXNde0BsaW5rIG1vZHVsZTpDb250cm9sRmxvdy50aW1lc31cbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7bnVtYmVyfSBjb3VudCAtIFRoZSBudW1iZXIgb2YgdGltZXMgdG8gcnVuIHRoZSBmdW5jdGlvbi5cbiAqIEBwYXJhbSB7bnVtYmVyfSBsaW1pdCAtIFRoZSBtYXhpbXVtIG51bWJlciBvZiBhc3luYyBvcGVyYXRpb25zIGF0IGEgdGltZS5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBUaGUgYXN5bmMgZnVuY3Rpb24gdG8gY2FsbCBgbmAgdGltZXMuXG4gKiBJbnZva2VkIHdpdGggdGhlIGl0ZXJhdGlvbiBpbmRleCBhbmQgYSBjYWxsYmFjazogKG4sIG5leHQpLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gY2FsbGJhY2sgLSBzZWUgW2FzeW5jLm1hcF17QGxpbmsgbW9kdWxlOkNvbGxlY3Rpb25zLm1hcH0uXG4gKi9cbmZ1bmN0aW9uIHRpbWVMaW1pdChjb3VudCwgbGltaXQsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIHZhciBfaXRlcmF0ZWUgPSB3cmFwQXN5bmMoaXRlcmF0ZWUpO1xuICAgIG1hcExpbWl0KGJhc2VSYW5nZSgwLCBjb3VudCwgMSksIGxpbWl0LCBfaXRlcmF0ZWUsIGNhbGxiYWNrKTtcbn1cblxuLyoqXG4gKiBDYWxscyB0aGUgYGl0ZXJhdGVlYCBmdW5jdGlvbiBgbmAgdGltZXMsIGFuZCBhY2N1bXVsYXRlcyByZXN1bHRzIGluIHRoZSBzYW1lXG4gKiBtYW5uZXIgeW91IHdvdWxkIHVzZSB3aXRoIFttYXBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9LlxuICpcbiAqIEBuYW1lIHRpbWVzXG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAc2VlIFthc3luYy5tYXBde0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge251bWJlcn0gbiAtIFRoZSBudW1iZXIgb2YgdGltZXMgdG8gcnVuIHRoZSBmdW5jdGlvbi5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBUaGUgYXN5bmMgZnVuY3Rpb24gdG8gY2FsbCBgbmAgdGltZXMuXG4gKiBJbnZva2VkIHdpdGggdGhlIGl0ZXJhdGlvbiBpbmRleCBhbmQgYSBjYWxsYmFjazogKG4sIG5leHQpLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gY2FsbGJhY2sgLSBzZWUge0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9LlxuICogQGV4YW1wbGVcbiAqXG4gKiAvLyBQcmV0ZW5kIHRoaXMgaXMgc29tZSBjb21wbGljYXRlZCBhc3luYyBmYWN0b3J5XG4gKiB2YXIgY3JlYXRlVXNlciA9IGZ1bmN0aW9uKGlkLCBjYWxsYmFjaykge1xuICogICAgIGNhbGxiYWNrKG51bGwsIHtcbiAqICAgICAgICAgaWQ6ICd1c2VyJyArIGlkXG4gKiAgICAgfSk7XG4gKiB9O1xuICpcbiAqIC8vIGdlbmVyYXRlIDUgdXNlcnNcbiAqIGFzeW5jLnRpbWVzKDUsIGZ1bmN0aW9uKG4sIG5leHQpIHtcbiAqICAgICBjcmVhdGVVc2VyKG4sIGZ1bmN0aW9uKGVyciwgdXNlcikge1xuICogICAgICAgICBuZXh0KGVyciwgdXNlcik7XG4gKiAgICAgfSk7XG4gKiB9LCBmdW5jdGlvbihlcnIsIHVzZXJzKSB7XG4gKiAgICAgLy8gd2Ugc2hvdWxkIG5vdyBoYXZlIDUgdXNlcnNcbiAqIH0pO1xuICovXG52YXIgdGltZXMgPSBkb0xpbWl0KHRpbWVMaW1pdCwgSW5maW5pdHkpO1xuXG4vKipcbiAqIFRoZSBzYW1lIGFzIFt0aW1lc117QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LnRpbWVzfSBidXQgcnVucyBvbmx5IGEgc2luZ2xlIGFzeW5jIG9wZXJhdGlvbiBhdCBhIHRpbWUuXG4gKlxuICogQG5hbWUgdGltZXNTZXJpZXNcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLnRpbWVzXXtAbGluayBtb2R1bGU6Q29udHJvbEZsb3cudGltZXN9XG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge251bWJlcn0gbiAtIFRoZSBudW1iZXIgb2YgdGltZXMgdG8gcnVuIHRoZSBmdW5jdGlvbi5cbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gaXRlcmF0ZWUgLSBUaGUgYXN5bmMgZnVuY3Rpb24gdG8gY2FsbCBgbmAgdGltZXMuXG4gKiBJbnZva2VkIHdpdGggdGhlIGl0ZXJhdGlvbiBpbmRleCBhbmQgYSBjYWxsYmFjazogKG4sIG5leHQpLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gY2FsbGJhY2sgLSBzZWUge0BsaW5rIG1vZHVsZTpDb2xsZWN0aW9ucy5tYXB9LlxuICovXG52YXIgdGltZXNTZXJpZXMgPSBkb0xpbWl0KHRpbWVMaW1pdCwgMSk7XG5cbi8qKlxuICogQSByZWxhdGl2ZSBvZiBgcmVkdWNlYC4gIFRha2VzIGFuIE9iamVjdCBvciBBcnJheSwgYW5kIGl0ZXJhdGVzIG92ZXIgZWFjaFxuICogZWxlbWVudCBpbiBzZXJpZXMsIGVhY2ggc3RlcCBwb3RlbnRpYWxseSBtdXRhdGluZyBhbiBgYWNjdW11bGF0b3JgIHZhbHVlLlxuICogVGhlIHR5cGUgb2YgdGhlIGFjY3VtdWxhdG9yIGRlZmF1bHRzIHRvIHRoZSB0eXBlIG9mIGNvbGxlY3Rpb24gcGFzc2VkIGluLlxuICpcbiAqIEBuYW1lIHRyYW5zZm9ybVxuICogQHN0YXRpY1xuICogQG1lbWJlck9mIG1vZHVsZTpDb2xsZWN0aW9uc1xuICogQG1ldGhvZFxuICogQGNhdGVnb3J5IENvbGxlY3Rpb25cbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSBjb2xsIC0gQSBjb2xsZWN0aW9uIHRvIGl0ZXJhdGUgb3Zlci5cbiAqIEBwYXJhbSB7Kn0gW2FjY3VtdWxhdG9yXSAtIFRoZSBpbml0aWFsIHN0YXRlIG9mIHRoZSB0cmFuc2Zvcm0uICBJZiBvbWl0dGVkLFxuICogaXQgd2lsbCBkZWZhdWx0IHRvIGFuIGVtcHR5IE9iamVjdCBvciBBcnJheSwgZGVwZW5kaW5nIG9uIHRoZSB0eXBlIG9mIGBjb2xsYFxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEEgZnVuY3Rpb24gYXBwbGllZCB0byBlYWNoIGl0ZW0gaW4gdGhlXG4gKiBjb2xsZWN0aW9uIHRoYXQgcG90ZW50aWFsbHkgbW9kaWZpZXMgdGhlIGFjY3VtdWxhdG9yLlxuICogSW52b2tlZCB3aXRoIChhY2N1bXVsYXRvciwgaXRlbSwga2V5LCBjYWxsYmFjaykuXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQSBjYWxsYmFjayB3aGljaCBpcyBjYWxsZWQgYWZ0ZXIgYWxsIHRoZVxuICogYGl0ZXJhdGVlYCBmdW5jdGlvbnMgaGF2ZSBmaW5pc2hlZC4gUmVzdWx0IGlzIHRoZSB0cmFuc2Zvcm1lZCBhY2N1bXVsYXRvci5cbiAqIEludm9rZWQgd2l0aCAoZXJyLCByZXN1bHQpLlxuICogQGV4YW1wbGVcbiAqXG4gKiBhc3luYy50cmFuc2Zvcm0oWzEsMiwzXSwgZnVuY3Rpb24oYWNjLCBpdGVtLCBpbmRleCwgY2FsbGJhY2spIHtcbiAqICAgICAvLyBwb2ludGxlc3MgYXN5bmM6XG4gKiAgICAgcHJvY2Vzcy5uZXh0VGljayhmdW5jdGlvbigpIHtcbiAqICAgICAgICAgYWNjLnB1c2goaXRlbSAqIDIpXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwpXG4gKiAgICAgfSk7XG4gKiB9LCBmdW5jdGlvbihlcnIsIHJlc3VsdCkge1xuICogICAgIC8vIHJlc3VsdCBpcyBub3cgZXF1YWwgdG8gWzIsIDQsIDZdXG4gKiB9KTtcbiAqXG4gKiBAZXhhbXBsZVxuICpcbiAqIGFzeW5jLnRyYW5zZm9ybSh7YTogMSwgYjogMiwgYzogM30sIGZ1bmN0aW9uIChvYmosIHZhbCwga2V5LCBjYWxsYmFjaykge1xuICogICAgIHNldEltbWVkaWF0ZShmdW5jdGlvbiAoKSB7XG4gKiAgICAgICAgIG9ialtrZXldID0gdmFsICogMjtcbiAqICAgICAgICAgY2FsbGJhY2soKTtcbiAqICAgICB9KVxuICogfSwgZnVuY3Rpb24gKGVyciwgcmVzdWx0KSB7XG4gKiAgICAgLy8gcmVzdWx0IGlzIGVxdWFsIHRvIHthOiAyLCBiOiA0LCBjOiA2fVxuICogfSlcbiAqL1xuZnVuY3Rpb24gdHJhbnNmb3JtIChjb2xsLCBhY2N1bXVsYXRvciwgaXRlcmF0ZWUsIGNhbGxiYWNrKSB7XG4gICAgaWYgKGFyZ3VtZW50cy5sZW5ndGggPD0gMykge1xuICAgICAgICBjYWxsYmFjayA9IGl0ZXJhdGVlO1xuICAgICAgICBpdGVyYXRlZSA9IGFjY3VtdWxhdG9yO1xuICAgICAgICBhY2N1bXVsYXRvciA9IGlzQXJyYXkoY29sbCkgPyBbXSA6IHt9O1xuICAgIH1cbiAgICBjYWxsYmFjayA9IG9uY2UoY2FsbGJhY2sgfHwgbm9vcCk7XG4gICAgdmFyIF9pdGVyYXRlZSA9IHdyYXBBc3luYyhpdGVyYXRlZSk7XG5cbiAgICBlYWNoT2YoY29sbCwgZnVuY3Rpb24odiwgaywgY2IpIHtcbiAgICAgICAgX2l0ZXJhdGVlKGFjY3VtdWxhdG9yLCB2LCBrLCBjYik7XG4gICAgfSwgZnVuY3Rpb24oZXJyKSB7XG4gICAgICAgIGNhbGxiYWNrKGVyciwgYWNjdW11bGF0b3IpO1xuICAgIH0pO1xufVxuXG4vKipcbiAqIEl0IHJ1bnMgZWFjaCB0YXNrIGluIHNlcmllcyBidXQgc3RvcHMgd2hlbmV2ZXIgYW55IG9mIHRoZSBmdW5jdGlvbnMgd2VyZVxuICogc3VjY2Vzc2Z1bC4gSWYgb25lIG9mIHRoZSB0YXNrcyB3ZXJlIHN1Y2Nlc3NmdWwsIHRoZSBgY2FsbGJhY2tgIHdpbGwgYmVcbiAqIHBhc3NlZCB0aGUgcmVzdWx0IG9mIHRoZSBzdWNjZXNzZnVsIHRhc2suIElmIGFsbCB0YXNrcyBmYWlsLCB0aGUgY2FsbGJhY2tcbiAqIHdpbGwgYmUgcGFzc2VkIHRoZSBlcnJvciBhbmQgcmVzdWx0IChpZiBhbnkpIG9mIHRoZSBmaW5hbCBhdHRlbXB0LlxuICpcbiAqIEBuYW1lIHRyeUVhY2hcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXJyYXl8SXRlcmFibGV8T2JqZWN0fSB0YXNrcyAtIEEgY29sbGVjdGlvbiBjb250YWluaW5nIGZ1bmN0aW9ucyB0b1xuICogcnVuLCBlYWNoIGZ1bmN0aW9uIGlzIHBhc3NlZCBhIGBjYWxsYmFjayhlcnIsIHJlc3VsdClgIGl0IG11c3QgY2FsbCBvblxuICogY29tcGxldGlvbiB3aXRoIGFuIGVycm9yIGBlcnJgICh3aGljaCBjYW4gYmUgYG51bGxgKSBhbmQgYW4gb3B0aW9uYWwgYHJlc3VsdGBcbiAqIHZhbHVlLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEFuIG9wdGlvbmFsIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCB3aGVuIG9uZVxuICogb2YgdGhlIHRhc2tzIGhhcyBzdWNjZWVkZWQsIG9yIGFsbCBoYXZlIGZhaWxlZC4gSXQgcmVjZWl2ZXMgdGhlIGBlcnJgIGFuZFxuICogYHJlc3VsdGAgYXJndW1lbnRzIG9mIHRoZSBsYXN0IGF0dGVtcHQgYXQgY29tcGxldGluZyB0aGUgYHRhc2tgLiBJbnZva2VkIHdpdGhcbiAqIChlcnIsIHJlc3VsdHMpLlxuICogQGV4YW1wbGVcbiAqIGFzeW5jLnRyeUVhY2goW1xuICogICAgIGZ1bmN0aW9uIGdldERhdGFGcm9tRmlyc3RXZWJzaXRlKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIC8vIFRyeSBnZXR0aW5nIHRoZSBkYXRhIGZyb20gdGhlIGZpcnN0IHdlYnNpdGVcbiAqICAgICAgICAgY2FsbGJhY2soZXJyLCBkYXRhKTtcbiAqICAgICB9LFxuICogICAgIGZ1bmN0aW9uIGdldERhdGFGcm9tU2Vjb25kV2Vic2l0ZShjYWxsYmFjaykge1xuICogICAgICAgICAvLyBGaXJzdCB3ZWJzaXRlIGZhaWxlZCxcbiAqICAgICAgICAgLy8gVHJ5IGdldHRpbmcgdGhlIGRhdGEgZnJvbSB0aGUgYmFja3VwIHdlYnNpdGVcbiAqICAgICAgICAgY2FsbGJhY2soZXJyLCBkYXRhKTtcbiAqICAgICB9XG4gKiBdLFxuICogLy8gb3B0aW9uYWwgY2FsbGJhY2tcbiAqIGZ1bmN0aW9uKGVyciwgcmVzdWx0cykge1xuICogICAgIE5vdyBkbyBzb21ldGhpbmcgd2l0aCB0aGUgZGF0YS5cbiAqIH0pO1xuICpcbiAqL1xuZnVuY3Rpb24gdHJ5RWFjaCh0YXNrcywgY2FsbGJhY2spIHtcbiAgICB2YXIgZXJyb3IgPSBudWxsO1xuICAgIHZhciByZXN1bHQ7XG4gICAgY2FsbGJhY2sgPSBjYWxsYmFjayB8fCBub29wO1xuICAgIGVhY2hTZXJpZXModGFza3MsIGZ1bmN0aW9uKHRhc2ssIGNhbGxiYWNrKSB7XG4gICAgICAgIHdyYXBBc3luYyh0YXNrKShmdW5jdGlvbiAoZXJyLCByZXMvKiwgLi4uYXJncyovKSB7XG4gICAgICAgICAgICBpZiAoYXJndW1lbnRzLmxlbmd0aCA+IDIpIHtcbiAgICAgICAgICAgICAgICByZXN1bHQgPSBzbGljZShhcmd1bWVudHMsIDEpO1xuICAgICAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgICAgICByZXN1bHQgPSByZXM7XG4gICAgICAgICAgICB9XG4gICAgICAgICAgICBlcnJvciA9IGVycjtcbiAgICAgICAgICAgIGNhbGxiYWNrKCFlcnIpO1xuICAgICAgICB9KTtcbiAgICB9LCBmdW5jdGlvbiAoKSB7XG4gICAgICAgIGNhbGxiYWNrKGVycm9yLCByZXN1bHQpO1xuICAgIH0pO1xufVxuXG4vKipcbiAqIFVuZG9lcyBhIFttZW1vaXplXXtAbGluayBtb2R1bGU6VXRpbHMubWVtb2l6ZX1kIGZ1bmN0aW9uLCByZXZlcnRpbmcgaXQgdG8gdGhlIG9yaWdpbmFsLFxuICogdW5tZW1vaXplZCBmb3JtLiBIYW5keSBmb3IgdGVzdGluZy5cbiAqXG4gKiBAbmFtZSB1bm1lbW9pemVcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6VXRpbHNcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLm1lbW9pemVde0BsaW5rIG1vZHVsZTpVdGlscy5tZW1vaXplfVxuICogQGNhdGVnb3J5IFV0aWxcbiAqIEBwYXJhbSB7QXN5bmNGdW5jdGlvbn0gZm4gLSB0aGUgbWVtb2l6ZWQgZnVuY3Rpb25cbiAqIEByZXR1cm5zIHtBc3luY0Z1bmN0aW9ufSBhIGZ1bmN0aW9uIHRoYXQgY2FsbHMgdGhlIG9yaWdpbmFsIHVubWVtb2l6ZWQgZnVuY3Rpb25cbiAqL1xuZnVuY3Rpb24gdW5tZW1vaXplKGZuKSB7XG4gICAgcmV0dXJuIGZ1bmN0aW9uICgpIHtcbiAgICAgICAgcmV0dXJuIChmbi51bm1lbW9pemVkIHx8IGZuKS5hcHBseShudWxsLCBhcmd1bWVudHMpO1xuICAgIH07XG59XG5cbi8qKlxuICogUmVwZWF0ZWRseSBjYWxsIGBpdGVyYXRlZWAsIHdoaWxlIGB0ZXN0YCByZXR1cm5zIGB0cnVlYC4gQ2FsbHMgYGNhbGxiYWNrYCB3aGVuXG4gKiBzdG9wcGVkLCBvciBhbiBlcnJvciBvY2N1cnMuXG4gKlxuICogQG5hbWUgd2hpbHN0XG4gKiBAc3RhdGljXG4gKiBAbWVtYmVyT2YgbW9kdWxlOkNvbnRyb2xGbG93XG4gKiBAbWV0aG9kXG4gKiBAY2F0ZWdvcnkgQ29udHJvbCBGbG93XG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSB0ZXN0IC0gc3luY2hyb25vdXMgdHJ1dGggdGVzdCB0byBwZXJmb3JtIGJlZm9yZSBlYWNoXG4gKiBleGVjdXRpb24gb2YgYGl0ZXJhdGVlYC4gSW52b2tlZCB3aXRoICgpLlxuICogQHBhcmFtIHtBc3luY0Z1bmN0aW9ufSBpdGVyYXRlZSAtIEFuIGFzeW5jIGZ1bmN0aW9uIHdoaWNoIGlzIGNhbGxlZCBlYWNoIHRpbWVcbiAqIGB0ZXN0YCBwYXNzZXMuIEludm9rZWQgd2l0aCAoY2FsbGJhY2spLlxuICogQHBhcmFtIHtGdW5jdGlvbn0gW2NhbGxiYWNrXSAtIEEgY2FsbGJhY2sgd2hpY2ggaXMgY2FsbGVkIGFmdGVyIHRoZSB0ZXN0XG4gKiBmdW5jdGlvbiBoYXMgZmFpbGVkIGFuZCByZXBlYXRlZCBleGVjdXRpb24gb2YgYGl0ZXJhdGVlYCBoYXMgc3RvcHBlZC4gYGNhbGxiYWNrYFxuICogd2lsbCBiZSBwYXNzZWQgYW4gZXJyb3IgYW5kIGFueSBhcmd1bWVudHMgcGFzc2VkIHRvIHRoZSBmaW5hbCBgaXRlcmF0ZWVgJ3NcbiAqIGNhbGxiYWNrLiBJbnZva2VkIHdpdGggKGVyciwgW3Jlc3VsdHNdKTtcbiAqIEByZXR1cm5zIHVuZGVmaW5lZFxuICogQGV4YW1wbGVcbiAqXG4gKiB2YXIgY291bnQgPSAwO1xuICogYXN5bmMud2hpbHN0KFxuICogICAgIGZ1bmN0aW9uKCkgeyByZXR1cm4gY291bnQgPCA1OyB9LFxuICogICAgIGZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIGNvdW50Kys7XG4gKiAgICAgICAgIHNldFRpbWVvdXQoZnVuY3Rpb24oKSB7XG4gKiAgICAgICAgICAgICBjYWxsYmFjayhudWxsLCBjb3VudCk7XG4gKiAgICAgICAgIH0sIDEwMDApO1xuICogICAgIH0sXG4gKiAgICAgZnVuY3Rpb24gKGVyciwgbikge1xuICogICAgICAgICAvLyA1IHNlY29uZHMgaGF2ZSBwYXNzZWQsIG4gPSA1XG4gKiAgICAgfVxuICogKTtcbiAqL1xuZnVuY3Rpb24gd2hpbHN0KHRlc3QsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIGNhbGxiYWNrID0gb25seU9uY2UoY2FsbGJhY2sgfHwgbm9vcCk7XG4gICAgdmFyIF9pdGVyYXRlZSA9IHdyYXBBc3luYyhpdGVyYXRlZSk7XG4gICAgaWYgKCF0ZXN0KCkpIHJldHVybiBjYWxsYmFjayhudWxsKTtcbiAgICB2YXIgbmV4dCA9IGZ1bmN0aW9uKGVyci8qLCAuLi5hcmdzKi8pIHtcbiAgICAgICAgaWYgKGVycikgcmV0dXJuIGNhbGxiYWNrKGVycik7XG4gICAgICAgIGlmICh0ZXN0KCkpIHJldHVybiBfaXRlcmF0ZWUobmV4dCk7XG4gICAgICAgIHZhciBhcmdzID0gc2xpY2UoYXJndW1lbnRzLCAxKTtcbiAgICAgICAgY2FsbGJhY2suYXBwbHkobnVsbCwgW251bGxdLmNvbmNhdChhcmdzKSk7XG4gICAgfTtcbiAgICBfaXRlcmF0ZWUobmV4dCk7XG59XG5cbi8qKlxuICogUmVwZWF0ZWRseSBjYWxsIGBpdGVyYXRlZWAgdW50aWwgYHRlc3RgIHJldHVybnMgYHRydWVgLiBDYWxscyBgY2FsbGJhY2tgIHdoZW5cbiAqIHN0b3BwZWQsIG9yIGFuIGVycm9yIG9jY3Vycy4gYGNhbGxiYWNrYCB3aWxsIGJlIHBhc3NlZCBhbiBlcnJvciBhbmQgYW55XG4gKiBhcmd1bWVudHMgcGFzc2VkIHRvIHRoZSBmaW5hbCBgaXRlcmF0ZWVgJ3MgY2FsbGJhY2suXG4gKlxuICogVGhlIGludmVyc2Ugb2YgW3doaWxzdF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LndoaWxzdH0uXG4gKlxuICogQG5hbWUgdW50aWxcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBzZWUgW2FzeW5jLndoaWxzdF17QGxpbmsgbW9kdWxlOkNvbnRyb2xGbG93LndoaWxzdH1cbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7RnVuY3Rpb259IHRlc3QgLSBzeW5jaHJvbm91cyB0cnV0aCB0ZXN0IHRvIHBlcmZvcm0gYmVmb3JlIGVhY2hcbiAqIGV4ZWN1dGlvbiBvZiBgaXRlcmF0ZWVgLiBJbnZva2VkIHdpdGggKCkuXG4gKiBAcGFyYW0ge0FzeW5jRnVuY3Rpb259IGl0ZXJhdGVlIC0gQW4gYXN5bmMgZnVuY3Rpb24gd2hpY2ggaXMgY2FsbGVkIGVhY2ggdGltZVxuICogYHRlc3RgIGZhaWxzLiBJbnZva2VkIHdpdGggKGNhbGxiYWNrKS5cbiAqIEBwYXJhbSB7RnVuY3Rpb259IFtjYWxsYmFja10gLSBBIGNhbGxiYWNrIHdoaWNoIGlzIGNhbGxlZCBhZnRlciB0aGUgdGVzdFxuICogZnVuY3Rpb24gaGFzIHBhc3NlZCBhbmQgcmVwZWF0ZWQgZXhlY3V0aW9uIG9mIGBpdGVyYXRlZWAgaGFzIHN0b3BwZWQuIGBjYWxsYmFja2BcbiAqIHdpbGwgYmUgcGFzc2VkIGFuIGVycm9yIGFuZCBhbnkgYXJndW1lbnRzIHBhc3NlZCB0byB0aGUgZmluYWwgYGl0ZXJhdGVlYCdzXG4gKiBjYWxsYmFjay4gSW52b2tlZCB3aXRoIChlcnIsIFtyZXN1bHRzXSk7XG4gKi9cbmZ1bmN0aW9uIHVudGlsKHRlc3QsIGl0ZXJhdGVlLCBjYWxsYmFjaykge1xuICAgIHdoaWxzdChmdW5jdGlvbigpIHtcbiAgICAgICAgcmV0dXJuICF0ZXN0LmFwcGx5KHRoaXMsIGFyZ3VtZW50cyk7XG4gICAgfSwgaXRlcmF0ZWUsIGNhbGxiYWNrKTtcbn1cblxuLyoqXG4gKiBSdW5zIHRoZSBgdGFza3NgIGFycmF5IG9mIGZ1bmN0aW9ucyBpbiBzZXJpZXMsIGVhY2ggcGFzc2luZyB0aGVpciByZXN1bHRzIHRvXG4gKiB0aGUgbmV4dCBpbiB0aGUgYXJyYXkuIEhvd2V2ZXIsIGlmIGFueSBvZiB0aGUgYHRhc2tzYCBwYXNzIGFuIGVycm9yIHRvIHRoZWlyXG4gKiBvd24gY2FsbGJhY2ssIHRoZSBuZXh0IGZ1bmN0aW9uIGlzIG5vdCBleGVjdXRlZCwgYW5kIHRoZSBtYWluIGBjYWxsYmFja2AgaXNcbiAqIGltbWVkaWF0ZWx5IGNhbGxlZCB3aXRoIHRoZSBlcnJvci5cbiAqXG4gKiBAbmFtZSB3YXRlcmZhbGxcbiAqIEBzdGF0aWNcbiAqIEBtZW1iZXJPZiBtb2R1bGU6Q29udHJvbEZsb3dcbiAqIEBtZXRob2RcbiAqIEBjYXRlZ29yeSBDb250cm9sIEZsb3dcbiAqIEBwYXJhbSB7QXJyYXl9IHRhc2tzIC0gQW4gYXJyYXkgb2YgW2FzeW5jIGZ1bmN0aW9uc117QGxpbmsgQXN5bmNGdW5jdGlvbn1cbiAqIHRvIHJ1bi5cbiAqIEVhY2ggZnVuY3Rpb24gc2hvdWxkIGNvbXBsZXRlIHdpdGggYW55IG51bWJlciBvZiBgcmVzdWx0YCB2YWx1ZXMuXG4gKiBUaGUgYHJlc3VsdGAgdmFsdWVzIHdpbGwgYmUgcGFzc2VkIGFzIGFyZ3VtZW50cywgaW4gb3JkZXIsIHRvIHRoZSBuZXh0IHRhc2suXG4gKiBAcGFyYW0ge0Z1bmN0aW9ufSBbY2FsbGJhY2tdIC0gQW4gb3B0aW9uYWwgY2FsbGJhY2sgdG8gcnVuIG9uY2UgYWxsIHRoZVxuICogZnVuY3Rpb25zIGhhdmUgY29tcGxldGVkLiBUaGlzIHdpbGwgYmUgcGFzc2VkIHRoZSByZXN1bHRzIG9mIHRoZSBsYXN0IHRhc2snc1xuICogY2FsbGJhY2suIEludm9rZWQgd2l0aCAoZXJyLCBbcmVzdWx0c10pLlxuICogQHJldHVybnMgdW5kZWZpbmVkXG4gKiBAZXhhbXBsZVxuICpcbiAqIGFzeW5jLndhdGVyZmFsbChbXG4gKiAgICAgZnVuY3Rpb24oY2FsbGJhY2spIHtcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ29uZScsICd0d28nKTtcbiAqICAgICB9LFxuICogICAgIGZ1bmN0aW9uKGFyZzEsIGFyZzIsIGNhbGxiYWNrKSB7XG4gKiAgICAgICAgIC8vIGFyZzEgbm93IGVxdWFscyAnb25lJyBhbmQgYXJnMiBub3cgZXF1YWxzICd0d28nXG4gKiAgICAgICAgIGNhbGxiYWNrKG51bGwsICd0aHJlZScpO1xuICogICAgIH0sXG4gKiAgICAgZnVuY3Rpb24oYXJnMSwgY2FsbGJhY2spIHtcbiAqICAgICAgICAgLy8gYXJnMSBub3cgZXF1YWxzICd0aHJlZSdcbiAqICAgICAgICAgY2FsbGJhY2sobnVsbCwgJ2RvbmUnKTtcbiAqICAgICB9XG4gKiBdLCBmdW5jdGlvbiAoZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyByZXN1bHQgbm93IGVxdWFscyAnZG9uZSdcbiAqIH0pO1xuICpcbiAqIC8vIE9yLCB3aXRoIG5hbWVkIGZ1bmN0aW9uczpcbiAqIGFzeW5jLndhdGVyZmFsbChbXG4gKiAgICAgbXlGaXJzdEZ1bmN0aW9uLFxuICogICAgIG15U2Vjb25kRnVuY3Rpb24sXG4gKiAgICAgbXlMYXN0RnVuY3Rpb24sXG4gKiBdLCBmdW5jdGlvbiAoZXJyLCByZXN1bHQpIHtcbiAqICAgICAvLyByZXN1bHQgbm93IGVxdWFscyAnZG9uZSdcbiAqIH0pO1xuICogZnVuY3Rpb24gbXlGaXJzdEZ1bmN0aW9uKGNhbGxiYWNrKSB7XG4gKiAgICAgY2FsbGJhY2sobnVsbCwgJ29uZScsICd0d28nKTtcbiAqIH1cbiAqIGZ1bmN0aW9uIG15U2Vjb25kRnVuY3Rpb24oYXJnMSwgYXJnMiwgY2FsbGJhY2spIHtcbiAqICAgICAvLyBhcmcxIG5vdyBlcXVhbHMgJ29uZScgYW5kIGFyZzIgbm93IGVxdWFscyAndHdvJ1xuICogICAgIGNhbGxiYWNrKG51bGwsICd0aHJlZScpO1xuICogfVxuICogZnVuY3Rpb24gbXlMYXN0RnVuY3Rpb24oYXJnMSwgY2FsbGJhY2spIHtcbiAqICAgICAvLyBhcmcxIG5vdyBlcXVhbHMgJ3RocmVlJ1xuICogICAgIGNhbGxiYWNrKG51bGwsICdkb25lJyk7XG4gKiB9XG4gKi9cbnZhciB3YXRlcmZhbGwgPSBmdW5jdGlvbih0YXNrcywgY2FsbGJhY2spIHtcbiAgICBjYWxsYmFjayA9IG9uY2UoY2FsbGJhY2sgfHwgbm9vcCk7XG4gICAgaWYgKCFpc0FycmF5KHRhc2tzKSkgcmV0dXJuIGNhbGxiYWNrKG5ldyBFcnJvcignRmlyc3QgYXJndW1lbnQgdG8gd2F0ZXJmYWxsIG11c3QgYmUgYW4gYXJyYXkgb2YgZnVuY3Rpb25zJykpO1xuICAgIGlmICghdGFza3MubGVuZ3RoKSByZXR1cm4gY2FsbGJhY2soKTtcbiAgICB2YXIgdGFza0luZGV4ID0gMDtcblxuICAgIGZ1bmN0aW9uIG5leHRUYXNrKGFyZ3MpIHtcbiAgICAgICAgdmFyIHRhc2sgPSB3cmFwQXN5bmModGFza3NbdGFza0luZGV4KytdKTtcbiAgICAgICAgYXJncy5wdXNoKG9ubHlPbmNlKG5leHQpKTtcbiAgICAgICAgdGFzay5hcHBseShudWxsLCBhcmdzKTtcbiAgICB9XG5cbiAgICBmdW5jdGlvbiBuZXh0KGVyci8qLCAuLi5hcmdzKi8pIHtcbiAgICAgICAgaWYgKGVyciB8fCB0YXNrSW5kZXggPT09IHRhc2tzLmxlbmd0aCkge1xuICAgICAgICAgICAgcmV0dXJuIGNhbGxiYWNrLmFwcGx5KG51bGwsIGFyZ3VtZW50cyk7XG4gICAgICAgIH1cbiAgICAgICAgbmV4dFRhc2soc2xpY2UoYXJndW1lbnRzLCAxKSk7XG4gICAgfVxuXG4gICAgbmV4dFRhc2soW10pO1xufTtcblxuLyoqXG4gKiBBbiBcImFzeW5jIGZ1bmN0aW9uXCIgaW4gdGhlIGNvbnRleHQgb2YgQXN5bmMgaXMgYW4gYXN5bmNocm9ub3VzIGZ1bmN0aW9uIHdpdGhcbiAqIGEgdmFyaWFibGUgbnVtYmVyIG9mIHBhcmFtZXRlcnMsIHdpdGggdGhlIGZpbmFsIHBhcmFtZXRlciBiZWluZyBhIGNhbGxiYWNrLlxuICogKGBmdW5jdGlvbiAoYXJnMSwgYXJnMiwgLi4uLCBjYWxsYmFjaykge31gKVxuICogVGhlIGZpbmFsIGNhbGxiYWNrIGlzIG9mIHRoZSBmb3JtIGBjYWxsYmFjayhlcnIsIHJlc3VsdHMuLi4pYCwgd2hpY2ggbXVzdCBiZVxuICogY2FsbGVkIG9uY2UgdGhlIGZ1bmN0aW9uIGlzIGNvbXBsZXRlZC4gIFRoZSBjYWxsYmFjayBzaG91bGQgYmUgY2FsbGVkIHdpdGggYVxuICogRXJyb3IgYXMgaXRzIGZpcnN0IGFyZ3VtZW50IHRvIHNpZ25hbCB0aGF0IGFuIGVycm9yIG9jY3VycmVkLlxuICogT3RoZXJ3aXNlLCBpZiBubyBlcnJvciBvY2N1cnJlZCwgaXQgc2hvdWxkIGJlIGNhbGxlZCB3aXRoIGBudWxsYCBhcyB0aGUgZmlyc3RcbiAqIGFyZ3VtZW50LCBhbmQgYW55IGFkZGl0aW9uYWwgYHJlc3VsdGAgYXJndW1lbnRzIHRoYXQgbWF5IGFwcGx5LCB0byBzaWduYWxcbiAqIHN1Y2Nlc3NmdWwgY29tcGxldGlvbi5cbiAqIFRoZSBjYWxsYmFjayBtdXN0IGJlIGNhbGxlZCBleGFjdGx5IG9uY2UsIGlkZWFsbHkgb24gYSBsYXRlciB0aWNrIG9mIHRoZVxuICogSmF2YVNjcmlwdCBldmVudCBsb29wLlxuICpcbiAqIFRoaXMgdHlwZSBvZiBmdW5jdGlvbiBpcyBhbHNvIHJlZmVycmVkIHRvIGFzIGEgXCJOb2RlLXN0eWxlIGFzeW5jIGZ1bmN0aW9uXCIsXG4gKiBvciBhIFwiY29udGludWF0aW9uIHBhc3Npbmctc3R5bGUgZnVuY3Rpb25cIiAoQ1BTKS4gTW9zdCBvZiB0aGUgbWV0aG9kcyBvZiB0aGlzXG4gKiBsaWJyYXJ5IGFyZSB0aGVtc2VsdmVzIENQUy9Ob2RlLXN0eWxlIGFzeW5jIGZ1bmN0aW9ucywgb3IgZnVuY3Rpb25zIHRoYXRcbiAqIHJldHVybiBDUFMvTm9kZS1zdHlsZSBhc3luYyBmdW5jdGlvbnMuXG4gKlxuICogV2hlcmV2ZXIgd2UgYWNjZXB0IGEgTm9kZS1zdHlsZSBhc3luYyBmdW5jdGlvbiwgd2UgYWxzbyBkaXJlY3RseSBhY2NlcHQgYW5cbiAqIFtFUzIwMTcgYGFzeW5jYCBmdW5jdGlvbl17QGxpbmsgaHR0cHM6Ly9kZXZlbG9wZXIubW96aWxsYS5vcmcvZW4tVVMvZG9jcy9XZWIvSmF2YVNjcmlwdC9SZWZlcmVuY2UvU3RhdGVtZW50cy9hc3luY19mdW5jdGlvbn0uXG4gKiBJbiB0aGlzIGNhc2UsIHRoZSBgYXN5bmNgIGZ1bmN0aW9uIHdpbGwgbm90IGJlIHBhc3NlZCBhIGZpbmFsIGNhbGxiYWNrXG4gKiBhcmd1bWVudCwgYW5kIGFueSB0aHJvd24gZXJyb3Igd2lsbCBiZSB1c2VkIGFzIHRoZSBgZXJyYCBhcmd1bWVudCBvZiB0aGVcbiAqIGltcGxpY2l0IGNhbGxiYWNrLCBhbmQgdGhlIHJldHVybiB2YWx1ZSB3aWxsIGJlIHVzZWQgYXMgdGhlIGByZXN1bHRgIHZhbHVlLlxuICogKGkuZS4gYSBgcmVqZWN0ZWRgIG9mIHRoZSByZXR1cm5lZCBQcm9taXNlIGJlY29tZXMgdGhlIGBlcnJgIGNhbGxiYWNrXG4gKiBhcmd1bWVudCwgYW5kIGEgYHJlc29sdmVkYCB2YWx1ZSBiZWNvbWVzIHRoZSBgcmVzdWx0YC4pXG4gKlxuICogTm90ZSwgZHVlIHRvIEphdmFTY3JpcHQgbGltaXRhdGlvbnMsIHdlIGNhbiBvbmx5IGRldGVjdCBuYXRpdmUgYGFzeW5jYFxuICogZnVuY3Rpb25zIGFuZCBub3QgdHJhbnNwaWxpZWQgaW1wbGVtZW50YXRpb25zLlxuICogWW91ciBlbnZpcm9ubWVudCBtdXN0IGhhdmUgYGFzeW5jYC9gYXdhaXRgIHN1cHBvcnQgZm9yIHRoaXMgdG8gd29yay5cbiAqIChlLmcuIE5vZGUgPiB2Ny42LCBvciBhIHJlY2VudCB2ZXJzaW9uIG9mIGEgbW9kZXJuIGJyb3dzZXIpLlxuICogSWYgeW91IGFyZSB1c2luZyBgYXN5bmNgIGZ1bmN0aW9ucyB0aHJvdWdoIGEgdHJhbnNwaWxlciAoZS5nLiBCYWJlbCksIHlvdVxuICogbXVzdCBzdGlsbCB3cmFwIHRoZSBmdW5jdGlvbiB3aXRoIFthc3luY2lmeV17QGxpbmsgbW9kdWxlOlV0aWxzLmFzeW5jaWZ5fSxcbiAqIGJlY2F1c2UgdGhlIGBhc3luYyBmdW5jdGlvbmAgd2lsbCBiZSBjb21waWxlZCB0byBhbiBvcmRpbmFyeSBmdW5jdGlvbiB0aGF0XG4gKiByZXR1cm5zIGEgcHJvbWlzZS5cbiAqXG4gKiBAdHlwZWRlZiB7RnVuY3Rpb259IEFzeW5jRnVuY3Rpb25cbiAqIEBzdGF0aWNcbiAqL1xuXG4vKipcbiAqIEFzeW5jIGlzIGEgdXRpbGl0eSBtb2R1bGUgd2hpY2ggcHJvdmlkZXMgc3RyYWlnaHQtZm9yd2FyZCwgcG93ZXJmdWwgZnVuY3Rpb25zXG4gKiBmb3Igd29ya2luZyB3aXRoIGFzeW5jaHJvbm91cyBKYXZhU2NyaXB0LiBBbHRob3VnaCBvcmlnaW5hbGx5IGRlc2lnbmVkIGZvclxuICogdXNlIHdpdGggW05vZGUuanNdKGh0dHA6Ly9ub2RlanMub3JnKSBhbmQgaW5zdGFsbGFibGUgdmlhXG4gKiBgbnBtIGluc3RhbGwgLS1zYXZlIGFzeW5jYCwgaXQgY2FuIGFsc28gYmUgdXNlZCBkaXJlY3RseSBpbiB0aGUgYnJvd3Nlci5cbiAqIEBtb2R1bGUgYXN5bmNcbiAqIEBzZWUgQXN5bmNGdW5jdGlvblxuICovXG5cblxuLyoqXG4gKiBBIGNvbGxlY3Rpb24gb2YgYGFzeW5jYCBmdW5jdGlvbnMgZm9yIG1hbmlwdWxhdGluZyBjb2xsZWN0aW9ucywgc3VjaCBhc1xuICogYXJyYXlzIGFuZCBvYmplY3RzLlxuICogQG1vZHVsZSBDb2xsZWN0aW9uc1xuICovXG5cbi8qKlxuICogQSBjb2xsZWN0aW9uIG9mIGBhc3luY2AgZnVuY3Rpb25zIGZvciBjb250cm9sbGluZyB0aGUgZmxvdyB0aHJvdWdoIGEgc2NyaXB0LlxuICogQG1vZHVsZSBDb250cm9sRmxvd1xuICovXG5cbi8qKlxuICogQSBjb2xsZWN0aW9uIG9mIGBhc3luY2AgdXRpbGl0eSBmdW5jdGlvbnMuXG4gKiBAbW9kdWxlIFV0aWxzXG4gKi9cblxudmFyIGluZGV4ID0ge1xuICAgIGFwcGx5OiBhcHBseSxcbiAgICBhcHBseUVhY2g6IGFwcGx5RWFjaCxcbiAgICBhcHBseUVhY2hTZXJpZXM6IGFwcGx5RWFjaFNlcmllcyxcbiAgICBhc3luY2lmeTogYXN5bmNpZnksXG4gICAgYXV0bzogYXV0byxcbiAgICBhdXRvSW5qZWN0OiBhdXRvSW5qZWN0LFxuICAgIGNhcmdvOiBjYXJnbyxcbiAgICBjb21wb3NlOiBjb21wb3NlLFxuICAgIGNvbmNhdDogY29uY2F0LFxuICAgIGNvbmNhdExpbWl0OiBjb25jYXRMaW1pdCxcbiAgICBjb25jYXRTZXJpZXM6IGNvbmNhdFNlcmllcyxcbiAgICBjb25zdGFudDogY29uc3RhbnQsXG4gICAgZGV0ZWN0OiBkZXRlY3QsXG4gICAgZGV0ZWN0TGltaXQ6IGRldGVjdExpbWl0LFxuICAgIGRldGVjdFNlcmllczogZGV0ZWN0U2VyaWVzLFxuICAgIGRpcjogZGlyLFxuICAgIGRvRHVyaW5nOiBkb0R1cmluZyxcbiAgICBkb1VudGlsOiBkb1VudGlsLFxuICAgIGRvV2hpbHN0OiBkb1doaWxzdCxcbiAgICBkdXJpbmc6IGR1cmluZyxcbiAgICBlYWNoOiBlYWNoTGltaXQsXG4gICAgZWFjaExpbWl0OiBlYWNoTGltaXQkMSxcbiAgICBlYWNoT2Y6IGVhY2hPZixcbiAgICBlYWNoT2ZMaW1pdDogZWFjaE9mTGltaXQsXG4gICAgZWFjaE9mU2VyaWVzOiBlYWNoT2ZTZXJpZXMsXG4gICAgZWFjaFNlcmllczogZWFjaFNlcmllcyxcbiAgICBlbnN1cmVBc3luYzogZW5zdXJlQXN5bmMsXG4gICAgZXZlcnk6IGV2ZXJ5LFxuICAgIGV2ZXJ5TGltaXQ6IGV2ZXJ5TGltaXQsXG4gICAgZXZlcnlTZXJpZXM6IGV2ZXJ5U2VyaWVzLFxuICAgIGZpbHRlcjogZmlsdGVyLFxuICAgIGZpbHRlckxpbWl0OiBmaWx0ZXJMaW1pdCxcbiAgICBmaWx0ZXJTZXJpZXM6IGZpbHRlclNlcmllcyxcbiAgICBmb3JldmVyOiBmb3JldmVyLFxuICAgIGdyb3VwQnk6IGdyb3VwQnksXG4gICAgZ3JvdXBCeUxpbWl0OiBncm91cEJ5TGltaXQsXG4gICAgZ3JvdXBCeVNlcmllczogZ3JvdXBCeVNlcmllcyxcbiAgICBsb2c6IGxvZyxcbiAgICBtYXA6IG1hcCxcbiAgICBtYXBMaW1pdDogbWFwTGltaXQsXG4gICAgbWFwU2VyaWVzOiBtYXBTZXJpZXMsXG4gICAgbWFwVmFsdWVzOiBtYXBWYWx1ZXMsXG4gICAgbWFwVmFsdWVzTGltaXQ6IG1hcFZhbHVlc0xpbWl0LFxuICAgIG1hcFZhbHVlc1NlcmllczogbWFwVmFsdWVzU2VyaWVzLFxuICAgIG1lbW9pemU6IG1lbW9pemUsXG4gICAgbmV4dFRpY2s6IG5leHRUaWNrLFxuICAgIHBhcmFsbGVsOiBwYXJhbGxlbExpbWl0LFxuICAgIHBhcmFsbGVsTGltaXQ6IHBhcmFsbGVsTGltaXQkMSxcbiAgICBwcmlvcml0eVF1ZXVlOiBwcmlvcml0eVF1ZXVlLFxuICAgIHF1ZXVlOiBxdWV1ZSQxLFxuICAgIHJhY2U6IHJhY2UsXG4gICAgcmVkdWNlOiByZWR1Y2UsXG4gICAgcmVkdWNlUmlnaHQ6IHJlZHVjZVJpZ2h0LFxuICAgIHJlZmxlY3Q6IHJlZmxlY3QsXG4gICAgcmVmbGVjdEFsbDogcmVmbGVjdEFsbCxcbiAgICByZWplY3Q6IHJlamVjdCxcbiAgICByZWplY3RMaW1pdDogcmVqZWN0TGltaXQsXG4gICAgcmVqZWN0U2VyaWVzOiByZWplY3RTZXJpZXMsXG4gICAgcmV0cnk6IHJldHJ5LFxuICAgIHJldHJ5YWJsZTogcmV0cnlhYmxlLFxuICAgIHNlcTogc2VxLFxuICAgIHNlcmllczogc2VyaWVzLFxuICAgIHNldEltbWVkaWF0ZTogc2V0SW1tZWRpYXRlJDEsXG4gICAgc29tZTogc29tZSxcbiAgICBzb21lTGltaXQ6IHNvbWVMaW1pdCxcbiAgICBzb21lU2VyaWVzOiBzb21lU2VyaWVzLFxuICAgIHNvcnRCeTogc29ydEJ5LFxuICAgIHRpbWVvdXQ6IHRpbWVvdXQsXG4gICAgdGltZXM6IHRpbWVzLFxuICAgIHRpbWVzTGltaXQ6IHRpbWVMaW1pdCxcbiAgICB0aW1lc1NlcmllczogdGltZXNTZXJpZXMsXG4gICAgdHJhbnNmb3JtOiB0cmFuc2Zvcm0sXG4gICAgdHJ5RWFjaDogdHJ5RWFjaCxcbiAgICB1bm1lbW9pemU6IHVubWVtb2l6ZSxcbiAgICB1bnRpbDogdW50aWwsXG4gICAgd2F0ZXJmYWxsOiB3YXRlcmZhbGwsXG4gICAgd2hpbHN0OiB3aGlsc3QsXG5cbiAgICAvLyBhbGlhc2VzXG4gICAgYWxsOiBldmVyeSxcbiAgICBhbGxMaW1pdDogZXZlcnlMaW1pdCxcbiAgICBhbGxTZXJpZXM6IGV2ZXJ5U2VyaWVzLFxuICAgIGFueTogc29tZSxcbiAgICBhbnlMaW1pdDogc29tZUxpbWl0LFxuICAgIGFueVNlcmllczogc29tZVNlcmllcyxcbiAgICBmaW5kOiBkZXRlY3QsXG4gICAgZmluZExpbWl0OiBkZXRlY3RMaW1pdCxcbiAgICBmaW5kU2VyaWVzOiBkZXRlY3RTZXJpZXMsXG4gICAgZm9yRWFjaDogZWFjaExpbWl0LFxuICAgIGZvckVhY2hTZXJpZXM6IGVhY2hTZXJpZXMsXG4gICAgZm9yRWFjaExpbWl0OiBlYWNoTGltaXQkMSxcbiAgICBmb3JFYWNoT2Y6IGVhY2hPZixcbiAgICBmb3JFYWNoT2ZTZXJpZXM6IGVhY2hPZlNlcmllcyxcbiAgICBmb3JFYWNoT2ZMaW1pdDogZWFjaE9mTGltaXQsXG4gICAgaW5qZWN0OiByZWR1Y2UsXG4gICAgZm9sZGw6IHJlZHVjZSxcbiAgICBmb2xkcjogcmVkdWNlUmlnaHQsXG4gICAgc2VsZWN0OiBmaWx0ZXIsXG4gICAgc2VsZWN0TGltaXQ6IGZpbHRlckxpbWl0LFxuICAgIHNlbGVjdFNlcmllczogZmlsdGVyU2VyaWVzLFxuICAgIHdyYXBTeW5jOiBhc3luY2lmeVxufTtcblxuZXhwb3J0c1snZGVmYXVsdCddID0gaW5kZXg7XG5leHBvcnRzLmFwcGx5ID0gYXBwbHk7XG5leHBvcnRzLmFwcGx5RWFjaCA9IGFwcGx5RWFjaDtcbmV4cG9ydHMuYXBwbHlFYWNoU2VyaWVzID0gYXBwbHlFYWNoU2VyaWVzO1xuZXhwb3J0cy5hc3luY2lmeSA9IGFzeW5jaWZ5O1xuZXhwb3J0cy5hdXRvID0gYXV0bztcbmV4cG9ydHMuYXV0b0luamVjdCA9IGF1dG9JbmplY3Q7XG5leHBvcnRzLmNhcmdvID0gY2FyZ287XG5leHBvcnRzLmNvbXBvc2UgPSBjb21wb3NlO1xuZXhwb3J0cy5jb25jYXQgPSBjb25jYXQ7XG5leHBvcnRzLmNvbmNhdExpbWl0ID0gY29uY2F0TGltaXQ7XG5leHBvcnRzLmNvbmNhdFNlcmllcyA9IGNvbmNhdFNlcmllcztcbmV4cG9ydHMuY29uc3RhbnQgPSBjb25zdGFudDtcbmV4cG9ydHMuZGV0ZWN0ID0gZGV0ZWN0O1xuZXhwb3J0cy5kZXRlY3RMaW1pdCA9IGRldGVjdExpbWl0O1xuZXhwb3J0cy5kZXRlY3RTZXJpZXMgPSBkZXRlY3RTZXJpZXM7XG5leHBvcnRzLmRpciA9IGRpcjtcbmV4cG9ydHMuZG9EdXJpbmcgPSBkb0R1cmluZztcbmV4cG9ydHMuZG9VbnRpbCA9IGRvVW50aWw7XG5leHBvcnRzLmRvV2hpbHN0ID0gZG9XaGlsc3Q7XG5leHBvcnRzLmR1cmluZyA9IGR1cmluZztcbmV4cG9ydHMuZWFjaCA9IGVhY2hMaW1pdDtcbmV4cG9ydHMuZWFjaExpbWl0ID0gZWFjaExpbWl0JDE7XG5leHBvcnRzLmVhY2hPZiA9IGVhY2hPZjtcbmV4cG9ydHMuZWFjaE9mTGltaXQgPSBlYWNoT2ZMaW1pdDtcbmV4cG9ydHMuZWFjaE9mU2VyaWVzID0gZWFjaE9mU2VyaWVzO1xuZXhwb3J0cy5lYWNoU2VyaWVzID0gZWFjaFNlcmllcztcbmV4cG9ydHMuZW5zdXJlQXN5bmMgPSBlbnN1cmVBc3luYztcbmV4cG9ydHMuZXZlcnkgPSBldmVyeTtcbmV4cG9ydHMuZXZlcnlMaW1pdCA9IGV2ZXJ5TGltaXQ7XG5leHBvcnRzLmV2ZXJ5U2VyaWVzID0gZXZlcnlTZXJpZXM7XG5leHBvcnRzLmZpbHRlciA9IGZpbHRlcjtcbmV4cG9ydHMuZmlsdGVyTGltaXQgPSBmaWx0ZXJMaW1pdDtcbmV4cG9ydHMuZmlsdGVyU2VyaWVzID0gZmlsdGVyU2VyaWVzO1xuZXhwb3J0cy5mb3JldmVyID0gZm9yZXZlcjtcbmV4cG9ydHMuZ3JvdXBCeSA9IGdyb3VwQnk7XG5leHBvcnRzLmdyb3VwQnlMaW1pdCA9IGdyb3VwQnlMaW1pdDtcbmV4cG9ydHMuZ3JvdXBCeVNlcmllcyA9IGdyb3VwQnlTZXJpZXM7XG5leHBvcnRzLmxvZyA9IGxvZztcbmV4cG9ydHMubWFwID0gbWFwO1xuZXhwb3J0cy5tYXBMaW1pdCA9IG1hcExpbWl0O1xuZXhwb3J0cy5tYXBTZXJpZXMgPSBtYXBTZXJpZXM7XG5leHBvcnRzLm1hcFZhbHVlcyA9IG1hcFZhbHVlcztcbmV4cG9ydHMubWFwVmFsdWVzTGltaXQgPSBtYXBWYWx1ZXNMaW1pdDtcbmV4cG9ydHMubWFwVmFsdWVzU2VyaWVzID0gbWFwVmFsdWVzU2VyaWVzO1xuZXhwb3J0cy5tZW1vaXplID0gbWVtb2l6ZTtcbmV4cG9ydHMubmV4dFRpY2sgPSBuZXh0VGljaztcbmV4cG9ydHMucGFyYWxsZWwgPSBwYXJhbGxlbExpbWl0O1xuZXhwb3J0cy5wYXJhbGxlbExpbWl0ID0gcGFyYWxsZWxMaW1pdCQxO1xuZXhwb3J0cy5wcmlvcml0eVF1ZXVlID0gcHJpb3JpdHlRdWV1ZTtcbmV4cG9ydHMucXVldWUgPSBxdWV1ZSQxO1xuZXhwb3J0cy5yYWNlID0gcmFjZTtcbmV4cG9ydHMucmVkdWNlID0gcmVkdWNlO1xuZXhwb3J0cy5yZWR1Y2VSaWdodCA9IHJlZHVjZVJpZ2h0O1xuZXhwb3J0cy5yZWZsZWN0ID0gcmVmbGVjdDtcbmV4cG9ydHMucmVmbGVjdEFsbCA9IHJlZmxlY3RBbGw7XG5leHBvcnRzLnJlamVjdCA9IHJlamVjdDtcbmV4cG9ydHMucmVqZWN0TGltaXQgPSByZWplY3RMaW1pdDtcbmV4cG9ydHMucmVqZWN0U2VyaWVzID0gcmVqZWN0U2VyaWVzO1xuZXhwb3J0cy5yZXRyeSA9IHJldHJ5O1xuZXhwb3J0cy5yZXRyeWFibGUgPSByZXRyeWFibGU7XG5leHBvcnRzLnNlcSA9IHNlcTtcbmV4cG9ydHMuc2VyaWVzID0gc2VyaWVzO1xuZXhwb3J0cy5zZXRJbW1lZGlhdGUgPSBzZXRJbW1lZGlhdGUkMTtcbmV4cG9ydHMuc29tZSA9IHNvbWU7XG5leHBvcnRzLnNvbWVMaW1pdCA9IHNvbWVMaW1pdDtcbmV4cG9ydHMuc29tZVNlcmllcyA9IHNvbWVTZXJpZXM7XG5leHBvcnRzLnNvcnRCeSA9IHNvcnRCeTtcbmV4cG9ydHMudGltZW91dCA9IHRpbWVvdXQ7XG5leHBvcnRzLnRpbWVzID0gdGltZXM7XG5leHBvcnRzLnRpbWVzTGltaXQgPSB0aW1lTGltaXQ7XG5leHBvcnRzLnRpbWVzU2VyaWVzID0gdGltZXNTZXJpZXM7XG5leHBvcnRzLnRyYW5zZm9ybSA9IHRyYW5zZm9ybTtcbmV4cG9ydHMudHJ5RWFjaCA9IHRyeUVhY2g7XG5leHBvcnRzLnVubWVtb2l6ZSA9IHVubWVtb2l6ZTtcbmV4cG9ydHMudW50aWwgPSB1bnRpbDtcbmV4cG9ydHMud2F0ZXJmYWxsID0gd2F0ZXJmYWxsO1xuZXhwb3J0cy53aGlsc3QgPSB3aGlsc3Q7XG5leHBvcnRzLmFsbCA9IGV2ZXJ5O1xuZXhwb3J0cy5hbGxMaW1pdCA9IGV2ZXJ5TGltaXQ7XG5leHBvcnRzLmFsbFNlcmllcyA9IGV2ZXJ5U2VyaWVzO1xuZXhwb3J0cy5hbnkgPSBzb21lO1xuZXhwb3J0cy5hbnlMaW1pdCA9IHNvbWVMaW1pdDtcbmV4cG9ydHMuYW55U2VyaWVzID0gc29tZVNlcmllcztcbmV4cG9ydHMuZmluZCA9IGRldGVjdDtcbmV4cG9ydHMuZmluZExpbWl0ID0gZGV0ZWN0TGltaXQ7XG5leHBvcnRzLmZpbmRTZXJpZXMgPSBkZXRlY3RTZXJpZXM7XG5leHBvcnRzLmZvckVhY2ggPSBlYWNoTGltaXQ7XG5leHBvcnRzLmZvckVhY2hTZXJpZXMgPSBlYWNoU2VyaWVzO1xuZXhwb3J0cy5mb3JFYWNoTGltaXQgPSBlYWNoTGltaXQkMTtcbmV4cG9ydHMuZm9yRWFjaE9mID0gZWFjaE9mO1xuZXhwb3J0cy5mb3JFYWNoT2ZTZXJpZXMgPSBlYWNoT2ZTZXJpZXM7XG5leHBvcnRzLmZvckVhY2hPZkxpbWl0ID0gZWFjaE9mTGltaXQ7XG5leHBvcnRzLmluamVjdCA9IHJlZHVjZTtcbmV4cG9ydHMuZm9sZGwgPSByZWR1Y2U7XG5leHBvcnRzLmZvbGRyID0gcmVkdWNlUmlnaHQ7XG5leHBvcnRzLnNlbGVjdCA9IGZpbHRlcjtcbmV4cG9ydHMuc2VsZWN0TGltaXQgPSBmaWx0ZXJMaW1pdDtcbmV4cG9ydHMuc2VsZWN0U2VyaWVzID0gZmlsdGVyU2VyaWVzO1xuZXhwb3J0cy53cmFwU3luYyA9IGFzeW5jaWZ5O1xuXG5PYmplY3QuZGVmaW5lUHJvcGVydHkoZXhwb3J0cywgJ19fZXNNb2R1bGUnLCB7IHZhbHVlOiB0cnVlIH0pO1xuXG59KSkpO1xuXG5cblxuLy8vLy8vLy8vLy8vLy8vLy8vXG4vLyBXRUJQQUNLIEZPT1RFUlxuLy8gLi9hcHAvfi9hc3luYy9kaXN0L2FzeW5jLmpzXG4vLyBtb2R1bGUgaWQgPSAwXG4vLyBtb2R1bGUgY2h1bmtzID0gMCJdLCJzb3VyY2VSb290IjoiIn0=\n//# sourceURL=webpack-internal:///0\n");
+/* WEBPACK VAR INJECTION */(function(module) {(function (global, factory) {
+   true ? factory(exports) :
+  typeof define === 'function' && define.amd ? define(['exports'], factory) :
+  (factory((global.async = global.async || {})));
+}(this, (function (exports) { 'use strict';
+
+function slice(arrayLike, start) {
+    start = start|0;
+    var newLen = Math.max(arrayLike.length - start, 0);
+    var newArr = Array(newLen);
+    for(var idx = 0; idx < newLen; idx++)  {
+        newArr[idx] = arrayLike[start + idx];
+    }
+    return newArr;
+}
+
+/**
+ * Creates a continuation function with some arguments already applied.
+ *
+ * Useful as a shorthand when combined with other control flow functions. Any
+ * arguments passed to the returned function are added to the arguments
+ * originally passed to apply.
+ *
+ * @name apply
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {Function} fn - The function you want to eventually apply all
+ * arguments to. Invokes with (arguments...).
+ * @param {...*} arguments... - Any number of arguments to automatically apply
+ * when the continuation is called.
+ * @returns {Function} the partially-applied function
+ * @example
+ *
+ * // using apply
+ * async.parallel([
+ *     async.apply(fs.writeFile, 'testfile1', 'test1'),
+ *     async.apply(fs.writeFile, 'testfile2', 'test2')
+ * ]);
+ *
+ *
+ * // the same process without using apply
+ * async.parallel([
+ *     function(callback) {
+ *         fs.writeFile('testfile1', 'test1', callback);
+ *     },
+ *     function(callback) {
+ *         fs.writeFile('testfile2', 'test2', callback);
+ *     }
+ * ]);
+ *
+ * // It's possible to pass any number of additional arguments when calling the
+ * // continuation:
+ *
+ * node> var fn = async.apply(sys.puts, 'one');
+ * node> fn('two', 'three');
+ * one
+ * two
+ * three
+ */
+var apply = function(fn/*, ...args*/) {
+    var args = slice(arguments, 1);
+    return function(/*callArgs*/) {
+        var callArgs = slice(arguments);
+        return fn.apply(null, args.concat(callArgs));
+    };
+};
+
+var initialParams = function (fn) {
+    return function (/*...args, callback*/) {
+        var args = slice(arguments);
+        var callback = args.pop();
+        fn.call(this, args, callback);
+    };
+};
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return value != null && (type == 'object' || type == 'function');
+}
+
+var hasSetImmediate = typeof setImmediate === 'function' && setImmediate;
+var hasNextTick = typeof process === 'object' && typeof process.nextTick === 'function';
+
+function fallback(fn) {
+    setTimeout(fn, 0);
+}
+
+function wrap(defer) {
+    return function (fn/*, ...args*/) {
+        var args = slice(arguments, 1);
+        defer(function () {
+            fn.apply(null, args);
+        });
+    };
+}
+
+var _defer;
+
+if (hasSetImmediate) {
+    _defer = setImmediate;
+} else if (hasNextTick) {
+    _defer = process.nextTick;
+} else {
+    _defer = fallback;
+}
+
+var setImmediate$1 = wrap(_defer);
+
+/**
+ * Take a sync function and make it async, passing its return value to a
+ * callback. This is useful for plugging sync functions into a waterfall,
+ * series, or other async functions. Any arguments passed to the generated
+ * function will be passed to the wrapped function (except for the final
+ * callback argument). Errors thrown will be passed to the callback.
+ *
+ * If the function passed to `asyncify` returns a Promise, that promises's
+ * resolved/rejected state will be used to call the callback, rather than simply
+ * the synchronous return value.
+ *
+ * This also means you can asyncify ES2017 `async` functions.
+ *
+ * @name asyncify
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @alias wrapSync
+ * @category Util
+ * @param {Function} func - The synchronous function, or Promise-returning
+ * function to convert to an {@link AsyncFunction}.
+ * @returns {AsyncFunction} An asynchronous wrapper of the `func`. To be
+ * invoked with `(args..., callback)`.
+ * @example
+ *
+ * // passing a regular synchronous function
+ * async.waterfall([
+ *     async.apply(fs.readFile, filename, "utf8"),
+ *     async.asyncify(JSON.parse),
+ *     function (data, next) {
+ *         // data is the result of parsing the text.
+ *         // If there was a parsing error, it would have been caught.
+ *     }
+ * ], callback);
+ *
+ * // passing a function returning a promise
+ * async.waterfall([
+ *     async.apply(fs.readFile, filename, "utf8"),
+ *     async.asyncify(function (contents) {
+ *         return db.model.create(contents);
+ *     }),
+ *     function (model, next) {
+ *         // `model` is the instantiated model object.
+ *         // If there was an error, this function would be skipped.
+ *     }
+ * ], callback);
+ *
+ * // es2017 example, though `asyncify` is not needed if your JS environment
+ * // supports async functions out of the box
+ * var q = async.queue(async.asyncify(async function(file) {
+ *     var intermediateStep = await processFile(file);
+ *     return await somePromise(intermediateStep)
+ * }));
+ *
+ * q.push(files);
+ */
+function asyncify(func) {
+    return initialParams(function (args, callback) {
+        var result;
+        try {
+            result = func.apply(this, args);
+        } catch (e) {
+            return callback(e);
+        }
+        // if result is Promise object
+        if (isObject(result) && typeof result.then === 'function') {
+            result.then(function(value) {
+                invokeCallback(callback, null, value);
+            }, function(err) {
+                invokeCallback(callback, err.message ? err : new Error(err));
+            });
+        } else {
+            callback(null, result);
+        }
+    });
+}
+
+function invokeCallback(callback, error, value) {
+    try {
+        callback(error, value);
+    } catch (e) {
+        setImmediate$1(rethrow, e);
+    }
+}
+
+function rethrow(error) {
+    throw error;
+}
+
+var supportsSymbol = typeof Symbol === 'function';
+
+function isAsync(fn) {
+    return supportsSymbol && fn[Symbol.toStringTag] === 'AsyncFunction';
+}
+
+function wrapAsync(asyncFn) {
+    return isAsync(asyncFn) ? asyncify(asyncFn) : asyncFn;
+}
+
+function applyEach$1(eachfn) {
+    return function(fns/*, ...args*/) {
+        var args = slice(arguments, 1);
+        var go = initialParams(function(args, callback) {
+            var that = this;
+            return eachfn(fns, function (fn, cb) {
+                wrapAsync(fn).apply(that, args.concat(cb));
+            }, callback);
+        });
+        if (args.length) {
+            return go.apply(this, args);
+        }
+        else {
+            return go;
+        }
+    };
+}
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/** Built-in value references. */
+var Symbol$1 = root.Symbol;
+
+/** Used for built-in method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var nativeObjectToString = objectProto.toString;
+
+/** Built-in value references. */
+var symToStringTag$1 = Symbol$1 ? Symbol$1.toStringTag : undefined;
+
+/**
+ * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the raw `toStringTag`.
+ */
+function getRawTag(value) {
+  var isOwn = hasOwnProperty.call(value, symToStringTag$1),
+      tag = value[symToStringTag$1];
+
+  try {
+    value[symToStringTag$1] = undefined;
+    var unmasked = true;
+  } catch (e) {}
+
+  var result = nativeObjectToString.call(value);
+  if (unmasked) {
+    if (isOwn) {
+      value[symToStringTag$1] = tag;
+    } else {
+      delete value[symToStringTag$1];
+    }
+  }
+  return result;
+}
+
+/** Used for built-in method references. */
+var objectProto$1 = Object.prototype;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var nativeObjectToString$1 = objectProto$1.toString;
+
+/**
+ * Converts `value` to a string using `Object.prototype.toString`.
+ *
+ * @private
+ * @param {*} value The value to convert.
+ * @returns {string} Returns the converted string.
+ */
+function objectToString(value) {
+  return nativeObjectToString$1.call(value);
+}
+
+/** `Object#toString` result references. */
+var nullTag = '[object Null]';
+var undefinedTag = '[object Undefined]';
+
+/** Built-in value references. */
+var symToStringTag = Symbol$1 ? Symbol$1.toStringTag : undefined;
+
+/**
+ * The base implementation of `getTag` without fallbacks for buggy environments.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the `toStringTag`.
+ */
+function baseGetTag(value) {
+  if (value == null) {
+    return value === undefined ? undefinedTag : nullTag;
+  }
+  return (symToStringTag && symToStringTag in Object(value))
+    ? getRawTag(value)
+    : objectToString(value);
+}
+
+/** `Object#toString` result references. */
+var asyncTag = '[object AsyncFunction]';
+var funcTag = '[object Function]';
+var genTag = '[object GeneratorFunction]';
+var proxyTag = '[object Proxy]';
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  if (!isObject(value)) {
+    return false;
+  }
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 9 which returns 'object' for typed arrays and other constructors.
+  var tag = baseGetTag(value);
+  return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
+}
+
+/** Used as references for various `Number` constants. */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This method is loosely based on
+ * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ * @example
+ *
+ * _.isLength(3);
+ * // => true
+ *
+ * _.isLength(Number.MIN_VALUE);
+ * // => false
+ *
+ * _.isLength(Infinity);
+ * // => false
+ *
+ * _.isLength('3');
+ * // => false
+ */
+function isLength(value) {
+  return typeof value == 'number' &&
+    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is array-like. A value is considered array-like if it's
+ * not a function and has a `value.length` that's an integer greater than or
+ * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ * @example
+ *
+ * _.isArrayLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLike(document.body.children);
+ * // => true
+ *
+ * _.isArrayLike('abc');
+ * // => true
+ *
+ * _.isArrayLike(_.noop);
+ * // => false
+ */
+function isArrayLike(value) {
+  return value != null && isLength(value.length) && !isFunction(value);
+}
+
+// A temporary value used to identify if the loop should be broken.
+// See #1064, #1293
+var breakLoop = {};
+
+/**
+ * This method returns `undefined`.
+ *
+ * @static
+ * @memberOf _
+ * @since 2.3.0
+ * @category Util
+ * @example
+ *
+ * _.times(2, _.noop);
+ * // => [undefined, undefined]
+ */
+function noop() {
+  // No operation performed.
+}
+
+function once(fn) {
+    return function () {
+        if (fn === null) return;
+        var callFn = fn;
+        fn = null;
+        callFn.apply(this, arguments);
+    };
+}
+
+var iteratorSymbol = typeof Symbol === 'function' && Symbol.iterator;
+
+var getIterator = function (coll) {
+    return iteratorSymbol && coll[iteratorSymbol] && coll[iteratorSymbol]();
+};
+
+/**
+ * The base implementation of `_.times` without support for iteratee shorthands
+ * or max array length checks.
+ *
+ * @private
+ * @param {number} n The number of times to invoke `iteratee`.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns the array of results.
+ */
+function baseTimes(n, iteratee) {
+  var index = -1,
+      result = Array(n);
+
+  while (++index < n) {
+    result[index] = iteratee(index);
+  }
+  return result;
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return value != null && typeof value == 'object';
+}
+
+/** `Object#toString` result references. */
+var argsTag = '[object Arguments]';
+
+/**
+ * The base implementation of `_.isArguments`.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ */
+function baseIsArguments(value) {
+  return isObjectLike(value) && baseGetTag(value) == argsTag;
+}
+
+/** Used for built-in method references. */
+var objectProto$3 = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty$2 = objectProto$3.hasOwnProperty;
+
+/** Built-in value references. */
+var propertyIsEnumerable = objectProto$3.propertyIsEnumerable;
+
+/**
+ * Checks if `value` is likely an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+var isArguments = baseIsArguments(function() { return arguments; }()) ? baseIsArguments : function(value) {
+  return isObjectLike(value) && hasOwnProperty$2.call(value, 'callee') &&
+    !propertyIsEnumerable.call(value, 'callee');
+};
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(document.body.children);
+ * // => false
+ *
+ * _.isArray('abc');
+ * // => false
+ *
+ * _.isArray(_.noop);
+ * // => false
+ */
+var isArray = Array.isArray;
+
+/**
+ * This method returns `false`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.13.0
+ * @category Util
+ * @returns {boolean} Returns `false`.
+ * @example
+ *
+ * _.times(2, _.stubFalse);
+ * // => [false, false]
+ */
+function stubFalse() {
+  return false;
+}
+
+/** Detect free variable `exports`. */
+var freeExports = typeof exports == 'object' && exports && !exports.nodeType && exports;
+
+/** Detect free variable `module`. */
+var freeModule = freeExports && typeof module == 'object' && module && !module.nodeType && module;
+
+/** Detect the popular CommonJS extension `module.exports`. */
+var moduleExports = freeModule && freeModule.exports === freeExports;
+
+/** Built-in value references. */
+var Buffer = moduleExports ? root.Buffer : undefined;
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeIsBuffer = Buffer ? Buffer.isBuffer : undefined;
+
+/**
+ * Checks if `value` is a buffer.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.3.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a buffer, else `false`.
+ * @example
+ *
+ * _.isBuffer(new Buffer(2));
+ * // => true
+ *
+ * _.isBuffer(new Uint8Array(2));
+ * // => false
+ */
+var isBuffer = nativeIsBuffer || stubFalse;
+
+/** Used as references for various `Number` constants. */
+var MAX_SAFE_INTEGER$1 = 9007199254740991;
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^(?:0|[1-9]\d*)$/;
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  var type = typeof value;
+  length = length == null ? MAX_SAFE_INTEGER$1 : length;
+
+  return !!length &&
+    (type == 'number' ||
+      (type != 'symbol' && reIsUint.test(value))) &&
+        (value > -1 && value % 1 == 0 && value < length);
+}
+
+/** `Object#toString` result references. */
+var argsTag$1 = '[object Arguments]';
+var arrayTag = '[object Array]';
+var boolTag = '[object Boolean]';
+var dateTag = '[object Date]';
+var errorTag = '[object Error]';
+var funcTag$1 = '[object Function]';
+var mapTag = '[object Map]';
+var numberTag = '[object Number]';
+var objectTag = '[object Object]';
+var regexpTag = '[object RegExp]';
+var setTag = '[object Set]';
+var stringTag = '[object String]';
+var weakMapTag = '[object WeakMap]';
+
+var arrayBufferTag = '[object ArrayBuffer]';
+var dataViewTag = '[object DataView]';
+var float32Tag = '[object Float32Array]';
+var float64Tag = '[object Float64Array]';
+var int8Tag = '[object Int8Array]';
+var int16Tag = '[object Int16Array]';
+var int32Tag = '[object Int32Array]';
+var uint8Tag = '[object Uint8Array]';
+var uint8ClampedTag = '[object Uint8ClampedArray]';
+var uint16Tag = '[object Uint16Array]';
+var uint32Tag = '[object Uint32Array]';
+
+/** Used to identify `toStringTag` values of typed arrays. */
+var typedArrayTags = {};
+typedArrayTags[float32Tag] = typedArrayTags[float64Tag] =
+typedArrayTags[int8Tag] = typedArrayTags[int16Tag] =
+typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =
+typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =
+typedArrayTags[uint32Tag] = true;
+typedArrayTags[argsTag$1] = typedArrayTags[arrayTag] =
+typedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] =
+typedArrayTags[dataViewTag] = typedArrayTags[dateTag] =
+typedArrayTags[errorTag] = typedArrayTags[funcTag$1] =
+typedArrayTags[mapTag] = typedArrayTags[numberTag] =
+typedArrayTags[objectTag] = typedArrayTags[regexpTag] =
+typedArrayTags[setTag] = typedArrayTags[stringTag] =
+typedArrayTags[weakMapTag] = false;
+
+/**
+ * The base implementation of `_.isTypedArray` without Node.js optimizations.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
+ */
+function baseIsTypedArray(value) {
+  return isObjectLike(value) &&
+    isLength(value.length) && !!typedArrayTags[baseGetTag(value)];
+}
+
+/**
+ * The base implementation of `_.unary` without support for storing metadata.
+ *
+ * @private
+ * @param {Function} func The function to cap arguments for.
+ * @returns {Function} Returns the new capped function.
+ */
+function baseUnary(func) {
+  return function(value) {
+    return func(value);
+  };
+}
+
+/** Detect free variable `exports`. */
+var freeExports$1 = typeof exports == 'object' && exports && !exports.nodeType && exports;
+
+/** Detect free variable `module`. */
+var freeModule$1 = freeExports$1 && typeof module == 'object' && module && !module.nodeType && module;
+
+/** Detect the popular CommonJS extension `module.exports`. */
+var moduleExports$1 = freeModule$1 && freeModule$1.exports === freeExports$1;
+
+/** Detect free variable `process` from Node.js. */
+var freeProcess = moduleExports$1 && freeGlobal.process;
+
+/** Used to access faster Node.js helpers. */
+var nodeUtil = (function() {
+  try {
+    // Use `util.types` for Node.js 10+.
+    var types = freeModule$1 && freeModule$1.require && freeModule$1.require('util').types;
+
+    if (types) {
+      return types;
+    }
+
+    // Legacy `process.binding('util')` for Node.js < 10.
+    return freeProcess && freeProcess.binding && freeProcess.binding('util');
+  } catch (e) {}
+}());
+
+/* Node.js helper references. */
+var nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;
+
+/**
+ * Checks if `value` is classified as a typed array.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
+ * @example
+ *
+ * _.isTypedArray(new Uint8Array);
+ * // => true
+ *
+ * _.isTypedArray([]);
+ * // => false
+ */
+var isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;
+
+/** Used for built-in method references. */
+var objectProto$2 = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty$1 = objectProto$2.hasOwnProperty;
+
+/**
+ * Creates an array of the enumerable property names of the array-like `value`.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @param {boolean} inherited Specify returning inherited property names.
+ * @returns {Array} Returns the array of property names.
+ */
+function arrayLikeKeys(value, inherited) {
+  var isArr = isArray(value),
+      isArg = !isArr && isArguments(value),
+      isBuff = !isArr && !isArg && isBuffer(value),
+      isType = !isArr && !isArg && !isBuff && isTypedArray(value),
+      skipIndexes = isArr || isArg || isBuff || isType,
+      result = skipIndexes ? baseTimes(value.length, String) : [],
+      length = result.length;
+
+  for (var key in value) {
+    if ((inherited || hasOwnProperty$1.call(value, key)) &&
+        !(skipIndexes && (
+           // Safari 9 has enumerable `arguments.length` in strict mode.
+           key == 'length' ||
+           // Node.js 0.10 has enumerable non-index properties on buffers.
+           (isBuff && (key == 'offset' || key == 'parent')) ||
+           // PhantomJS 2 has enumerable non-index properties on typed arrays.
+           (isType && (key == 'buffer' || key == 'byteLength' || key == 'byteOffset')) ||
+           // Skip index properties.
+           isIndex(key, length)
+        ))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/** Used for built-in method references. */
+var objectProto$5 = Object.prototype;
+
+/**
+ * Checks if `value` is likely a prototype object.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a prototype, else `false`.
+ */
+function isPrototype(value) {
+  var Ctor = value && value.constructor,
+      proto = (typeof Ctor == 'function' && Ctor.prototype) || objectProto$5;
+
+  return value === proto;
+}
+
+/**
+ * Creates a unary function that invokes `func` with its argument transformed.
+ *
+ * @private
+ * @param {Function} func The function to wrap.
+ * @param {Function} transform The argument transform.
+ * @returns {Function} Returns the new function.
+ */
+function overArg(func, transform) {
+  return function(arg) {
+    return func(transform(arg));
+  };
+}
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeKeys = overArg(Object.keys, Object);
+
+/** Used for built-in method references. */
+var objectProto$4 = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty$3 = objectProto$4.hasOwnProperty;
+
+/**
+ * The base implementation of `_.keys` which doesn't treat sparse arrays as dense.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function baseKeys(object) {
+  if (!isPrototype(object)) {
+    return nativeKeys(object);
+  }
+  var result = [];
+  for (var key in Object(object)) {
+    if (hasOwnProperty$3.call(object, key) && key != 'constructor') {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Creates an array of the own enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/7.0/#sec-object.keys)
+ * for more details.
+ *
+ * @static
+ * @since 0.1.0
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
+ *
+ * _.keys('hi');
+ * // => ['0', '1']
+ */
+function keys(object) {
+  return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
+}
+
+function createArrayIterator(coll) {
+    var i = -1;
+    var len = coll.length;
+    return function next() {
+        return ++i < len ? {value: coll[i], key: i} : null;
+    }
+}
+
+function createES2015Iterator(iterator) {
+    var i = -1;
+    return function next() {
+        var item = iterator.next();
+        if (item.done)
+            return null;
+        i++;
+        return {value: item.value, key: i};
+    }
+}
+
+function createObjectIterator(obj) {
+    var okeys = keys(obj);
+    var i = -1;
+    var len = okeys.length;
+    return function next() {
+        var key = okeys[++i];
+        return i < len ? {value: obj[key], key: key} : null;
+    };
+}
+
+function iterator(coll) {
+    if (isArrayLike(coll)) {
+        return createArrayIterator(coll);
+    }
+
+    var iterator = getIterator(coll);
+    return iterator ? createES2015Iterator(iterator) : createObjectIterator(coll);
+}
+
+function onlyOnce(fn) {
+    return function() {
+        if (fn === null) throw new Error("Callback was already called.");
+        var callFn = fn;
+        fn = null;
+        callFn.apply(this, arguments);
+    };
+}
+
+function _eachOfLimit(limit) {
+    return function (obj, iteratee, callback) {
+        callback = once(callback || noop);
+        if (limit <= 0 || !obj) {
+            return callback(null);
+        }
+        var nextElem = iterator(obj);
+        var done = false;
+        var running = 0;
+        var looping = false;
+
+        function iterateeCallback(err, value) {
+            running -= 1;
+            if (err) {
+                done = true;
+                callback(err);
+            }
+            else if (value === breakLoop || (done && running <= 0)) {
+                done = true;
+                return callback(null);
+            }
+            else if (!looping) {
+                replenish();
+            }
+        }
+
+        function replenish () {
+            looping = true;
+            while (running < limit && !done) {
+                var elem = nextElem();
+                if (elem === null) {
+                    done = true;
+                    if (running <= 0) {
+                        callback(null);
+                    }
+                    return;
+                }
+                running += 1;
+                iteratee(elem.value, elem.key, onlyOnce(iterateeCallback));
+            }
+            looping = false;
+        }
+
+        replenish();
+    };
+}
+
+/**
+ * The same as [`eachOf`]{@link module:Collections.eachOf} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name eachOfLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.eachOf]{@link module:Collections.eachOf}
+ * @alias forEachOfLimit
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async function to apply to each
+ * item in `coll`. The `key` is the item's key, or index in the case of an
+ * array.
+ * Invoked with (item, key, callback).
+ * @param {Function} [callback] - A callback which is called when all
+ * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+ */
+function eachOfLimit(coll, limit, iteratee, callback) {
+    _eachOfLimit(limit)(coll, wrapAsync(iteratee), callback);
+}
+
+function doLimit(fn, limit) {
+    return function (iterable, iteratee, callback) {
+        return fn(iterable, limit, iteratee, callback);
+    };
+}
+
+// eachOf implementation optimized for array-likes
+function eachOfArrayLike(coll, iteratee, callback) {
+    callback = once(callback || noop);
+    var index = 0,
+        completed = 0,
+        length = coll.length;
+    if (length === 0) {
+        callback(null);
+    }
+
+    function iteratorCallback(err, value) {
+        if (err) {
+            callback(err);
+        } else if ((++completed === length) || value === breakLoop) {
+            callback(null);
+        }
+    }
+
+    for (; index < length; index++) {
+        iteratee(coll[index], index, onlyOnce(iteratorCallback));
+    }
+}
+
+// a generic version of eachOf which can handle array, object, and iterator cases.
+var eachOfGeneric = doLimit(eachOfLimit, Infinity);
+
+/**
+ * Like [`each`]{@link module:Collections.each}, except that it passes the key (or index) as the second argument
+ * to the iteratee.
+ *
+ * @name eachOf
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias forEachOf
+ * @category Collection
+ * @see [async.each]{@link module:Collections.each}
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A function to apply to each
+ * item in `coll`.
+ * The `key` is the item's key, or index in the case of an array.
+ * Invoked with (item, key, callback).
+ * @param {Function} [callback] - A callback which is called when all
+ * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+ * @example
+ *
+ * var obj = {dev: "/dev.json", test: "/test.json", prod: "/prod.json"};
+ * var configs = {};
+ *
+ * async.forEachOf(obj, function (value, key, callback) {
+ *     fs.readFile(__dirname + value, "utf8", function (err, data) {
+ *         if (err) return callback(err);
+ *         try {
+ *             configs[key] = JSON.parse(data);
+ *         } catch (e) {
+ *             return callback(e);
+ *         }
+ *         callback();
+ *     });
+ * }, function (err) {
+ *     if (err) console.error(err.message);
+ *     // configs is now a map of JSON data
+ *     doSomethingWith(configs);
+ * });
+ */
+var eachOf = function(coll, iteratee, callback) {
+    var eachOfImplementation = isArrayLike(coll) ? eachOfArrayLike : eachOfGeneric;
+    eachOfImplementation(coll, wrapAsync(iteratee), callback);
+};
+
+function doParallel(fn) {
+    return function (obj, iteratee, callback) {
+        return fn(eachOf, obj, wrapAsync(iteratee), callback);
+    };
+}
+
+function _asyncMap(eachfn, arr, iteratee, callback) {
+    callback = callback || noop;
+    arr = arr || [];
+    var results = [];
+    var counter = 0;
+    var _iteratee = wrapAsync(iteratee);
+
+    eachfn(arr, function (value, _, callback) {
+        var index = counter++;
+        _iteratee(value, function (err, v) {
+            results[index] = v;
+            callback(err);
+        });
+    }, function (err) {
+        callback(err, results);
+    });
+}
+
+/**
+ * Produces a new collection of values by mapping each value in `coll` through
+ * the `iteratee` function. The `iteratee` is called with an item from `coll`
+ * and a callback for when it has finished processing. Each of these callback
+ * takes 2 arguments: an `error`, and the transformed item from `coll`. If
+ * `iteratee` passes an error to its callback, the main `callback` (for the
+ * `map` function) is immediately called with the error.
+ *
+ * Note, that since this function applies the `iteratee` to each item in
+ * parallel, there is no guarantee that the `iteratee` functions will complete
+ * in order. However, the results array will be in the same order as the
+ * original `coll`.
+ *
+ * If `map` is passed an Object, the results will be an Array.  The results
+ * will roughly be in the order of the original Objects' keys (but this can
+ * vary across JavaScript engines).
+ *
+ * @name map
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with the transformed item.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Results is an Array of the
+ * transformed items from the `coll`. Invoked with (err, results).
+ * @example
+ *
+ * async.map(['file1','file2','file3'], fs.stat, function(err, results) {
+ *     // results is now an array of stats for each file
+ * });
+ */
+var map = doParallel(_asyncMap);
+
+/**
+ * Applies the provided arguments to each function in the array, calling
+ * `callback` after all functions have completed. If you only provide the first
+ * argument, `fns`, then it will return a function which lets you pass in the
+ * arguments as if it were a single function call. If more arguments are
+ * provided, `callback` is required while `args` is still optional.
+ *
+ * @name applyEach
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Array|Iterable|Object} fns - A collection of {@link AsyncFunction}s
+ * to all call with the same arguments
+ * @param {...*} [args] - any number of separate arguments to pass to the
+ * function.
+ * @param {Function} [callback] - the final argument should be the callback,
+ * called when all functions have completed processing.
+ * @returns {Function} - If only the first argument, `fns`, is provided, it will
+ * return a function which lets you pass in the arguments as if it were a single
+ * function call. The signature is `(..args, callback)`. If invoked with any
+ * arguments, `callback` is required.
+ * @example
+ *
+ * async.applyEach([enableSearch, updateSchema], 'bucket', callback);
+ *
+ * // partial application example:
+ * async.each(
+ *     buckets,
+ *     async.applyEach([enableSearch, updateSchema]),
+ *     callback
+ * );
+ */
+var applyEach = applyEach$1(map);
+
+function doParallelLimit(fn) {
+    return function (obj, limit, iteratee, callback) {
+        return fn(_eachOfLimit(limit), obj, wrapAsync(iteratee), callback);
+    };
+}
+
+/**
+ * The same as [`map`]{@link module:Collections.map} but runs a maximum of `limit` async operations at a time.
+ *
+ * @name mapLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.map]{@link module:Collections.map}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with the transformed item.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Results is an array of the
+ * transformed items from the `coll`. Invoked with (err, results).
+ */
+var mapLimit = doParallelLimit(_asyncMap);
+
+/**
+ * The same as [`map`]{@link module:Collections.map} but runs only a single async operation at a time.
+ *
+ * @name mapSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.map]{@link module:Collections.map}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with the transformed item.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Results is an array of the
+ * transformed items from the `coll`. Invoked with (err, results).
+ */
+var mapSeries = doLimit(mapLimit, 1);
+
+/**
+ * The same as [`applyEach`]{@link module:ControlFlow.applyEach} but runs only a single async operation at a time.
+ *
+ * @name applyEachSeries
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.applyEach]{@link module:ControlFlow.applyEach}
+ * @category Control Flow
+ * @param {Array|Iterable|Object} fns - A collection of {@link AsyncFunction}s to all
+ * call with the same arguments
+ * @param {...*} [args] - any number of separate arguments to pass to the
+ * function.
+ * @param {Function} [callback] - the final argument should be the callback,
+ * called when all functions have completed processing.
+ * @returns {Function} - If only the first argument is provided, it will return
+ * a function which lets you pass in the arguments as if it were a single
+ * function call.
+ */
+var applyEachSeries = applyEach$1(mapSeries);
+
+/**
+ * A specialized version of `_.forEach` for arrays without support for
+ * iteratee shorthands.
+ *
+ * @private
+ * @param {Array} [array] The array to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns `array`.
+ */
+function arrayEach(array, iteratee) {
+  var index = -1,
+      length = array == null ? 0 : array.length;
+
+  while (++index < length) {
+    if (iteratee(array[index], index, array) === false) {
+      break;
+    }
+  }
+  return array;
+}
+
+/**
+ * Creates a base function for methods like `_.forIn` and `_.forOwn`.
+ *
+ * @private
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {Function} Returns the new base function.
+ */
+function createBaseFor(fromRight) {
+  return function(object, iteratee, keysFunc) {
+    var index = -1,
+        iterable = Object(object),
+        props = keysFunc(object),
+        length = props.length;
+
+    while (length--) {
+      var key = props[fromRight ? length : ++index];
+      if (iteratee(iterable[key], key, iterable) === false) {
+        break;
+      }
+    }
+    return object;
+  };
+}
+
+/**
+ * The base implementation of `baseForOwn` which iterates over `object`
+ * properties returned by `keysFunc` and invokes `iteratee` for each property.
+ * Iteratee functions may exit iteration early by explicitly returning `false`.
+ *
+ * @private
+ * @param {Object} object The object to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @param {Function} keysFunc The function to get the keys of `object`.
+ * @returns {Object} Returns `object`.
+ */
+var baseFor = createBaseFor();
+
+/**
+ * The base implementation of `_.forOwn` without support for iteratee shorthands.
+ *
+ * @private
+ * @param {Object} object The object to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Object} Returns `object`.
+ */
+function baseForOwn(object, iteratee) {
+  return object && baseFor(object, iteratee, keys);
+}
+
+/**
+ * The base implementation of `_.findIndex` and `_.findLastIndex` without
+ * support for iteratee shorthands.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {Function} predicate The function invoked per iteration.
+ * @param {number} fromIndex The index to search from.
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function baseFindIndex(array, predicate, fromIndex, fromRight) {
+  var length = array.length,
+      index = fromIndex + (fromRight ? 1 : -1);
+
+  while ((fromRight ? index-- : ++index < length)) {
+    if (predicate(array[index], index, array)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.isNaN` without support for number objects.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is `NaN`, else `false`.
+ */
+function baseIsNaN(value) {
+  return value !== value;
+}
+
+/**
+ * A specialized version of `_.indexOf` which performs strict equality
+ * comparisons of values, i.e. `===`.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} value The value to search for.
+ * @param {number} fromIndex The index to search from.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function strictIndexOf(array, value, fromIndex) {
+  var index = fromIndex - 1,
+      length = array.length;
+
+  while (++index < length) {
+    if (array[index] === value) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.indexOf` without `fromIndex` bounds checks.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} value The value to search for.
+ * @param {number} fromIndex The index to search from.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function baseIndexOf(array, value, fromIndex) {
+  return value === value
+    ? strictIndexOf(array, value, fromIndex)
+    : baseFindIndex(array, baseIsNaN, fromIndex);
+}
+
+/**
+ * Determines the best order for running the {@link AsyncFunction}s in `tasks`, based on
+ * their requirements. Each function can optionally depend on other functions
+ * being completed first, and each function is run as soon as its requirements
+ * are satisfied.
+ *
+ * If any of the {@link AsyncFunction}s pass an error to their callback, the `auto` sequence
+ * will stop. Further tasks will not execute (so any other functions depending
+ * on it will not run), and the main `callback` is immediately called with the
+ * error.
+ *
+ * {@link AsyncFunction}s also receive an object containing the results of functions which
+ * have completed so far as the first argument, if they have dependencies. If a
+ * task function has no dependencies, it will only be passed a callback.
+ *
+ * @name auto
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Object} tasks - An object. Each of its properties is either a
+ * function or an array of requirements, with the {@link AsyncFunction} itself the last item
+ * in the array. The object's key of a property serves as the name of the task
+ * defined by that property, i.e. can be used when specifying requirements for
+ * other tasks. The function receives one or two arguments:
+ * * a `results` object, containing the results of the previously executed
+ *   functions, only passed if the task has any dependencies,
+ * * a `callback(err, result)` function, which must be called when finished,
+ *   passing an `error` (which can be `null`) and the result of the function's
+ *   execution.
+ * @param {number} [concurrency=Infinity] - An optional `integer` for
+ * determining the maximum number of tasks that can be run in parallel. By
+ * default, as many as possible.
+ * @param {Function} [callback] - An optional callback which is called when all
+ * the tasks have been completed. It receives the `err` argument if any `tasks`
+ * pass an error to their callback. Results are always returned; however, if an
+ * error occurs, no further `tasks` will be performed, and the results object
+ * will only contain partial results. Invoked with (err, results).
+ * @returns undefined
+ * @example
+ *
+ * async.auto({
+ *     // this function will just be passed a callback
+ *     readData: async.apply(fs.readFile, 'data.txt', 'utf-8'),
+ *     showData: ['readData', function(results, cb) {
+ *         // results.readData is the file's contents
+ *         // ...
+ *     }]
+ * }, callback);
+ *
+ * async.auto({
+ *     get_data: function(callback) {
+ *         console.log('in get_data');
+ *         // async code to get some data
+ *         callback(null, 'data', 'converted to array');
+ *     },
+ *     make_folder: function(callback) {
+ *         console.log('in make_folder');
+ *         // async code to create a directory to store a file in
+ *         // this is run at the same time as getting the data
+ *         callback(null, 'folder');
+ *     },
+ *     write_file: ['get_data', 'make_folder', function(results, callback) {
+ *         console.log('in write_file', JSON.stringify(results));
+ *         // once there is some data and the directory exists,
+ *         // write the data to a file in the directory
+ *         callback(null, 'filename');
+ *     }],
+ *     email_link: ['write_file', function(results, callback) {
+ *         console.log('in email_link', JSON.stringify(results));
+ *         // once the file is written let's email a link to it...
+ *         // results.write_file contains the filename returned by write_file.
+ *         callback(null, {'file':results.write_file, 'email':'user@example.com'});
+ *     }]
+ * }, function(err, results) {
+ *     console.log('err = ', err);
+ *     console.log('results = ', results);
+ * });
+ */
+var auto = function (tasks, concurrency, callback) {
+    if (typeof concurrency === 'function') {
+        // concurrency is optional, shift the args.
+        callback = concurrency;
+        concurrency = null;
+    }
+    callback = once(callback || noop);
+    var keys$$1 = keys(tasks);
+    var numTasks = keys$$1.length;
+    if (!numTasks) {
+        return callback(null);
+    }
+    if (!concurrency) {
+        concurrency = numTasks;
+    }
+
+    var results = {};
+    var runningTasks = 0;
+    var hasError = false;
+
+    var listeners = Object.create(null);
+
+    var readyTasks = [];
+
+    // for cycle detection:
+    var readyToCheck = []; // tasks that have been identified as reachable
+    // without the possibility of returning to an ancestor task
+    var uncheckedDependencies = {};
+
+    baseForOwn(tasks, function (task, key) {
+        if (!isArray(task)) {
+            // no dependencies
+            enqueueTask(key, [task]);
+            readyToCheck.push(key);
+            return;
+        }
+
+        var dependencies = task.slice(0, task.length - 1);
+        var remainingDependencies = dependencies.length;
+        if (remainingDependencies === 0) {
+            enqueueTask(key, task);
+            readyToCheck.push(key);
+            return;
+        }
+        uncheckedDependencies[key] = remainingDependencies;
+
+        arrayEach(dependencies, function (dependencyName) {
+            if (!tasks[dependencyName]) {
+                throw new Error('async.auto task `' + key +
+                    '` has a non-existent dependency `' +
+                    dependencyName + '` in ' +
+                    dependencies.join(', '));
+            }
+            addListener(dependencyName, function () {
+                remainingDependencies--;
+                if (remainingDependencies === 0) {
+                    enqueueTask(key, task);
+                }
+            });
+        });
+    });
+
+    checkForDeadlocks();
+    processQueue();
+
+    function enqueueTask(key, task) {
+        readyTasks.push(function () {
+            runTask(key, task);
+        });
+    }
+
+    function processQueue() {
+        if (readyTasks.length === 0 && runningTasks === 0) {
+            return callback(null, results);
+        }
+        while(readyTasks.length && runningTasks < concurrency) {
+            var run = readyTasks.shift();
+            run();
+        }
+
+    }
+
+    function addListener(taskName, fn) {
+        var taskListeners = listeners[taskName];
+        if (!taskListeners) {
+            taskListeners = listeners[taskName] = [];
+        }
+
+        taskListeners.push(fn);
+    }
+
+    function taskComplete(taskName) {
+        var taskListeners = listeners[taskName] || [];
+        arrayEach(taskListeners, function (fn) {
+            fn();
+        });
+        processQueue();
+    }
+
+
+    function runTask(key, task) {
+        if (hasError) return;
+
+        var taskCallback = onlyOnce(function(err, result) {
+            runningTasks--;
+            if (arguments.length > 2) {
+                result = slice(arguments, 1);
+            }
+            if (err) {
+                var safeResults = {};
+                baseForOwn(results, function(val, rkey) {
+                    safeResults[rkey] = val;
+                });
+                safeResults[key] = result;
+                hasError = true;
+                listeners = Object.create(null);
+
+                callback(err, safeResults);
+            } else {
+                results[key] = result;
+                taskComplete(key);
+            }
+        });
+
+        runningTasks++;
+        var taskFn = wrapAsync(task[task.length - 1]);
+        if (task.length > 1) {
+            taskFn(results, taskCallback);
+        } else {
+            taskFn(taskCallback);
+        }
+    }
+
+    function checkForDeadlocks() {
+        // Kahn's algorithm
+        // https://en.wikipedia.org/wiki/Topological_sorting#Kahn.27s_algorithm
+        // http://connalle.blogspot.com/2013/10/topological-sortingkahn-algorithm.html
+        var currentTask;
+        var counter = 0;
+        while (readyToCheck.length) {
+            currentTask = readyToCheck.pop();
+            counter++;
+            arrayEach(getDependents(currentTask), function (dependent) {
+                if (--uncheckedDependencies[dependent] === 0) {
+                    readyToCheck.push(dependent);
+                }
+            });
+        }
+
+        if (counter !== numTasks) {
+            throw new Error(
+                'async.auto cannot execute tasks due to a recursive dependency'
+            );
+        }
+    }
+
+    function getDependents(taskName) {
+        var result = [];
+        baseForOwn(tasks, function (task, key) {
+            if (isArray(task) && baseIndexOf(task, taskName, 0) >= 0) {
+                result.push(key);
+            }
+        });
+        return result;
+    }
+};
+
+/**
+ * A specialized version of `_.map` for arrays without support for iteratee
+ * shorthands.
+ *
+ * @private
+ * @param {Array} [array] The array to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns the new mapped array.
+ */
+function arrayMap(array, iteratee) {
+  var index = -1,
+      length = array == null ? 0 : array.length,
+      result = Array(length);
+
+  while (++index < length) {
+    result[index] = iteratee(array[index], index, array);
+  }
+  return result;
+}
+
+/** `Object#toString` result references. */
+var symbolTag = '[object Symbol]';
+
+/**
+ * Checks if `value` is classified as a `Symbol` primitive or object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
+ * @example
+ *
+ * _.isSymbol(Symbol.iterator);
+ * // => true
+ *
+ * _.isSymbol('abc');
+ * // => false
+ */
+function isSymbol(value) {
+  return typeof value == 'symbol' ||
+    (isObjectLike(value) && baseGetTag(value) == symbolTag);
+}
+
+/** Used as references for various `Number` constants. */
+var INFINITY = 1 / 0;
+
+/** Used to convert symbols to primitives and strings. */
+var symbolProto = Symbol$1 ? Symbol$1.prototype : undefined;
+var symbolToString = symbolProto ? symbolProto.toString : undefined;
+
+/**
+ * The base implementation of `_.toString` which doesn't convert nullish
+ * values to empty strings.
+ *
+ * @private
+ * @param {*} value The value to process.
+ * @returns {string} Returns the string.
+ */
+function baseToString(value) {
+  // Exit early for strings to avoid a performance hit in some environments.
+  if (typeof value == 'string') {
+    return value;
+  }
+  if (isArray(value)) {
+    // Recursively convert values (susceptible to call stack limits).
+    return arrayMap(value, baseToString) + '';
+  }
+  if (isSymbol(value)) {
+    return symbolToString ? symbolToString.call(value) : '';
+  }
+  var result = (value + '');
+  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+}
+
+/**
+ * The base implementation of `_.slice` without an iteratee call guard.
+ *
+ * @private
+ * @param {Array} array The array to slice.
+ * @param {number} [start=0] The start position.
+ * @param {number} [end=array.length] The end position.
+ * @returns {Array} Returns the slice of `array`.
+ */
+function baseSlice(array, start, end) {
+  var index = -1,
+      length = array.length;
+
+  if (start < 0) {
+    start = -start > length ? 0 : (length + start);
+  }
+  end = end > length ? length : end;
+  if (end < 0) {
+    end += length;
+  }
+  length = start > end ? 0 : ((end - start) >>> 0);
+  start >>>= 0;
+
+  var result = Array(length);
+  while (++index < length) {
+    result[index] = array[index + start];
+  }
+  return result;
+}
+
+/**
+ * Casts `array` to a slice if it's needed.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {number} start The start position.
+ * @param {number} [end=array.length] The end position.
+ * @returns {Array} Returns the cast slice.
+ */
+function castSlice(array, start, end) {
+  var length = array.length;
+  end = end === undefined ? length : end;
+  return (!start && end >= length) ? array : baseSlice(array, start, end);
+}
+
+/**
+ * Used by `_.trim` and `_.trimEnd` to get the index of the last string symbol
+ * that is not found in the character symbols.
+ *
+ * @private
+ * @param {Array} strSymbols The string symbols to inspect.
+ * @param {Array} chrSymbols The character symbols to find.
+ * @returns {number} Returns the index of the last unmatched string symbol.
+ */
+function charsEndIndex(strSymbols, chrSymbols) {
+  var index = strSymbols.length;
+
+  while (index-- && baseIndexOf(chrSymbols, strSymbols[index], 0) > -1) {}
+  return index;
+}
+
+/**
+ * Used by `_.trim` and `_.trimStart` to get the index of the first string symbol
+ * that is not found in the character symbols.
+ *
+ * @private
+ * @param {Array} strSymbols The string symbols to inspect.
+ * @param {Array} chrSymbols The character symbols to find.
+ * @returns {number} Returns the index of the first unmatched string symbol.
+ */
+function charsStartIndex(strSymbols, chrSymbols) {
+  var index = -1,
+      length = strSymbols.length;
+
+  while (++index < length && baseIndexOf(chrSymbols, strSymbols[index], 0) > -1) {}
+  return index;
+}
+
+/**
+ * Converts an ASCII `string` to an array.
+ *
+ * @private
+ * @param {string} string The string to convert.
+ * @returns {Array} Returns the converted array.
+ */
+function asciiToArray(string) {
+  return string.split('');
+}
+
+/** Used to compose unicode character classes. */
+var rsAstralRange = '\\ud800-\\udfff';
+var rsComboMarksRange = '\\u0300-\\u036f';
+var reComboHalfMarksRange = '\\ufe20-\\ufe2f';
+var rsComboSymbolsRange = '\\u20d0-\\u20ff';
+var rsComboRange = rsComboMarksRange + reComboHalfMarksRange + rsComboSymbolsRange;
+var rsVarRange = '\\ufe0e\\ufe0f';
+
+/** Used to compose unicode capture groups. */
+var rsZWJ = '\\u200d';
+
+/** Used to detect strings with [zero-width joiners or code points from the astral planes](http://eev.ee/blog/2015/09/12/dark-corners-of-unicode/). */
+var reHasUnicode = RegExp('[' + rsZWJ + rsAstralRange  + rsComboRange + rsVarRange + ']');
+
+/**
+ * Checks if `string` contains Unicode symbols.
+ *
+ * @private
+ * @param {string} string The string to inspect.
+ * @returns {boolean} Returns `true` if a symbol is found, else `false`.
+ */
+function hasUnicode(string) {
+  return reHasUnicode.test(string);
+}
+
+/** Used to compose unicode character classes. */
+var rsAstralRange$1 = '\\ud800-\\udfff';
+var rsComboMarksRange$1 = '\\u0300-\\u036f';
+var reComboHalfMarksRange$1 = '\\ufe20-\\ufe2f';
+var rsComboSymbolsRange$1 = '\\u20d0-\\u20ff';
+var rsComboRange$1 = rsComboMarksRange$1 + reComboHalfMarksRange$1 + rsComboSymbolsRange$1;
+var rsVarRange$1 = '\\ufe0e\\ufe0f';
+
+/** Used to compose unicode capture groups. */
+var rsAstral = '[' + rsAstralRange$1 + ']';
+var rsCombo = '[' + rsComboRange$1 + ']';
+var rsFitz = '\\ud83c[\\udffb-\\udfff]';
+var rsModifier = '(?:' + rsCombo + '|' + rsFitz + ')';
+var rsNonAstral = '[^' + rsAstralRange$1 + ']';
+var rsRegional = '(?:\\ud83c[\\udde6-\\uddff]){2}';
+var rsSurrPair = '[\\ud800-\\udbff][\\udc00-\\udfff]';
+var rsZWJ$1 = '\\u200d';
+
+/** Used to compose unicode regexes. */
+var reOptMod = rsModifier + '?';
+var rsOptVar = '[' + rsVarRange$1 + ']?';
+var rsOptJoin = '(?:' + rsZWJ$1 + '(?:' + [rsNonAstral, rsRegional, rsSurrPair].join('|') + ')' + rsOptVar + reOptMod + ')*';
+var rsSeq = rsOptVar + reOptMod + rsOptJoin;
+var rsSymbol = '(?:' + [rsNonAstral + rsCombo + '?', rsCombo, rsRegional, rsSurrPair, rsAstral].join('|') + ')';
+
+/** Used to match [string symbols](https://mathiasbynens.be/notes/javascript-unicode). */
+var reUnicode = RegExp(rsFitz + '(?=' + rsFitz + ')|' + rsSymbol + rsSeq, 'g');
+
+/**
+ * Converts a Unicode `string` to an array.
+ *
+ * @private
+ * @param {string} string The string to convert.
+ * @returns {Array} Returns the converted array.
+ */
+function unicodeToArray(string) {
+  return string.match(reUnicode) || [];
+}
+
+/**
+ * Converts `string` to an array.
+ *
+ * @private
+ * @param {string} string The string to convert.
+ * @returns {Array} Returns the converted array.
+ */
+function stringToArray(string) {
+  return hasUnicode(string)
+    ? unicodeToArray(string)
+    : asciiToArray(string);
+}
+
+/**
+ * Converts `value` to a string. An empty string is returned for `null`
+ * and `undefined` values. The sign of `-0` is preserved.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to convert.
+ * @returns {string} Returns the converted string.
+ * @example
+ *
+ * _.toString(null);
+ * // => ''
+ *
+ * _.toString(-0);
+ * // => '-0'
+ *
+ * _.toString([1, 2, 3]);
+ * // => '1,2,3'
+ */
+function toString(value) {
+  return value == null ? '' : baseToString(value);
+}
+
+/** Used to match leading and trailing whitespace. */
+var reTrim = /^\s+|\s+$/g;
+
+/**
+ * Removes leading and trailing whitespace or specified characters from `string`.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.0.0
+ * @category String
+ * @param {string} [string=''] The string to trim.
+ * @param {string} [chars=whitespace] The characters to trim.
+ * @param- {Object} [guard] Enables use as an iteratee for methods like `_.map`.
+ * @returns {string} Returns the trimmed string.
+ * @example
+ *
+ * _.trim('  abc  ');
+ * // => 'abc'
+ *
+ * _.trim('-_-abc-_-', '_-');
+ * // => 'abc'
+ *
+ * _.map(['  foo  ', '  bar  '], _.trim);
+ * // => ['foo', 'bar']
+ */
+function trim(string, chars, guard) {
+  string = toString(string);
+  if (string && (guard || chars === undefined)) {
+    return string.replace(reTrim, '');
+  }
+  if (!string || !(chars = baseToString(chars))) {
+    return string;
+  }
+  var strSymbols = stringToArray(string),
+      chrSymbols = stringToArray(chars),
+      start = charsStartIndex(strSymbols, chrSymbols),
+      end = charsEndIndex(strSymbols, chrSymbols) + 1;
+
+  return castSlice(strSymbols, start, end).join('');
+}
+
+var FN_ARGS = /^(?:async\s+)?(function)?\s*[^\(]*\(\s*([^\)]*)\)/m;
+var FN_ARG_SPLIT = /,/;
+var FN_ARG = /(=.+)?(\s*)$/;
+var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
+
+function parseParams(func) {
+    func = func.toString().replace(STRIP_COMMENTS, '');
+    func = func.match(FN_ARGS)[2].replace(' ', '');
+    func = func ? func.split(FN_ARG_SPLIT) : [];
+    func = func.map(function (arg){
+        return trim(arg.replace(FN_ARG, ''));
+    });
+    return func;
+}
+
+/**
+ * A dependency-injected version of the [async.auto]{@link module:ControlFlow.auto} function. Dependent
+ * tasks are specified as parameters to the function, after the usual callback
+ * parameter, with the parameter names matching the names of the tasks it
+ * depends on. This can provide even more readable task graphs which can be
+ * easier to maintain.
+ *
+ * If a final callback is specified, the task results are similarly injected,
+ * specified as named parameters after the initial error parameter.
+ *
+ * The autoInject function is purely syntactic sugar and its semantics are
+ * otherwise equivalent to [async.auto]{@link module:ControlFlow.auto}.
+ *
+ * @name autoInject
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.auto]{@link module:ControlFlow.auto}
+ * @category Control Flow
+ * @param {Object} tasks - An object, each of whose properties is an {@link AsyncFunction} of
+ * the form 'func([dependencies...], callback). The object's key of a property
+ * serves as the name of the task defined by that property, i.e. can be used
+ * when specifying requirements for other tasks.
+ * * The `callback` parameter is a `callback(err, result)` which must be called
+ *   when finished, passing an `error` (which can be `null`) and the result of
+ *   the function's execution. The remaining parameters name other tasks on
+ *   which the task is dependent, and the results from those tasks are the
+ *   arguments of those parameters.
+ * @param {Function} [callback] - An optional callback which is called when all
+ * the tasks have been completed. It receives the `err` argument if any `tasks`
+ * pass an error to their callback, and a `results` object with any completed
+ * task results, similar to `auto`.
+ * @example
+ *
+ * //  The example from `auto` can be rewritten as follows:
+ * async.autoInject({
+ *     get_data: function(callback) {
+ *         // async code to get some data
+ *         callback(null, 'data', 'converted to array');
+ *     },
+ *     make_folder: function(callback) {
+ *         // async code to create a directory to store a file in
+ *         // this is run at the same time as getting the data
+ *         callback(null, 'folder');
+ *     },
+ *     write_file: function(get_data, make_folder, callback) {
+ *         // once there is some data and the directory exists,
+ *         // write the data to a file in the directory
+ *         callback(null, 'filename');
+ *     },
+ *     email_link: function(write_file, callback) {
+ *         // once the file is written let's email a link to it...
+ *         // write_file contains the filename returned by write_file.
+ *         callback(null, {'file':write_file, 'email':'user@example.com'});
+ *     }
+ * }, function(err, results) {
+ *     console.log('err = ', err);
+ *     console.log('email_link = ', results.email_link);
+ * });
+ *
+ * // If you are using a JS minifier that mangles parameter names, `autoInject`
+ * // will not work with plain functions, since the parameter names will be
+ * // collapsed to a single letter identifier.  To work around this, you can
+ * // explicitly specify the names of the parameters your task function needs
+ * // in an array, similar to Angular.js dependency injection.
+ *
+ * // This still has an advantage over plain `auto`, since the results a task
+ * // depends on are still spread into arguments.
+ * async.autoInject({
+ *     //...
+ *     write_file: ['get_data', 'make_folder', function(get_data, make_folder, callback) {
+ *         callback(null, 'filename');
+ *     }],
+ *     email_link: ['write_file', function(write_file, callback) {
+ *         callback(null, {'file':write_file, 'email':'user@example.com'});
+ *     }]
+ *     //...
+ * }, function(err, results) {
+ *     console.log('err = ', err);
+ *     console.log('email_link = ', results.email_link);
+ * });
+ */
+function autoInject(tasks, callback) {
+    var newTasks = {};
+
+    baseForOwn(tasks, function (taskFn, key) {
+        var params;
+        var fnIsAsync = isAsync(taskFn);
+        var hasNoDeps =
+            (!fnIsAsync && taskFn.length === 1) ||
+            (fnIsAsync && taskFn.length === 0);
+
+        if (isArray(taskFn)) {
+            params = taskFn.slice(0, -1);
+            taskFn = taskFn[taskFn.length - 1];
+
+            newTasks[key] = params.concat(params.length > 0 ? newTask : taskFn);
+        } else if (hasNoDeps) {
+            // no dependencies, use the function as-is
+            newTasks[key] = taskFn;
+        } else {
+            params = parseParams(taskFn);
+            if (taskFn.length === 0 && !fnIsAsync && params.length === 0) {
+                throw new Error("autoInject task functions require explicit parameters.");
+            }
+
+            // remove callback param
+            if (!fnIsAsync) params.pop();
+
+            newTasks[key] = params.concat(newTask);
+        }
+
+        function newTask(results, taskCb) {
+            var newArgs = arrayMap(params, function (name) {
+                return results[name];
+            });
+            newArgs.push(taskCb);
+            wrapAsync(taskFn).apply(null, newArgs);
+        }
+    });
+
+    auto(newTasks, callback);
+}
+
+// Simple doubly linked list (https://en.wikipedia.org/wiki/Doubly_linked_list) implementation
+// used for queues. This implementation assumes that the node provided by the user can be modified
+// to adjust the next and last properties. We implement only the minimal functionality
+// for queue support.
+function DLL() {
+    this.head = this.tail = null;
+    this.length = 0;
+}
+
+function setInitial(dll, node) {
+    dll.length = 1;
+    dll.head = dll.tail = node;
+}
+
+DLL.prototype.removeLink = function(node) {
+    if (node.prev) node.prev.next = node.next;
+    else this.head = node.next;
+    if (node.next) node.next.prev = node.prev;
+    else this.tail = node.prev;
+
+    node.prev = node.next = null;
+    this.length -= 1;
+    return node;
+};
+
+DLL.prototype.empty = function () {
+    while(this.head) this.shift();
+    return this;
+};
+
+DLL.prototype.insertAfter = function(node, newNode) {
+    newNode.prev = node;
+    newNode.next = node.next;
+    if (node.next) node.next.prev = newNode;
+    else this.tail = newNode;
+    node.next = newNode;
+    this.length += 1;
+};
+
+DLL.prototype.insertBefore = function(node, newNode) {
+    newNode.prev = node.prev;
+    newNode.next = node;
+    if (node.prev) node.prev.next = newNode;
+    else this.head = newNode;
+    node.prev = newNode;
+    this.length += 1;
+};
+
+DLL.prototype.unshift = function(node) {
+    if (this.head) this.insertBefore(this.head, node);
+    else setInitial(this, node);
+};
+
+DLL.prototype.push = function(node) {
+    if (this.tail) this.insertAfter(this.tail, node);
+    else setInitial(this, node);
+};
+
+DLL.prototype.shift = function() {
+    return this.head && this.removeLink(this.head);
+};
+
+DLL.prototype.pop = function() {
+    return this.tail && this.removeLink(this.tail);
+};
+
+DLL.prototype.toArray = function () {
+    var arr = Array(this.length);
+    var curr = this.head;
+    for(var idx = 0; idx < this.length; idx++) {
+        arr[idx] = curr.data;
+        curr = curr.next;
+    }
+    return arr;
+};
+
+DLL.prototype.remove = function (testFn) {
+    var curr = this.head;
+    while(!!curr) {
+        var next = curr.next;
+        if (testFn(curr)) {
+            this.removeLink(curr);
+        }
+        curr = next;
+    }
+    return this;
+};
+
+function queue(worker, concurrency, payload) {
+    if (concurrency == null) {
+        concurrency = 1;
+    }
+    else if(concurrency === 0) {
+        throw new Error('Concurrency must not be zero');
+    }
+
+    var _worker = wrapAsync(worker);
+    var numRunning = 0;
+    var workersList = [];
+
+    var processingScheduled = false;
+    function _insert(data, insertAtFront, callback) {
+        if (callback != null && typeof callback !== 'function') {
+            throw new Error('task callback must be a function');
+        }
+        q.started = true;
+        if (!isArray(data)) {
+            data = [data];
+        }
+        if (data.length === 0 && q.idle()) {
+            // call drain immediately if there are no tasks
+            return setImmediate$1(function() {
+                q.drain();
+            });
+        }
+
+        for (var i = 0, l = data.length; i < l; i++) {
+            var item = {
+                data: data[i],
+                callback: callback || noop
+            };
+
+            if (insertAtFront) {
+                q._tasks.unshift(item);
+            } else {
+                q._tasks.push(item);
+            }
+        }
+
+        if (!processingScheduled) {
+            processingScheduled = true;
+            setImmediate$1(function() {
+                processingScheduled = false;
+                q.process();
+            });
+        }
+    }
+
+    function _next(tasks) {
+        return function(err){
+            numRunning -= 1;
+
+            for (var i = 0, l = tasks.length; i < l; i++) {
+                var task = tasks[i];
+
+                var index = baseIndexOf(workersList, task, 0);
+                if (index === 0) {
+                    workersList.shift();
+                } else if (index > 0) {
+                    workersList.splice(index, 1);
+                }
+
+                task.callback.apply(task, arguments);
+
+                if (err != null) {
+                    q.error(err, task.data);
+                }
+            }
+
+            if (numRunning <= (q.concurrency - q.buffer) ) {
+                q.unsaturated();
+            }
+
+            if (q.idle()) {
+                q.drain();
+            }
+            q.process();
+        };
+    }
+
+    var isProcessing = false;
+    var q = {
+        _tasks: new DLL(),
+        concurrency: concurrency,
+        payload: payload,
+        saturated: noop,
+        unsaturated:noop,
+        buffer: concurrency / 4,
+        empty: noop,
+        drain: noop,
+        error: noop,
+        started: false,
+        paused: false,
+        push: function (data, callback) {
+            _insert(data, false, callback);
+        },
+        kill: function () {
+            q.drain = noop;
+            q._tasks.empty();
+        },
+        unshift: function (data, callback) {
+            _insert(data, true, callback);
+        },
+        remove: function (testFn) {
+            q._tasks.remove(testFn);
+        },
+        process: function () {
+            // Avoid trying to start too many processing operations. This can occur
+            // when callbacks resolve synchronously (#1267).
+            if (isProcessing) {
+                return;
+            }
+            isProcessing = true;
+            while(!q.paused && numRunning < q.concurrency && q._tasks.length){
+                var tasks = [], data = [];
+                var l = q._tasks.length;
+                if (q.payload) l = Math.min(l, q.payload);
+                for (var i = 0; i < l; i++) {
+                    var node = q._tasks.shift();
+                    tasks.push(node);
+                    workersList.push(node);
+                    data.push(node.data);
+                }
+
+                numRunning += 1;
+
+                if (q._tasks.length === 0) {
+                    q.empty();
+                }
+
+                if (numRunning === q.concurrency) {
+                    q.saturated();
+                }
+
+                var cb = onlyOnce(_next(tasks));
+                _worker(data, cb);
+            }
+            isProcessing = false;
+        },
+        length: function () {
+            return q._tasks.length;
+        },
+        running: function () {
+            return numRunning;
+        },
+        workersList: function () {
+            return workersList;
+        },
+        idle: function() {
+            return q._tasks.length + numRunning === 0;
+        },
+        pause: function () {
+            q.paused = true;
+        },
+        resume: function () {
+            if (q.paused === false) { return; }
+            q.paused = false;
+            setImmediate$1(q.process);
+        }
+    };
+    return q;
+}
+
+/**
+ * A cargo of tasks for the worker function to complete. Cargo inherits all of
+ * the same methods and event callbacks as [`queue`]{@link module:ControlFlow.queue}.
+ * @typedef {Object} CargoObject
+ * @memberOf module:ControlFlow
+ * @property {Function} length - A function returning the number of items
+ * waiting to be processed. Invoke like `cargo.length()`.
+ * @property {number} payload - An `integer` for determining how many tasks
+ * should be process per round. This property can be changed after a `cargo` is
+ * created to alter the payload on-the-fly.
+ * @property {Function} push - Adds `task` to the `queue`. The callback is
+ * called once the `worker` has finished processing the task. Instead of a
+ * single task, an array of `tasks` can be submitted. The respective callback is
+ * used for every task in the list. Invoke like `cargo.push(task, [callback])`.
+ * @property {Function} saturated - A callback that is called when the
+ * `queue.length()` hits the concurrency and further tasks will be queued.
+ * @property {Function} empty - A callback that is called when the last item
+ * from the `queue` is given to a `worker`.
+ * @property {Function} drain - A callback that is called when the last item
+ * from the `queue` has returned from the `worker`.
+ * @property {Function} idle - a function returning false if there are items
+ * waiting or being processed, or true if not. Invoke like `cargo.idle()`.
+ * @property {Function} pause - a function that pauses the processing of tasks
+ * until `resume()` is called. Invoke like `cargo.pause()`.
+ * @property {Function} resume - a function that resumes the processing of
+ * queued tasks when the queue is paused. Invoke like `cargo.resume()`.
+ * @property {Function} kill - a function that removes the `drain` callback and
+ * empties remaining tasks from the queue forcing it to go idle. Invoke like `cargo.kill()`.
+ */
+
+/**
+ * Creates a `cargo` object with the specified payload. Tasks added to the
+ * cargo will be processed altogether (up to the `payload` limit). If the
+ * `worker` is in progress, the task is queued until it becomes available. Once
+ * the `worker` has completed some tasks, each callback of those tasks is
+ * called. Check out [these](https://camo.githubusercontent.com/6bbd36f4cf5b35a0f11a96dcd2e97711ffc2fb37/68747470733a2f2f662e636c6f75642e6769746875622e636f6d2f6173736574732f313637363837312f36383130382f62626330636662302d356632392d313165322d393734662d3333393763363464633835382e676966) [animations](https://camo.githubusercontent.com/f4810e00e1c5f5f8addbe3e9f49064fd5d102699/68747470733a2f2f662e636c6f75642e6769746875622e636f6d2f6173736574732f313637363837312f36383130312f38346339323036362d356632392d313165322d383134662d3964336430323431336266642e676966)
+ * for how `cargo` and `queue` work.
+ *
+ * While [`queue`]{@link module:ControlFlow.queue} passes only one task to one of a group of workers
+ * at a time, cargo passes an array of tasks to a single worker, repeating
+ * when the worker is finished.
+ *
+ * @name cargo
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.queue]{@link module:ControlFlow.queue}
+ * @category Control Flow
+ * @param {AsyncFunction} worker - An asynchronous function for processing an array
+ * of queued tasks. Invoked with `(tasks, callback)`.
+ * @param {number} [payload=Infinity] - An optional `integer` for determining
+ * how many tasks should be processed per round; if omitted, the default is
+ * unlimited.
+ * @returns {module:ControlFlow.CargoObject} A cargo object to manage the tasks. Callbacks can
+ * attached as certain properties to listen for specific events during the
+ * lifecycle of the cargo and inner queue.
+ * @example
+ *
+ * // create a cargo object with payload 2
+ * var cargo = async.cargo(function(tasks, callback) {
+ *     for (var i=0; i<tasks.length; i++) {
+ *         console.log('hello ' + tasks[i].name);
+ *     }
+ *     callback();
+ * }, 2);
+ *
+ * // add some items
+ * cargo.push({name: 'foo'}, function(err) {
+ *     console.log('finished processing foo');
+ * });
+ * cargo.push({name: 'bar'}, function(err) {
+ *     console.log('finished processing bar');
+ * });
+ * cargo.push({name: 'baz'}, function(err) {
+ *     console.log('finished processing baz');
+ * });
+ */
+function cargo(worker, payload) {
+    return queue(worker, 1, payload);
+}
+
+/**
+ * The same as [`eachOf`]{@link module:Collections.eachOf} but runs only a single async operation at a time.
+ *
+ * @name eachOfSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.eachOf]{@link module:Collections.eachOf}
+ * @alias forEachOfSeries
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * Invoked with (item, key, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Invoked with (err).
+ */
+var eachOfSeries = doLimit(eachOfLimit, 1);
+
+/**
+ * Reduces `coll` into a single value using an async `iteratee` to return each
+ * successive step. `memo` is the initial state of the reduction. This function
+ * only operates in series.
+ *
+ * For performance reasons, it may make sense to split a call to this function
+ * into a parallel map, and then use the normal `Array.prototype.reduce` on the
+ * results. This function is for situations where each step in the reduction
+ * needs to be async; if you can get the data before reducing it, then it's
+ * probably a good idea to do so.
+ *
+ * @name reduce
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias inject
+ * @alias foldl
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {*} memo - The initial state of the reduction.
+ * @param {AsyncFunction} iteratee - A function applied to each item in the
+ * array to produce the next step in the reduction.
+ * The `iteratee` should complete with the next state of the reduction.
+ * If the iteratee complete with an error, the reduction is stopped and the
+ * main `callback` is immediately called with the error.
+ * Invoked with (memo, item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Result is the reduced value. Invoked with
+ * (err, result).
+ * @example
+ *
+ * async.reduce([1,2,3], 0, function(memo, item, callback) {
+ *     // pointless async:
+ *     process.nextTick(function() {
+ *         callback(null, memo + item)
+ *     });
+ * }, function(err, result) {
+ *     // result is now equal to the last value of memo, which is 6
+ * });
+ */
+function reduce(coll, memo, iteratee, callback) {
+    callback = once(callback || noop);
+    var _iteratee = wrapAsync(iteratee);
+    eachOfSeries(coll, function(x, i, callback) {
+        _iteratee(memo, x, function(err, v) {
+            memo = v;
+            callback(err);
+        });
+    }, function(err) {
+        callback(err, memo);
+    });
+}
+
+/**
+ * Version of the compose function that is more natural to read. Each function
+ * consumes the return value of the previous function. It is the equivalent of
+ * [compose]{@link module:ControlFlow.compose} with the arguments reversed.
+ *
+ * Each function is executed with the `this` binding of the composed function.
+ *
+ * @name seq
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.compose]{@link module:ControlFlow.compose}
+ * @category Control Flow
+ * @param {...AsyncFunction} functions - the asynchronous functions to compose
+ * @returns {Function} a function that composes the `functions` in order
+ * @example
+ *
+ * // Requires lodash (or underscore), express3 and dresende's orm2.
+ * // Part of an app, that fetches cats of the logged user.
+ * // This example uses `seq` function to avoid overnesting and error
+ * // handling clutter.
+ * app.get('/cats', function(request, response) {
+ *     var User = request.models.User;
+ *     async.seq(
+ *         _.bind(User.get, User),  // 'User.get' has signature (id, callback(err, data))
+ *         function(user, fn) {
+ *             user.getCats(fn);      // 'getCats' has signature (callback(err, data))
+ *         }
+ *     )(req.session.user_id, function (err, cats) {
+ *         if (err) {
+ *             console.error(err);
+ *             response.json({ status: 'error', message: err.message });
+ *         } else {
+ *             response.json({ status: 'ok', message: 'Cats found', data: cats });
+ *         }
+ *     });
+ * });
+ */
+function seq(/*...functions*/) {
+    var _functions = arrayMap(arguments, wrapAsync);
+    return function(/*...args*/) {
+        var args = slice(arguments);
+        var that = this;
+
+        var cb = args[args.length - 1];
+        if (typeof cb == 'function') {
+            args.pop();
+        } else {
+            cb = noop;
+        }
+
+        reduce(_functions, args, function(newargs, fn, cb) {
+            fn.apply(that, newargs.concat(function(err/*, ...nextargs*/) {
+                var nextargs = slice(arguments, 1);
+                cb(err, nextargs);
+            }));
+        },
+        function(err, results) {
+            cb.apply(that, [err].concat(results));
+        });
+    };
+}
+
+/**
+ * Creates a function which is a composition of the passed asynchronous
+ * functions. Each function consumes the return value of the function that
+ * follows. Composing functions `f()`, `g()`, and `h()` would produce the result
+ * of `f(g(h()))`, only this version uses callbacks to obtain the return values.
+ *
+ * Each function is executed with the `this` binding of the composed function.
+ *
+ * @name compose
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {...AsyncFunction} functions - the asynchronous functions to compose
+ * @returns {Function} an asynchronous function that is the composed
+ * asynchronous `functions`
+ * @example
+ *
+ * function add1(n, callback) {
+ *     setTimeout(function () {
+ *         callback(null, n + 1);
+ *     }, 10);
+ * }
+ *
+ * function mul3(n, callback) {
+ *     setTimeout(function () {
+ *         callback(null, n * 3);
+ *     }, 10);
+ * }
+ *
+ * var add1mul3 = async.compose(mul3, add1);
+ * add1mul3(4, function (err, result) {
+ *     // result now equals 15
+ * });
+ */
+var compose = function(/*...args*/) {
+    return seq.apply(null, slice(arguments).reverse());
+};
+
+var _concat = Array.prototype.concat;
+
+/**
+ * The same as [`concat`]{@link module:Collections.concat} but runs a maximum of `limit` async operations at a time.
+ *
+ * @name concatLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.concat]{@link module:Collections.concat}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - A function to apply to each item in `coll`,
+ * which should use an array as its result. Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished, or an error occurs. Results is an array
+ * containing the concatenated results of the `iteratee` function. Invoked with
+ * (err, results).
+ */
+var concatLimit = function(coll, limit, iteratee, callback) {
+    callback = callback || noop;
+    var _iteratee = wrapAsync(iteratee);
+    mapLimit(coll, limit, function(val, callback) {
+        _iteratee(val, function(err /*, ...args*/) {
+            if (err) return callback(err);
+            return callback(null, slice(arguments, 1));
+        });
+    }, function(err, mapResults) {
+        var result = [];
+        for (var i = 0; i < mapResults.length; i++) {
+            if (mapResults[i]) {
+                result = _concat.apply(result, mapResults[i]);
+            }
+        }
+
+        return callback(err, result);
+    });
+};
+
+/**
+ * Applies `iteratee` to each item in `coll`, concatenating the results. Returns
+ * the concatenated list. The `iteratee`s are called in parallel, and the
+ * results are concatenated as they return. There is no guarantee that the
+ * results array will be returned in the original order of `coll` passed to the
+ * `iteratee` function.
+ *
+ * @name concat
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A function to apply to each item in `coll`,
+ * which should use an array as its result. Invoked with (item, callback).
+ * @param {Function} [callback(err)] - A callback which is called after all the
+ * `iteratee` functions have finished, or an error occurs. Results is an array
+ * containing the concatenated results of the `iteratee` function. Invoked with
+ * (err, results).
+ * @example
+ *
+ * async.concat(['dir1','dir2','dir3'], fs.readdir, function(err, files) {
+ *     // files is now a list of filenames that exist in the 3 directories
+ * });
+ */
+var concat = doLimit(concatLimit, Infinity);
+
+/**
+ * The same as [`concat`]{@link module:Collections.concat} but runs only a single async operation at a time.
+ *
+ * @name concatSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.concat]{@link module:Collections.concat}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A function to apply to each item in `coll`.
+ * The iteratee should complete with an array an array of results.
+ * Invoked with (item, callback).
+ * @param {Function} [callback(err)] - A callback which is called after all the
+ * `iteratee` functions have finished, or an error occurs. Results is an array
+ * containing the concatenated results of the `iteratee` function. Invoked with
+ * (err, results).
+ */
+var concatSeries = doLimit(concatLimit, 1);
+
+/**
+ * Returns a function that when called, calls-back with the values provided.
+ * Useful as the first function in a [`waterfall`]{@link module:ControlFlow.waterfall}, or for plugging values in to
+ * [`auto`]{@link module:ControlFlow.auto}.
+ *
+ * @name constant
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {...*} arguments... - Any number of arguments to automatically invoke
+ * callback with.
+ * @returns {AsyncFunction} Returns a function that when invoked, automatically
+ * invokes the callback with the previous given arguments.
+ * @example
+ *
+ * async.waterfall([
+ *     async.constant(42),
+ *     function (value, next) {
+ *         // value === 42
+ *     },
+ *     //...
+ * ], callback);
+ *
+ * async.waterfall([
+ *     async.constant(filename, "utf8"),
+ *     fs.readFile,
+ *     function (fileData, next) {
+ *         //...
+ *     }
+ *     //...
+ * ], callback);
+ *
+ * async.auto({
+ *     hostname: async.constant("https://server.net/"),
+ *     port: findFreePort,
+ *     launchServer: ["hostname", "port", function (options, cb) {
+ *         startServer(options, cb);
+ *     }],
+ *     //...
+ * }, callback);
+ */
+var constant = function(/*...values*/) {
+    var values = slice(arguments);
+    var args = [null].concat(values);
+    return function (/*...ignoredArgs, callback*/) {
+        var callback = arguments[arguments.length - 1];
+        return callback.apply(this, args);
+    };
+};
+
+/**
+ * This method returns the first argument it receives.
+ *
+ * @static
+ * @since 0.1.0
+ * @memberOf _
+ * @category Util
+ * @param {*} value Any value.
+ * @returns {*} Returns `value`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ *
+ * console.log(_.identity(object) === object);
+ * // => true
+ */
+function identity(value) {
+  return value;
+}
+
+function _createTester(check, getResult) {
+    return function(eachfn, arr, iteratee, cb) {
+        cb = cb || noop;
+        var testPassed = false;
+        var testResult;
+        eachfn(arr, function(value, _, callback) {
+            iteratee(value, function(err, result) {
+                if (err) {
+                    callback(err);
+                } else if (check(result) && !testResult) {
+                    testPassed = true;
+                    testResult = getResult(true, value);
+                    callback(null, breakLoop);
+                } else {
+                    callback();
+                }
+            });
+        }, function(err) {
+            if (err) {
+                cb(err);
+            } else {
+                cb(null, testPassed ? testResult : getResult(false));
+            }
+        });
+    };
+}
+
+function _findGetResult(v, x) {
+    return x;
+}
+
+/**
+ * Returns the first value in `coll` that passes an async truth test. The
+ * `iteratee` is applied in parallel, meaning the first iteratee to return
+ * `true` will fire the detect `callback` with that result. That means the
+ * result might not be the first item in the original `coll` (in terms of order)
+ * that passes the test.
+
+ * If order within the original `coll` is important, then look at
+ * [`detectSeries`]{@link module:Collections.detectSeries}.
+ *
+ * @name detect
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias find
+ * @category Collections
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A truth test to apply to each item in `coll`.
+ * The iteratee must complete with a boolean value as its result.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called as soon as any
+ * iteratee returns `true`, or after all the `iteratee` functions have finished.
+ * Result will be the first item in the array that passes the truth test
+ * (iteratee) or the value `undefined` if none passed. Invoked with
+ * (err, result).
+ * @example
+ *
+ * async.detect(['file1','file2','file3'], function(filePath, callback) {
+ *     fs.access(filePath, function(err) {
+ *         callback(null, !err)
+ *     });
+ * }, function(err, result) {
+ *     // result now equals the first file in the list that exists
+ * });
+ */
+var detect = doParallel(_createTester(identity, _findGetResult));
+
+/**
+ * The same as [`detect`]{@link module:Collections.detect} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name detectLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.detect]{@link module:Collections.detect}
+ * @alias findLimit
+ * @category Collections
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - A truth test to apply to each item in `coll`.
+ * The iteratee must complete with a boolean value as its result.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called as soon as any
+ * iteratee returns `true`, or after all the `iteratee` functions have finished.
+ * Result will be the first item in the array that passes the truth test
+ * (iteratee) or the value `undefined` if none passed. Invoked with
+ * (err, result).
+ */
+var detectLimit = doParallelLimit(_createTester(identity, _findGetResult));
+
+/**
+ * The same as [`detect`]{@link module:Collections.detect} but runs only a single async operation at a time.
+ *
+ * @name detectSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.detect]{@link module:Collections.detect}
+ * @alias findSeries
+ * @category Collections
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A truth test to apply to each item in `coll`.
+ * The iteratee must complete with a boolean value as its result.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called as soon as any
+ * iteratee returns `true`, or after all the `iteratee` functions have finished.
+ * Result will be the first item in the array that passes the truth test
+ * (iteratee) or the value `undefined` if none passed. Invoked with
+ * (err, result).
+ */
+var detectSeries = doLimit(detectLimit, 1);
+
+function consoleFunc(name) {
+    return function (fn/*, ...args*/) {
+        var args = slice(arguments, 1);
+        args.push(function (err/*, ...args*/) {
+            var args = slice(arguments, 1);
+            if (typeof console === 'object') {
+                if (err) {
+                    if (console.error) {
+                        console.error(err);
+                    }
+                } else if (console[name]) {
+                    arrayEach(args, function (x) {
+                        console[name](x);
+                    });
+                }
+            }
+        });
+        wrapAsync(fn).apply(null, args);
+    };
+}
+
+/**
+ * Logs the result of an [`async` function]{@link AsyncFunction} to the
+ * `console` using `console.dir` to display the properties of the resulting object.
+ * Only works in Node.js or in browsers that support `console.dir` and
+ * `console.error` (such as FF and Chrome).
+ * If multiple arguments are returned from the async function,
+ * `console.dir` is called on each argument in order.
+ *
+ * @name dir
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {AsyncFunction} function - The function you want to eventually apply
+ * all arguments to.
+ * @param {...*} arguments... - Any number of arguments to apply to the function.
+ * @example
+ *
+ * // in a module
+ * var hello = function(name, callback) {
+ *     setTimeout(function() {
+ *         callback(null, {hello: name});
+ *     }, 1000);
+ * };
+ *
+ * // in the node repl
+ * node> async.dir(hello, 'world');
+ * {hello: 'world'}
+ */
+var dir = consoleFunc('dir');
+
+/**
+ * The post-check version of [`during`]{@link module:ControlFlow.during}. To reflect the difference in
+ * the order of operations, the arguments `test` and `fn` are switched.
+ *
+ * Also a version of [`doWhilst`]{@link module:ControlFlow.doWhilst} with asynchronous `test` function.
+ * @name doDuring
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.during]{@link module:ControlFlow.during}
+ * @category Control Flow
+ * @param {AsyncFunction} fn - An async function which is called each time
+ * `test` passes. Invoked with (callback).
+ * @param {AsyncFunction} test - asynchronous truth test to perform before each
+ * execution of `fn`. Invoked with (...args, callback), where `...args` are the
+ * non-error args from the previous callback of `fn`.
+ * @param {Function} [callback] - A callback which is called after the test
+ * function has failed and repeated execution of `fn` has stopped. `callback`
+ * will be passed an error if one occurred, otherwise `null`.
+ */
+function doDuring(fn, test, callback) {
+    callback = onlyOnce(callback || noop);
+    var _fn = wrapAsync(fn);
+    var _test = wrapAsync(test);
+
+    function next(err/*, ...args*/) {
+        if (err) return callback(err);
+        var args = slice(arguments, 1);
+        args.push(check);
+        _test.apply(this, args);
+    }
+
+    function check(err, truth) {
+        if (err) return callback(err);
+        if (!truth) return callback(null);
+        _fn(next);
+    }
+
+    check(null, true);
+
+}
+
+/**
+ * The post-check version of [`whilst`]{@link module:ControlFlow.whilst}. To reflect the difference in
+ * the order of operations, the arguments `test` and `iteratee` are switched.
+ *
+ * `doWhilst` is to `whilst` as `do while` is to `while` in plain JavaScript.
+ *
+ * @name doWhilst
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.whilst]{@link module:ControlFlow.whilst}
+ * @category Control Flow
+ * @param {AsyncFunction} iteratee - A function which is called each time `test`
+ * passes. Invoked with (callback).
+ * @param {Function} test - synchronous truth test to perform after each
+ * execution of `iteratee`. Invoked with any non-error callback results of
+ * `iteratee`.
+ * @param {Function} [callback] - A callback which is called after the test
+ * function has failed and repeated execution of `iteratee` has stopped.
+ * `callback` will be passed an error and any arguments passed to the final
+ * `iteratee`'s callback. Invoked with (err, [results]);
+ */
+function doWhilst(iteratee, test, callback) {
+    callback = onlyOnce(callback || noop);
+    var _iteratee = wrapAsync(iteratee);
+    var next = function(err/*, ...args*/) {
+        if (err) return callback(err);
+        var args = slice(arguments, 1);
+        if (test.apply(this, args)) return _iteratee(next);
+        callback.apply(null, [null].concat(args));
+    };
+    _iteratee(next);
+}
+
+/**
+ * Like ['doWhilst']{@link module:ControlFlow.doWhilst}, except the `test` is inverted. Note the
+ * argument ordering differs from `until`.
+ *
+ * @name doUntil
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.doWhilst]{@link module:ControlFlow.doWhilst}
+ * @category Control Flow
+ * @param {AsyncFunction} iteratee - An async function which is called each time
+ * `test` fails. Invoked with (callback).
+ * @param {Function} test - synchronous truth test to perform after each
+ * execution of `iteratee`. Invoked with any non-error callback results of
+ * `iteratee`.
+ * @param {Function} [callback] - A callback which is called after the test
+ * function has passed and repeated execution of `iteratee` has stopped. `callback`
+ * will be passed an error and any arguments passed to the final `iteratee`'s
+ * callback. Invoked with (err, [results]);
+ */
+function doUntil(iteratee, test, callback) {
+    doWhilst(iteratee, function() {
+        return !test.apply(this, arguments);
+    }, callback);
+}
+
+/**
+ * Like [`whilst`]{@link module:ControlFlow.whilst}, except the `test` is an asynchronous function that
+ * is passed a callback in the form of `function (err, truth)`. If error is
+ * passed to `test` or `fn`, the main callback is immediately called with the
+ * value of the error.
+ *
+ * @name during
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.whilst]{@link module:ControlFlow.whilst}
+ * @category Control Flow
+ * @param {AsyncFunction} test - asynchronous truth test to perform before each
+ * execution of `fn`. Invoked with (callback).
+ * @param {AsyncFunction} fn - An async function which is called each time
+ * `test` passes. Invoked with (callback).
+ * @param {Function} [callback] - A callback which is called after the test
+ * function has failed and repeated execution of `fn` has stopped. `callback`
+ * will be passed an error, if one occurred, otherwise `null`.
+ * @example
+ *
+ * var count = 0;
+ *
+ * async.during(
+ *     function (callback) {
+ *         return callback(null, count < 5);
+ *     },
+ *     function (callback) {
+ *         count++;
+ *         setTimeout(callback, 1000);
+ *     },
+ *     function (err) {
+ *         // 5 seconds have passed
+ *     }
+ * );
+ */
+function during(test, fn, callback) {
+    callback = onlyOnce(callback || noop);
+    var _fn = wrapAsync(fn);
+    var _test = wrapAsync(test);
+
+    function next(err) {
+        if (err) return callback(err);
+        _test(check);
+    }
+
+    function check(err, truth) {
+        if (err) return callback(err);
+        if (!truth) return callback(null);
+        _fn(next);
+    }
+
+    _test(check);
+}
+
+function _withoutIndex(iteratee) {
+    return function (value, index, callback) {
+        return iteratee(value, callback);
+    };
+}
+
+/**
+ * Applies the function `iteratee` to each item in `coll`, in parallel.
+ * The `iteratee` is called with an item from the list, and a callback for when
+ * it has finished. If the `iteratee` passes an error to its `callback`, the
+ * main `callback` (for the `each` function) is immediately called with the
+ * error.
+ *
+ * Note, that since this function applies `iteratee` to each item in parallel,
+ * there is no guarantee that the iteratee functions will complete in order.
+ *
+ * @name each
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias forEach
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to
+ * each item in `coll`. Invoked with (item, callback).
+ * The array index is not passed to the iteratee.
+ * If you need the index, use `eachOf`.
+ * @param {Function} [callback] - A callback which is called when all
+ * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+ * @example
+ *
+ * // assuming openFiles is an array of file names and saveFile is a function
+ * // to save the modified contents of that file:
+ *
+ * async.each(openFiles, saveFile, function(err){
+ *   // if any of the saves produced an error, err would equal that error
+ * });
+ *
+ * // assuming openFiles is an array of file names
+ * async.each(openFiles, function(file, callback) {
+ *
+ *     // Perform operation on file here.
+ *     console.log('Processing file ' + file);
+ *
+ *     if( file.length > 32 ) {
+ *       console.log('This file name is too long');
+ *       callback('File name too long');
+ *     } else {
+ *       // Do work to process file here
+ *       console.log('File processed');
+ *       callback();
+ *     }
+ * }, function(err) {
+ *     // if any of the file processing produced an error, err would equal that error
+ *     if( err ) {
+ *       // One of the iterations produced an error.
+ *       // All processing will now stop.
+ *       console.log('A file failed to process');
+ *     } else {
+ *       console.log('All files have been processed successfully');
+ *     }
+ * });
+ */
+function eachLimit(coll, iteratee, callback) {
+    eachOf(coll, _withoutIndex(wrapAsync(iteratee)), callback);
+}
+
+/**
+ * The same as [`each`]{@link module:Collections.each} but runs a maximum of `limit` async operations at a time.
+ *
+ * @name eachLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.each]{@link module:Collections.each}
+ * @alias forEachLimit
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The array index is not passed to the iteratee.
+ * If you need the index, use `eachOfLimit`.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called when all
+ * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+ */
+function eachLimit$1(coll, limit, iteratee, callback) {
+    _eachOfLimit(limit)(coll, _withoutIndex(wrapAsync(iteratee)), callback);
+}
+
+/**
+ * The same as [`each`]{@link module:Collections.each} but runs only a single async operation at a time.
+ *
+ * @name eachSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.each]{@link module:Collections.each}
+ * @alias forEachSeries
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to each
+ * item in `coll`.
+ * The array index is not passed to the iteratee.
+ * If you need the index, use `eachOfSeries`.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called when all
+ * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+ */
+var eachSeries = doLimit(eachLimit$1, 1);
+
+/**
+ * Wrap an async function and ensure it calls its callback on a later tick of
+ * the event loop.  If the function already calls its callback on a next tick,
+ * no extra deferral is added. This is useful for preventing stack overflows
+ * (`RangeError: Maximum call stack size exceeded`) and generally keeping
+ * [Zalgo](http://blog.izs.me/post/59142742143/designing-apis-for-asynchrony)
+ * contained. ES2017 `async` functions are returned as-is -- they are immune
+ * to Zalgo's corrupting influences, as they always resolve on a later tick.
+ *
+ * @name ensureAsync
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {AsyncFunction} fn - an async function, one that expects a node-style
+ * callback as its last argument.
+ * @returns {AsyncFunction} Returns a wrapped function with the exact same call
+ * signature as the function passed in.
+ * @example
+ *
+ * function sometimesAsync(arg, callback) {
+ *     if (cache[arg]) {
+ *         return callback(null, cache[arg]); // this would be synchronous!!
+ *     } else {
+ *         doSomeIO(arg, callback); // this IO would be asynchronous
+ *     }
+ * }
+ *
+ * // this has a risk of stack overflows if many results are cached in a row
+ * async.mapSeries(args, sometimesAsync, done);
+ *
+ * // this will defer sometimesAsync's callback if necessary,
+ * // preventing stack overflows
+ * async.mapSeries(args, async.ensureAsync(sometimesAsync), done);
+ */
+function ensureAsync(fn) {
+    if (isAsync(fn)) return fn;
+    return initialParams(function (args, callback) {
+        var sync = true;
+        args.push(function () {
+            var innerArgs = arguments;
+            if (sync) {
+                setImmediate$1(function () {
+                    callback.apply(null, innerArgs);
+                });
+            } else {
+                callback.apply(null, innerArgs);
+            }
+        });
+        fn.apply(this, args);
+        sync = false;
+    });
+}
+
+function notId(v) {
+    return !v;
+}
+
+/**
+ * Returns `true` if every element in `coll` satisfies an async test. If any
+ * iteratee call returns `false`, the main `callback` is immediately called.
+ *
+ * @name every
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias all
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async truth test to apply to each item
+ * in the collection in parallel.
+ * The iteratee must complete with a boolean result value.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Result will be either `true` or `false`
+ * depending on the values of the async tests. Invoked with (err, result).
+ * @example
+ *
+ * async.every(['file1','file2','file3'], function(filePath, callback) {
+ *     fs.access(filePath, function(err) {
+ *         callback(null, !err)
+ *     });
+ * }, function(err, result) {
+ *     // if result is true then every file exists
+ * });
+ */
+var every = doParallel(_createTester(notId, notId));
+
+/**
+ * The same as [`every`]{@link module:Collections.every} but runs a maximum of `limit` async operations at a time.
+ *
+ * @name everyLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.every]{@link module:Collections.every}
+ * @alias allLimit
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async truth test to apply to each item
+ * in the collection in parallel.
+ * The iteratee must complete with a boolean result value.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Result will be either `true` or `false`
+ * depending on the values of the async tests. Invoked with (err, result).
+ */
+var everyLimit = doParallelLimit(_createTester(notId, notId));
+
+/**
+ * The same as [`every`]{@link module:Collections.every} but runs only a single async operation at a time.
+ *
+ * @name everySeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.every]{@link module:Collections.every}
+ * @alias allSeries
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async truth test to apply to each item
+ * in the collection in series.
+ * The iteratee must complete with a boolean result value.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Result will be either `true` or `false`
+ * depending on the values of the async tests. Invoked with (err, result).
+ */
+var everySeries = doLimit(everyLimit, 1);
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new accessor function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+function filterArray(eachfn, arr, iteratee, callback) {
+    var truthValues = new Array(arr.length);
+    eachfn(arr, function (x, index, callback) {
+        iteratee(x, function (err, v) {
+            truthValues[index] = !!v;
+            callback(err);
+        });
+    }, function (err) {
+        if (err) return callback(err);
+        var results = [];
+        for (var i = 0; i < arr.length; i++) {
+            if (truthValues[i]) results.push(arr[i]);
+        }
+        callback(null, results);
+    });
+}
+
+function filterGeneric(eachfn, coll, iteratee, callback) {
+    var results = [];
+    eachfn(coll, function (x, index, callback) {
+        iteratee(x, function (err, v) {
+            if (err) {
+                callback(err);
+            } else {
+                if (v) {
+                    results.push({index: index, value: x});
+                }
+                callback();
+            }
+        });
+    }, function (err) {
+        if (err) {
+            callback(err);
+        } else {
+            callback(null, arrayMap(results.sort(function (a, b) {
+                return a.index - b.index;
+            }), baseProperty('value')));
+        }
+    });
+}
+
+function _filter(eachfn, coll, iteratee, callback) {
+    var filter = isArrayLike(coll) ? filterArray : filterGeneric;
+    filter(eachfn, coll, wrapAsync(iteratee), callback || noop);
+}
+
+/**
+ * Returns a new array of all the values in `coll` which pass an async truth
+ * test. This operation is performed in parallel, but the results array will be
+ * in the same order as the original.
+ *
+ * @name filter
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias select
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {Function} iteratee - A truth test to apply to each item in `coll`.
+ * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
+ * with a boolean argument once it has completed. Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Invoked with (err, results).
+ * @example
+ *
+ * async.filter(['file1','file2','file3'], function(filePath, callback) {
+ *     fs.access(filePath, function(err) {
+ *         callback(null, !err)
+ *     });
+ * }, function(err, results) {
+ *     // results now equals an array of the existing files
+ * });
+ */
+var filter = doParallel(_filter);
+
+/**
+ * The same as [`filter`]{@link module:Collections.filter} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name filterLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.filter]{@link module:Collections.filter}
+ * @alias selectLimit
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {Function} iteratee - A truth test to apply to each item in `coll`.
+ * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
+ * with a boolean argument once it has completed. Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Invoked with (err, results).
+ */
+var filterLimit = doParallelLimit(_filter);
+
+/**
+ * The same as [`filter`]{@link module:Collections.filter} but runs only a single async operation at a time.
+ *
+ * @name filterSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.filter]{@link module:Collections.filter}
+ * @alias selectSeries
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {Function} iteratee - A truth test to apply to each item in `coll`.
+ * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
+ * with a boolean argument once it has completed. Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Invoked with (err, results)
+ */
+var filterSeries = doLimit(filterLimit, 1);
+
+/**
+ * Calls the asynchronous function `fn` with a callback parameter that allows it
+ * to call itself again, in series, indefinitely.
+
+ * If an error is passed to the callback then `errback` is called with the
+ * error, and execution stops, otherwise it will never be called.
+ *
+ * @name forever
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {AsyncFunction} fn - an async function to call repeatedly.
+ * Invoked with (next).
+ * @param {Function} [errback] - when `fn` passes an error to it's callback,
+ * this function will be called, and execution stops. Invoked with (err).
+ * @example
+ *
+ * async.forever(
+ *     function(next) {
+ *         // next is suitable for passing to things that need a callback(err [, whatever]);
+ *         // it will result in this function being called again.
+ *     },
+ *     function(err) {
+ *         // if next is called with a value in its first parameter, it will appear
+ *         // in here as 'err', and execution will stop.
+ *     }
+ * );
+ */
+function forever(fn, errback) {
+    var done = onlyOnce(errback || noop);
+    var task = wrapAsync(ensureAsync(fn));
+
+    function next(err) {
+        if (err) return done(err);
+        task(next);
+    }
+    next();
+}
+
+/**
+ * The same as [`groupBy`]{@link module:Collections.groupBy} but runs a maximum of `limit` async operations at a time.
+ *
+ * @name groupByLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.groupBy]{@link module:Collections.groupBy}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with a `key` to group the value under.
+ * Invoked with (value, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Result is an `Object` whoses
+ * properties are arrays of values which returned the corresponding key.
+ */
+var groupByLimit = function(coll, limit, iteratee, callback) {
+    callback = callback || noop;
+    var _iteratee = wrapAsync(iteratee);
+    mapLimit(coll, limit, function(val, callback) {
+        _iteratee(val, function(err, key) {
+            if (err) return callback(err);
+            return callback(null, {key: key, val: val});
+        });
+    }, function(err, mapResults) {
+        var result = {};
+        // from MDN, handle object having an `hasOwnProperty` prop
+        var hasOwnProperty = Object.prototype.hasOwnProperty;
+
+        for (var i = 0; i < mapResults.length; i++) {
+            if (mapResults[i]) {
+                var key = mapResults[i].key;
+                var val = mapResults[i].val;
+
+                if (hasOwnProperty.call(result, key)) {
+                    result[key].push(val);
+                } else {
+                    result[key] = [val];
+                }
+            }
+        }
+
+        return callback(err, result);
+    });
+};
+
+/**
+ * Returns a new object, where each value corresponds to an array of items, from
+ * `coll`, that returned the corresponding key. That is, the keys of the object
+ * correspond to the values passed to the `iteratee` callback.
+ *
+ * Note: Since this function applies the `iteratee` to each item in parallel,
+ * there is no guarantee that the `iteratee` functions will complete in order.
+ * However, the values for each key in the `result` will be in the same order as
+ * the original `coll`. For Objects, the values will roughly be in the order of
+ * the original Objects' keys (but this can vary across JavaScript engines).
+ *
+ * @name groupBy
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with a `key` to group the value under.
+ * Invoked with (value, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Result is an `Object` whoses
+ * properties are arrays of values which returned the corresponding key.
+ * @example
+ *
+ * async.groupBy(['userId1', 'userId2', 'userId3'], function(userId, callback) {
+ *     db.findById(userId, function(err, user) {
+ *         if (err) return callback(err);
+ *         return callback(null, user.age);
+ *     });
+ * }, function(err, result) {
+ *     // result is object containing the userIds grouped by age
+ *     // e.g. { 30: ['userId1', 'userId3'], 42: ['userId2']};
+ * });
+ */
+var groupBy = doLimit(groupByLimit, Infinity);
+
+/**
+ * The same as [`groupBy`]{@link module:Collections.groupBy} but runs only a single async operation at a time.
+ *
+ * @name groupBySeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.groupBy]{@link module:Collections.groupBy}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with a `key` to group the value under.
+ * Invoked with (value, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. Result is an `Object` whoses
+ * properties are arrays of values which returned the corresponding key.
+ */
+var groupBySeries = doLimit(groupByLimit, 1);
+
+/**
+ * Logs the result of an `async` function to the `console`. Only works in
+ * Node.js or in browsers that support `console.log` and `console.error` (such
+ * as FF and Chrome). If multiple arguments are returned from the async
+ * function, `console.log` is called on each argument in order.
+ *
+ * @name log
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {AsyncFunction} function - The function you want to eventually apply
+ * all arguments to.
+ * @param {...*} arguments... - Any number of arguments to apply to the function.
+ * @example
+ *
+ * // in a module
+ * var hello = function(name, callback) {
+ *     setTimeout(function() {
+ *         callback(null, 'hello ' + name);
+ *     }, 1000);
+ * };
+ *
+ * // in the node repl
+ * node> async.log(hello, 'world');
+ * 'hello world'
+ */
+var log = consoleFunc('log');
+
+/**
+ * The same as [`mapValues`]{@link module:Collections.mapValues} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name mapValuesLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.mapValues]{@link module:Collections.mapValues}
+ * @category Collection
+ * @param {Object} obj - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - A function to apply to each value and key
+ * in `coll`.
+ * The iteratee should complete with the transformed value as its result.
+ * Invoked with (value, key, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. `result` is a new object consisting
+ * of each key from `obj`, with each transformed value on the right-hand side.
+ * Invoked with (err, result).
+ */
+function mapValuesLimit(obj, limit, iteratee, callback) {
+    callback = once(callback || noop);
+    var newObj = {};
+    var _iteratee = wrapAsync(iteratee);
+    eachOfLimit(obj, limit, function(val, key, next) {
+        _iteratee(val, key, function (err, result) {
+            if (err) return next(err);
+            newObj[key] = result;
+            next();
+        });
+    }, function (err) {
+        callback(err, newObj);
+    });
+}
+
+/**
+ * A relative of [`map`]{@link module:Collections.map}, designed for use with objects.
+ *
+ * Produces a new Object by mapping each value of `obj` through the `iteratee`
+ * function. The `iteratee` is called each `value` and `key` from `obj` and a
+ * callback for when it has finished processing. Each of these callbacks takes
+ * two arguments: an `error`, and the transformed item from `obj`. If `iteratee`
+ * passes an error to its callback, the main `callback` (for the `mapValues`
+ * function) is immediately called with the error.
+ *
+ * Note, the order of the keys in the result is not guaranteed.  The keys will
+ * be roughly in the order they complete, (but this is very engine-specific)
+ *
+ * @name mapValues
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @category Collection
+ * @param {Object} obj - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A function to apply to each value and key
+ * in `coll`.
+ * The iteratee should complete with the transformed value as its result.
+ * Invoked with (value, key, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. `result` is a new object consisting
+ * of each key from `obj`, with each transformed value on the right-hand side.
+ * Invoked with (err, result).
+ * @example
+ *
+ * async.mapValues({
+ *     f1: 'file1',
+ *     f2: 'file2',
+ *     f3: 'file3'
+ * }, function (file, key, callback) {
+ *   fs.stat(file, callback);
+ * }, function(err, result) {
+ *     // result is now a map of stats for each file, e.g.
+ *     // {
+ *     //     f1: [stats for file1],
+ *     //     f2: [stats for file2],
+ *     //     f3: [stats for file3]
+ *     // }
+ * });
+ */
+
+var mapValues = doLimit(mapValuesLimit, Infinity);
+
+/**
+ * The same as [`mapValues`]{@link module:Collections.mapValues} but runs only a single async operation at a time.
+ *
+ * @name mapValuesSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.mapValues]{@link module:Collections.mapValues}
+ * @category Collection
+ * @param {Object} obj - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - A function to apply to each value and key
+ * in `coll`.
+ * The iteratee should complete with the transformed value as its result.
+ * Invoked with (value, key, callback).
+ * @param {Function} [callback] - A callback which is called when all `iteratee`
+ * functions have finished, or an error occurs. `result` is a new object consisting
+ * of each key from `obj`, with each transformed value on the right-hand side.
+ * Invoked with (err, result).
+ */
+var mapValuesSeries = doLimit(mapValuesLimit, 1);
+
+function has(obj, key) {
+    return key in obj;
+}
+
+/**
+ * Caches the results of an async function. When creating a hash to store
+ * function results against, the callback is omitted from the hash and an
+ * optional hash function can be used.
+ *
+ * If no hash function is specified, the first argument is used as a hash key,
+ * which may work reasonably if it is a string or a data type that converts to a
+ * distinct string. Note that objects and arrays will not behave reasonably.
+ * Neither will cases where the other arguments are significant. In such cases,
+ * specify your own hash function.
+ *
+ * The cache of results is exposed as the `memo` property of the function
+ * returned by `memoize`.
+ *
+ * @name memoize
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {AsyncFunction} fn - The async function to proxy and cache results from.
+ * @param {Function} hasher - An optional function for generating a custom hash
+ * for storing results. It has all the arguments applied to it apart from the
+ * callback, and must be synchronous.
+ * @returns {AsyncFunction} a memoized version of `fn`
+ * @example
+ *
+ * var slow_fn = function(name, callback) {
+ *     // do something
+ *     callback(null, result);
+ * };
+ * var fn = async.memoize(slow_fn);
+ *
+ * // fn can now be used as if it were slow_fn
+ * fn('some name', function() {
+ *     // callback
+ * });
+ */
+function memoize(fn, hasher) {
+    var memo = Object.create(null);
+    var queues = Object.create(null);
+    hasher = hasher || identity;
+    var _fn = wrapAsync(fn);
+    var memoized = initialParams(function memoized(args, callback) {
+        var key = hasher.apply(null, args);
+        if (has(memo, key)) {
+            setImmediate$1(function() {
+                callback.apply(null, memo[key]);
+            });
+        } else if (has(queues, key)) {
+            queues[key].push(callback);
+        } else {
+            queues[key] = [callback];
+            _fn.apply(null, args.concat(function(/*args*/) {
+                var args = slice(arguments);
+                memo[key] = args;
+                var q = queues[key];
+                delete queues[key];
+                for (var i = 0, l = q.length; i < l; i++) {
+                    q[i].apply(null, args);
+                }
+            }));
+        }
+    });
+    memoized.memo = memo;
+    memoized.unmemoized = fn;
+    return memoized;
+}
+
+/**
+ * Calls `callback` on a later loop around the event loop. In Node.js this just
+ * calls `process.nextTick`.  In the browser it will use `setImmediate` if
+ * available, otherwise `setTimeout(callback, 0)`, which means other higher
+ * priority events may precede the execution of `callback`.
+ *
+ * This is used internally for browser-compatibility purposes.
+ *
+ * @name nextTick
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @see [async.setImmediate]{@link module:Utils.setImmediate}
+ * @category Util
+ * @param {Function} callback - The function to call on a later loop around
+ * the event loop. Invoked with (args...).
+ * @param {...*} args... - any number of additional arguments to pass to the
+ * callback on the next tick.
+ * @example
+ *
+ * var call_order = [];
+ * async.nextTick(function() {
+ *     call_order.push('two');
+ *     // call_order now equals ['one','two']
+ * });
+ * call_order.push('one');
+ *
+ * async.setImmediate(function (a, b, c) {
+ *     // a, b, and c equal 1, 2, and 3
+ * }, 1, 2, 3);
+ */
+var _defer$1;
+
+if (hasNextTick) {
+    _defer$1 = process.nextTick;
+} else if (hasSetImmediate) {
+    _defer$1 = setImmediate;
+} else {
+    _defer$1 = fallback;
+}
+
+var nextTick = wrap(_defer$1);
+
+function _parallel(eachfn, tasks, callback) {
+    callback = callback || noop;
+    var results = isArrayLike(tasks) ? [] : {};
+
+    eachfn(tasks, function (task, key, callback) {
+        wrapAsync(task)(function (err, result) {
+            if (arguments.length > 2) {
+                result = slice(arguments, 1);
+            }
+            results[key] = result;
+            callback(err);
+        });
+    }, function (err) {
+        callback(err, results);
+    });
+}
+
+/**
+ * Run the `tasks` collection of functions in parallel, without waiting until
+ * the previous function has completed. If any of the functions pass an error to
+ * its callback, the main `callback` is immediately called with the value of the
+ * error. Once the `tasks` have completed, the results are passed to the final
+ * `callback` as an array.
+ *
+ * **Note:** `parallel` is about kicking-off I/O tasks in parallel, not about
+ * parallel execution of code.  If your tasks do not use any timers or perform
+ * any I/O, they will actually be executed in series.  Any synchronous setup
+ * sections for each task will happen one after the other.  JavaScript remains
+ * single-threaded.
+ *
+ * **Hint:** Use [`reflect`]{@link module:Utils.reflect} to continue the
+ * execution of other tasks when a task fails.
+ *
+ * It is also possible to use an object instead of an array. Each property will
+ * be run as a function and the results will be passed to the final `callback`
+ * as an object instead of an array. This can be a more readable way of handling
+ * results from {@link async.parallel}.
+ *
+ * @name parallel
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Array|Iterable|Object} tasks - A collection of
+ * [async functions]{@link AsyncFunction} to run.
+ * Each async function can complete with any number of optional `result` values.
+ * @param {Function} [callback] - An optional callback to run once all the
+ * functions have completed successfully. This function gets a results array
+ * (or object) containing all the result arguments passed to the task callbacks.
+ * Invoked with (err, results).
+ *
+ * @example
+ * async.parallel([
+ *     function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'one');
+ *         }, 200);
+ *     },
+ *     function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'two');
+ *         }, 100);
+ *     }
+ * ],
+ * // optional callback
+ * function(err, results) {
+ *     // the results array will equal ['one','two'] even though
+ *     // the second function had a shorter timeout.
+ * });
+ *
+ * // an example using an object instead of an array
+ * async.parallel({
+ *     one: function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 1);
+ *         }, 200);
+ *     },
+ *     two: function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 2);
+ *         }, 100);
+ *     }
+ * }, function(err, results) {
+ *     // results is now equals to: {one: 1, two: 2}
+ * });
+ */
+function parallelLimit(tasks, callback) {
+    _parallel(eachOf, tasks, callback);
+}
+
+/**
+ * The same as [`parallel`]{@link module:ControlFlow.parallel} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name parallelLimit
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.parallel]{@link module:ControlFlow.parallel}
+ * @category Control Flow
+ * @param {Array|Iterable|Object} tasks - A collection of
+ * [async functions]{@link AsyncFunction} to run.
+ * Each async function can complete with any number of optional `result` values.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {Function} [callback] - An optional callback to run once all the
+ * functions have completed successfully. This function gets a results array
+ * (or object) containing all the result arguments passed to the task callbacks.
+ * Invoked with (err, results).
+ */
+function parallelLimit$1(tasks, limit, callback) {
+    _parallel(_eachOfLimit(limit), tasks, callback);
+}
+
+/**
+ * A queue of tasks for the worker function to complete.
+ * @typedef {Object} QueueObject
+ * @memberOf module:ControlFlow
+ * @property {Function} length - a function returning the number of items
+ * waiting to be processed. Invoke with `queue.length()`.
+ * @property {boolean} started - a boolean indicating whether or not any
+ * items have been pushed and processed by the queue.
+ * @property {Function} running - a function returning the number of items
+ * currently being processed. Invoke with `queue.running()`.
+ * @property {Function} workersList - a function returning the array of items
+ * currently being processed. Invoke with `queue.workersList()`.
+ * @property {Function} idle - a function returning false if there are items
+ * waiting or being processed, or true if not. Invoke with `queue.idle()`.
+ * @property {number} concurrency - an integer for determining how many `worker`
+ * functions should be run in parallel. This property can be changed after a
+ * `queue` is created to alter the concurrency on-the-fly.
+ * @property {Function} push - add a new task to the `queue`. Calls `callback`
+ * once the `worker` has finished processing the task. Instead of a single task,
+ * a `tasks` array can be submitted. The respective callback is used for every
+ * task in the list. Invoke with `queue.push(task, [callback])`,
+ * @property {Function} unshift - add a new task to the front of the `queue`.
+ * Invoke with `queue.unshift(task, [callback])`.
+ * @property {Function} remove - remove items from the queue that match a test
+ * function.  The test function will be passed an object with a `data` property,
+ * and a `priority` property, if this is a
+ * [priorityQueue]{@link module:ControlFlow.priorityQueue} object.
+ * Invoked with `queue.remove(testFn)`, where `testFn` is of the form
+ * `function ({data, priority}) {}` and returns a Boolean.
+ * @property {Function} saturated - a callback that is called when the number of
+ * running workers hits the `concurrency` limit, and further tasks will be
+ * queued.
+ * @property {Function} unsaturated - a callback that is called when the number
+ * of running workers is less than the `concurrency` & `buffer` limits, and
+ * further tasks will not be queued.
+ * @property {number} buffer - A minimum threshold buffer in order to say that
+ * the `queue` is `unsaturated`.
+ * @property {Function} empty - a callback that is called when the last item
+ * from the `queue` is given to a `worker`.
+ * @property {Function} drain - a callback that is called when the last item
+ * from the `queue` has returned from the `worker`.
+ * @property {Function} error - a callback that is called when a task errors.
+ * Has the signature `function(error, task)`.
+ * @property {boolean} paused - a boolean for determining whether the queue is
+ * in a paused state.
+ * @property {Function} pause - a function that pauses the processing of tasks
+ * until `resume()` is called. Invoke with `queue.pause()`.
+ * @property {Function} resume - a function that resumes the processing of
+ * queued tasks when the queue is paused. Invoke with `queue.resume()`.
+ * @property {Function} kill - a function that removes the `drain` callback and
+ * empties remaining tasks from the queue forcing it to go idle. No more tasks
+ * should be pushed to the queue after calling this function. Invoke with `queue.kill()`.
+ */
+
+/**
+ * Creates a `queue` object with the specified `concurrency`. Tasks added to the
+ * `queue` are processed in parallel (up to the `concurrency` limit). If all
+ * `worker`s are in progress, the task is queued until one becomes available.
+ * Once a `worker` completes a `task`, that `task`'s callback is called.
+ *
+ * @name queue
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {AsyncFunction} worker - An async function for processing a queued task.
+ * If you want to handle errors from an individual task, pass a callback to
+ * `q.push()`. Invoked with (task, callback).
+ * @param {number} [concurrency=1] - An `integer` for determining how many
+ * `worker` functions should be run in parallel.  If omitted, the concurrency
+ * defaults to `1`.  If the concurrency is `0`, an error is thrown.
+ * @returns {module:ControlFlow.QueueObject} A queue object to manage the tasks. Callbacks can
+ * attached as certain properties to listen for specific events during the
+ * lifecycle of the queue.
+ * @example
+ *
+ * // create a queue object with concurrency 2
+ * var q = async.queue(function(task, callback) {
+ *     console.log('hello ' + task.name);
+ *     callback();
+ * }, 2);
+ *
+ * // assign a callback
+ * q.drain = function() {
+ *     console.log('all items have been processed');
+ * };
+ *
+ * // add some items to the queue
+ * q.push({name: 'foo'}, function(err) {
+ *     console.log('finished processing foo');
+ * });
+ * q.push({name: 'bar'}, function (err) {
+ *     console.log('finished processing bar');
+ * });
+ *
+ * // add some items to the queue (batch-wise)
+ * q.push([{name: 'baz'},{name: 'bay'},{name: 'bax'}], function(err) {
+ *     console.log('finished processing item');
+ * });
+ *
+ * // add some items to the front of the queue
+ * q.unshift({name: 'bar'}, function (err) {
+ *     console.log('finished processing bar');
+ * });
+ */
+var queue$1 = function (worker, concurrency) {
+    var _worker = wrapAsync(worker);
+    return queue(function (items, cb) {
+        _worker(items[0], cb);
+    }, concurrency, 1);
+};
+
+/**
+ * The same as [async.queue]{@link module:ControlFlow.queue} only tasks are assigned a priority and
+ * completed in ascending priority order.
+ *
+ * @name priorityQueue
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.queue]{@link module:ControlFlow.queue}
+ * @category Control Flow
+ * @param {AsyncFunction} worker - An async function for processing a queued task.
+ * If you want to handle errors from an individual task, pass a callback to
+ * `q.push()`.
+ * Invoked with (task, callback).
+ * @param {number} concurrency - An `integer` for determining how many `worker`
+ * functions should be run in parallel.  If omitted, the concurrency defaults to
+ * `1`.  If the concurrency is `0`, an error is thrown.
+ * @returns {module:ControlFlow.QueueObject} A priorityQueue object to manage the tasks. There are two
+ * differences between `queue` and `priorityQueue` objects:
+ * * `push(task, priority, [callback])` - `priority` should be a number. If an
+ *   array of `tasks` is given, all tasks will be assigned the same priority.
+ * * The `unshift` method was removed.
+ */
+var priorityQueue = function(worker, concurrency) {
+    // Start with a normal queue
+    var q = queue$1(worker, concurrency);
+
+    // Override push to accept second parameter representing priority
+    q.push = function(data, priority, callback) {
+        if (callback == null) callback = noop;
+        if (typeof callback !== 'function') {
+            throw new Error('task callback must be a function');
+        }
+        q.started = true;
+        if (!isArray(data)) {
+            data = [data];
+        }
+        if (data.length === 0) {
+            // call drain immediately if there are no tasks
+            return setImmediate$1(function() {
+                q.drain();
+            });
+        }
+
+        priority = priority || 0;
+        var nextNode = q._tasks.head;
+        while (nextNode && priority >= nextNode.priority) {
+            nextNode = nextNode.next;
+        }
+
+        for (var i = 0, l = data.length; i < l; i++) {
+            var item = {
+                data: data[i],
+                priority: priority,
+                callback: callback
+            };
+
+            if (nextNode) {
+                q._tasks.insertBefore(nextNode, item);
+            } else {
+                q._tasks.push(item);
+            }
+        }
+        setImmediate$1(q.process);
+    };
+
+    // Remove unshift function
+    delete q.unshift;
+
+    return q;
+};
+
+/**
+ * Runs the `tasks` array of functions in parallel, without waiting until the
+ * previous function has completed. Once any of the `tasks` complete or pass an
+ * error to its callback, the main `callback` is immediately called. It's
+ * equivalent to `Promise.race()`.
+ *
+ * @name race
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Array} tasks - An array containing [async functions]{@link AsyncFunction}
+ * to run. Each function can complete with an optional `result` value.
+ * @param {Function} callback - A callback to run once any of the functions have
+ * completed. This function gets an error or result from the first function that
+ * completed. Invoked with (err, result).
+ * @returns undefined
+ * @example
+ *
+ * async.race([
+ *     function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'one');
+ *         }, 200);
+ *     },
+ *     function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'two');
+ *         }, 100);
+ *     }
+ * ],
+ * // main callback
+ * function(err, result) {
+ *     // the result will be equal to 'two' as it finishes earlier
+ * });
+ */
+function race(tasks, callback) {
+    callback = once(callback || noop);
+    if (!isArray(tasks)) return callback(new TypeError('First argument to race must be an array of functions'));
+    if (!tasks.length) return callback();
+    for (var i = 0, l = tasks.length; i < l; i++) {
+        wrapAsync(tasks[i])(callback);
+    }
+}
+
+/**
+ * Same as [`reduce`]{@link module:Collections.reduce}, only operates on `array` in reverse order.
+ *
+ * @name reduceRight
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.reduce]{@link module:Collections.reduce}
+ * @alias foldr
+ * @category Collection
+ * @param {Array} array - A collection to iterate over.
+ * @param {*} memo - The initial state of the reduction.
+ * @param {AsyncFunction} iteratee - A function applied to each item in the
+ * array to produce the next step in the reduction.
+ * The `iteratee` should complete with the next state of the reduction.
+ * If the iteratee complete with an error, the reduction is stopped and the
+ * main `callback` is immediately called with the error.
+ * Invoked with (memo, item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Result is the reduced value. Invoked with
+ * (err, result).
+ */
+function reduceRight (array, memo, iteratee, callback) {
+    var reversed = slice(array).reverse();
+    reduce(reversed, memo, iteratee, callback);
+}
+
+/**
+ * Wraps the async function in another function that always completes with a
+ * result object, even when it errors.
+ *
+ * The result object has either the property `error` or `value`.
+ *
+ * @name reflect
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {AsyncFunction} fn - The async function you want to wrap
+ * @returns {Function} - A function that always passes null to it's callback as
+ * the error. The second argument to the callback will be an `object` with
+ * either an `error` or a `value` property.
+ * @example
+ *
+ * async.parallel([
+ *     async.reflect(function(callback) {
+ *         // do some stuff ...
+ *         callback(null, 'one');
+ *     }),
+ *     async.reflect(function(callback) {
+ *         // do some more stuff but error ...
+ *         callback('bad stuff happened');
+ *     }),
+ *     async.reflect(function(callback) {
+ *         // do some more stuff ...
+ *         callback(null, 'two');
+ *     })
+ * ],
+ * // optional callback
+ * function(err, results) {
+ *     // values
+ *     // results[0].value = 'one'
+ *     // results[1].error = 'bad stuff happened'
+ *     // results[2].value = 'two'
+ * });
+ */
+function reflect(fn) {
+    var _fn = wrapAsync(fn);
+    return initialParams(function reflectOn(args, reflectCallback) {
+        args.push(function callback(error, cbArg) {
+            if (error) {
+                reflectCallback(null, { error: error });
+            } else {
+                var value;
+                if (arguments.length <= 2) {
+                    value = cbArg;
+                } else {
+                    value = slice(arguments, 1);
+                }
+                reflectCallback(null, { value: value });
+            }
+        });
+
+        return _fn.apply(this, args);
+    });
+}
+
+/**
+ * A helper function that wraps an array or an object of functions with `reflect`.
+ *
+ * @name reflectAll
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @see [async.reflect]{@link module:Utils.reflect}
+ * @category Util
+ * @param {Array|Object|Iterable} tasks - The collection of
+ * [async functions]{@link AsyncFunction} to wrap in `async.reflect`.
+ * @returns {Array} Returns an array of async functions, each wrapped in
+ * `async.reflect`
+ * @example
+ *
+ * let tasks = [
+ *     function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'one');
+ *         }, 200);
+ *     },
+ *     function(callback) {
+ *         // do some more stuff but error ...
+ *         callback(new Error('bad stuff happened'));
+ *     },
+ *     function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'two');
+ *         }, 100);
+ *     }
+ * ];
+ *
+ * async.parallel(async.reflectAll(tasks),
+ * // optional callback
+ * function(err, results) {
+ *     // values
+ *     // results[0].value = 'one'
+ *     // results[1].error = Error('bad stuff happened')
+ *     // results[2].value = 'two'
+ * });
+ *
+ * // an example using an object instead of an array
+ * let tasks = {
+ *     one: function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'one');
+ *         }, 200);
+ *     },
+ *     two: function(callback) {
+ *         callback('two');
+ *     },
+ *     three: function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 'three');
+ *         }, 100);
+ *     }
+ * };
+ *
+ * async.parallel(async.reflectAll(tasks),
+ * // optional callback
+ * function(err, results) {
+ *     // values
+ *     // results.one.value = 'one'
+ *     // results.two.error = 'two'
+ *     // results.three.value = 'three'
+ * });
+ */
+function reflectAll(tasks) {
+    var results;
+    if (isArray(tasks)) {
+        results = arrayMap(tasks, reflect);
+    } else {
+        results = {};
+        baseForOwn(tasks, function(task, key) {
+            results[key] = reflect.call(this, task);
+        });
+    }
+    return results;
+}
+
+function reject$1(eachfn, arr, iteratee, callback) {
+    _filter(eachfn, arr, function(value, cb) {
+        iteratee(value, function(err, v) {
+            cb(err, !v);
+        });
+    }, callback);
+}
+
+/**
+ * The opposite of [`filter`]{@link module:Collections.filter}. Removes values that pass an `async` truth test.
+ *
+ * @name reject
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.filter]{@link module:Collections.filter}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {Function} iteratee - An async truth test to apply to each item in
+ * `coll`.
+ * The should complete with a boolean value as its `result`.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Invoked with (err, results).
+ * @example
+ *
+ * async.reject(['file1','file2','file3'], function(filePath, callback) {
+ *     fs.access(filePath, function(err) {
+ *         callback(null, !err)
+ *     });
+ * }, function(err, results) {
+ *     // results now equals an array of missing files
+ *     createFiles(results);
+ * });
+ */
+var reject = doParallel(reject$1);
+
+/**
+ * The same as [`reject`]{@link module:Collections.reject} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name rejectLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.reject]{@link module:Collections.reject}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {Function} iteratee - An async truth test to apply to each item in
+ * `coll`.
+ * The should complete with a boolean value as its `result`.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Invoked with (err, results).
+ */
+var rejectLimit = doParallelLimit(reject$1);
+
+/**
+ * The same as [`reject`]{@link module:Collections.reject} but runs only a single async operation at a time.
+ *
+ * @name rejectSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.reject]{@link module:Collections.reject}
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {Function} iteratee - An async truth test to apply to each item in
+ * `coll`.
+ * The should complete with a boolean value as its `result`.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Invoked with (err, results).
+ */
+var rejectSeries = doLimit(rejectLimit, 1);
+
+/**
+ * Creates a function that returns `value`.
+ *
+ * @static
+ * @memberOf _
+ * @since 2.4.0
+ * @category Util
+ * @param {*} value The value to return from the new function.
+ * @returns {Function} Returns the new constant function.
+ * @example
+ *
+ * var objects = _.times(2, _.constant({ 'a': 1 }));
+ *
+ * console.log(objects);
+ * // => [{ 'a': 1 }, { 'a': 1 }]
+ *
+ * console.log(objects[0] === objects[1]);
+ * // => true
+ */
+function constant$1(value) {
+  return function() {
+    return value;
+  };
+}
+
+/**
+ * Attempts to get a successful response from `task` no more than `times` times
+ * before returning an error. If the task is successful, the `callback` will be
+ * passed the result of the successful task. If all attempts fail, the callback
+ * will be passed the error and result (if any) of the final attempt.
+ *
+ * @name retry
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @see [async.retryable]{@link module:ControlFlow.retryable}
+ * @param {Object|number} [opts = {times: 5, interval: 0}| 5] - Can be either an
+ * object with `times` and `interval` or a number.
+ * * `times` - The number of attempts to make before giving up.  The default
+ *   is `5`.
+ * * `interval` - The time to wait between retries, in milliseconds.  The
+ *   default is `0`. The interval may also be specified as a function of the
+ *   retry count (see example).
+ * * `errorFilter` - An optional synchronous function that is invoked on
+ *   erroneous result. If it returns `true` the retry attempts will continue;
+ *   if the function returns `false` the retry flow is aborted with the current
+ *   attempt's error and result being returned to the final callback.
+ *   Invoked with (err).
+ * * If `opts` is a number, the number specifies the number of times to retry,
+ *   with the default interval of `0`.
+ * @param {AsyncFunction} task - An async function to retry.
+ * Invoked with (callback).
+ * @param {Function} [callback] - An optional callback which is called when the
+ * task has succeeded, or after the final failed attempt. It receives the `err`
+ * and `result` arguments of the last attempt at completing the `task`. Invoked
+ * with (err, results).
+ *
+ * @example
+ *
+ * // The `retry` function can be used as a stand-alone control flow by passing
+ * // a callback, as shown below:
+ *
+ * // try calling apiMethod 3 times
+ * async.retry(3, apiMethod, function(err, result) {
+ *     // do something with the result
+ * });
+ *
+ * // try calling apiMethod 3 times, waiting 200 ms between each retry
+ * async.retry({times: 3, interval: 200}, apiMethod, function(err, result) {
+ *     // do something with the result
+ * });
+ *
+ * // try calling apiMethod 10 times with exponential backoff
+ * // (i.e. intervals of 100, 200, 400, 800, 1600, ... milliseconds)
+ * async.retry({
+ *   times: 10,
+ *   interval: function(retryCount) {
+ *     return 50 * Math.pow(2, retryCount);
+ *   }
+ * }, apiMethod, function(err, result) {
+ *     // do something with the result
+ * });
+ *
+ * // try calling apiMethod the default 5 times no delay between each retry
+ * async.retry(apiMethod, function(err, result) {
+ *     // do something with the result
+ * });
+ *
+ * // try calling apiMethod only when error condition satisfies, all other
+ * // errors will abort the retry control flow and return to final callback
+ * async.retry({
+ *   errorFilter: function(err) {
+ *     return err.message === 'Temporary error'; // only retry on a specific error
+ *   }
+ * }, apiMethod, function(err, result) {
+ *     // do something with the result
+ * });
+ *
+ * // to retry individual methods that are not as reliable within other
+ * // control flow functions, use the `retryable` wrapper:
+ * async.auto({
+ *     users: api.getUsers.bind(api),
+ *     payments: async.retryable(3, api.getPayments.bind(api))
+ * }, function(err, results) {
+ *     // do something with the results
+ * });
+ *
+ */
+function retry(opts, task, callback) {
+    var DEFAULT_TIMES = 5;
+    var DEFAULT_INTERVAL = 0;
+
+    var options = {
+        times: DEFAULT_TIMES,
+        intervalFunc: constant$1(DEFAULT_INTERVAL)
+    };
+
+    function parseTimes(acc, t) {
+        if (typeof t === 'object') {
+            acc.times = +t.times || DEFAULT_TIMES;
+
+            acc.intervalFunc = typeof t.interval === 'function' ?
+                t.interval :
+                constant$1(+t.interval || DEFAULT_INTERVAL);
+
+            acc.errorFilter = t.errorFilter;
+        } else if (typeof t === 'number' || typeof t === 'string') {
+            acc.times = +t || DEFAULT_TIMES;
+        } else {
+            throw new Error("Invalid arguments for async.retry");
+        }
+    }
+
+    if (arguments.length < 3 && typeof opts === 'function') {
+        callback = task || noop;
+        task = opts;
+    } else {
+        parseTimes(options, opts);
+        callback = callback || noop;
+    }
+
+    if (typeof task !== 'function') {
+        throw new Error("Invalid arguments for async.retry");
+    }
+
+    var _task = wrapAsync(task);
+
+    var attempt = 1;
+    function retryAttempt() {
+        _task(function(err) {
+            if (err && attempt++ < options.times &&
+                (typeof options.errorFilter != 'function' ||
+                    options.errorFilter(err))) {
+                setTimeout(retryAttempt, options.intervalFunc(attempt));
+            } else {
+                callback.apply(null, arguments);
+            }
+        });
+    }
+
+    retryAttempt();
+}
+
+/**
+ * A close relative of [`retry`]{@link module:ControlFlow.retry}.  This method
+ * wraps a task and makes it retryable, rather than immediately calling it
+ * with retries.
+ *
+ * @name retryable
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.retry]{@link module:ControlFlow.retry}
+ * @category Control Flow
+ * @param {Object|number} [opts = {times: 5, interval: 0}| 5] - optional
+ * options, exactly the same as from `retry`
+ * @param {AsyncFunction} task - the asynchronous function to wrap.
+ * This function will be passed any arguments passed to the returned wrapper.
+ * Invoked with (...args, callback).
+ * @returns {AsyncFunction} The wrapped function, which when invoked, will
+ * retry on an error, based on the parameters specified in `opts`.
+ * This function will accept the same parameters as `task`.
+ * @example
+ *
+ * async.auto({
+ *     dep1: async.retryable(3, getFromFlakyService),
+ *     process: ["dep1", async.retryable(3, function (results, cb) {
+ *         maybeProcessData(results.dep1, cb);
+ *     })]
+ * }, callback);
+ */
+var retryable = function (opts, task) {
+    if (!task) {
+        task = opts;
+        opts = null;
+    }
+    var _task = wrapAsync(task);
+    return initialParams(function (args, callback) {
+        function taskFn(cb) {
+            _task.apply(null, args.concat(cb));
+        }
+
+        if (opts) retry(opts, taskFn, callback);
+        else retry(taskFn, callback);
+
+    });
+};
+
+/**
+ * Run the functions in the `tasks` collection in series, each one running once
+ * the previous function has completed. If any functions in the series pass an
+ * error to its callback, no more functions are run, and `callback` is
+ * immediately called with the value of the error. Otherwise, `callback`
+ * receives an array of results when `tasks` have completed.
+ *
+ * It is also possible to use an object instead of an array. Each property will
+ * be run as a function, and the results will be passed to the final `callback`
+ * as an object instead of an array. This can be a more readable way of handling
+ *  results from {@link async.series}.
+ *
+ * **Note** that while many implementations preserve the order of object
+ * properties, the [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/#sec-8.6)
+ * explicitly states that
+ *
+ * > The mechanics and order of enumerating the properties is not specified.
+ *
+ * So if you rely on the order in which your series of functions are executed,
+ * and want this to work on all platforms, consider using an array.
+ *
+ * @name series
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Array|Iterable|Object} tasks - A collection containing
+ * [async functions]{@link AsyncFunction} to run in series.
+ * Each function can complete with any number of optional `result` values.
+ * @param {Function} [callback] - An optional callback to run once all the
+ * functions have completed. This function gets a results array (or object)
+ * containing all the result arguments passed to the `task` callbacks. Invoked
+ * with (err, result).
+ * @example
+ * async.series([
+ *     function(callback) {
+ *         // do some stuff ...
+ *         callback(null, 'one');
+ *     },
+ *     function(callback) {
+ *         // do some more stuff ...
+ *         callback(null, 'two');
+ *     }
+ * ],
+ * // optional callback
+ * function(err, results) {
+ *     // results is now equal to ['one', 'two']
+ * });
+ *
+ * async.series({
+ *     one: function(callback) {
+ *         setTimeout(function() {
+ *             callback(null, 1);
+ *         }, 200);
+ *     },
+ *     two: function(callback){
+ *         setTimeout(function() {
+ *             callback(null, 2);
+ *         }, 100);
+ *     }
+ * }, function(err, results) {
+ *     // results is now equal to: {one: 1, two: 2}
+ * });
+ */
+function series(tasks, callback) {
+    _parallel(eachOfSeries, tasks, callback);
+}
+
+/**
+ * Returns `true` if at least one element in the `coll` satisfies an async test.
+ * If any iteratee call returns `true`, the main `callback` is immediately
+ * called.
+ *
+ * @name some
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @alias any
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async truth test to apply to each item
+ * in the collections in parallel.
+ * The iteratee should complete with a boolean `result` value.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called as soon as any
+ * iteratee returns `true`, or after all the iteratee functions have finished.
+ * Result will be either `true` or `false` depending on the values of the async
+ * tests. Invoked with (err, result).
+ * @example
+ *
+ * async.some(['file1','file2','file3'], function(filePath, callback) {
+ *     fs.access(filePath, function(err) {
+ *         callback(null, !err)
+ *     });
+ * }, function(err, result) {
+ *     // if result is true then at least one of the files exists
+ * });
+ */
+var some = doParallel(_createTester(Boolean, identity));
+
+/**
+ * The same as [`some`]{@link module:Collections.some} but runs a maximum of `limit` async operations at a time.
+ *
+ * @name someLimit
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.some]{@link module:Collections.some}
+ * @alias anyLimit
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - An async truth test to apply to each item
+ * in the collections in parallel.
+ * The iteratee should complete with a boolean `result` value.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called as soon as any
+ * iteratee returns `true`, or after all the iteratee functions have finished.
+ * Result will be either `true` or `false` depending on the values of the async
+ * tests. Invoked with (err, result).
+ */
+var someLimit = doParallelLimit(_createTester(Boolean, identity));
+
+/**
+ * The same as [`some`]{@link module:Collections.some} but runs only a single async operation at a time.
+ *
+ * @name someSeries
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @see [async.some]{@link module:Collections.some}
+ * @alias anySeries
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async truth test to apply to each item
+ * in the collections in series.
+ * The iteratee should complete with a boolean `result` value.
+ * Invoked with (item, callback).
+ * @param {Function} [callback] - A callback which is called as soon as any
+ * iteratee returns `true`, or after all the iteratee functions have finished.
+ * Result will be either `true` or `false` depending on the values of the async
+ * tests. Invoked with (err, result).
+ */
+var someSeries = doLimit(someLimit, 1);
+
+/**
+ * Sorts a list by the results of running each `coll` value through an async
+ * `iteratee`.
+ *
+ * @name sortBy
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {AsyncFunction} iteratee - An async function to apply to each item in
+ * `coll`.
+ * The iteratee should complete with a value to use as the sort criteria as
+ * its `result`.
+ * Invoked with (item, callback).
+ * @param {Function} callback - A callback which is called after all the
+ * `iteratee` functions have finished, or an error occurs. Results is the items
+ * from the original `coll` sorted by the values returned by the `iteratee`
+ * calls. Invoked with (err, results).
+ * @example
+ *
+ * async.sortBy(['file1','file2','file3'], function(file, callback) {
+ *     fs.stat(file, function(err, stats) {
+ *         callback(err, stats.mtime);
+ *     });
+ * }, function(err, results) {
+ *     // results is now the original array of files sorted by
+ *     // modified date
+ * });
+ *
+ * // By modifying the callback parameter the
+ * // sorting order can be influenced:
+ *
+ * // ascending order
+ * async.sortBy([1,9,3,5], function(x, callback) {
+ *     callback(null, x);
+ * }, function(err,result) {
+ *     // result callback
+ * });
+ *
+ * // descending order
+ * async.sortBy([1,9,3,5], function(x, callback) {
+ *     callback(null, x*-1);    //<- x*-1 instead of x, turns the order around
+ * }, function(err,result) {
+ *     // result callback
+ * });
+ */
+function sortBy (coll, iteratee, callback) {
+    var _iteratee = wrapAsync(iteratee);
+    map(coll, function (x, callback) {
+        _iteratee(x, function (err, criteria) {
+            if (err) return callback(err);
+            callback(null, {value: x, criteria: criteria});
+        });
+    }, function (err, results) {
+        if (err) return callback(err);
+        callback(null, arrayMap(results.sort(comparator), baseProperty('value')));
+    });
+
+    function comparator(left, right) {
+        var a = left.criteria, b = right.criteria;
+        return a < b ? -1 : a > b ? 1 : 0;
+    }
+}
+
+/**
+ * Sets a time limit on an asynchronous function. If the function does not call
+ * its callback within the specified milliseconds, it will be called with a
+ * timeout error. The code property for the error object will be `'ETIMEDOUT'`.
+ *
+ * @name timeout
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @category Util
+ * @param {AsyncFunction} asyncFn - The async function to limit in time.
+ * @param {number} milliseconds - The specified time limit.
+ * @param {*} [info] - Any variable you want attached (`string`, `object`, etc)
+ * to timeout Error for more information..
+ * @returns {AsyncFunction} Returns a wrapped function that can be used with any
+ * of the control flow functions.
+ * Invoke this function with the same parameters as you would `asyncFunc`.
+ * @example
+ *
+ * function myFunction(foo, callback) {
+ *     doAsyncTask(foo, function(err, data) {
+ *         // handle errors
+ *         if (err) return callback(err);
+ *
+ *         // do some stuff ...
+ *
+ *         // return processed data
+ *         return callback(null, data);
+ *     });
+ * }
+ *
+ * var wrapped = async.timeout(myFunction, 1000);
+ *
+ * // call `wrapped` as you would `myFunction`
+ * wrapped({ bar: 'bar' }, function(err, data) {
+ *     // if `myFunction` takes < 1000 ms to execute, `err`
+ *     // and `data` will have their expected values
+ *
+ *     // else `err` will be an Error with the code 'ETIMEDOUT'
+ * });
+ */
+function timeout(asyncFn, milliseconds, info) {
+    var fn = wrapAsync(asyncFn);
+
+    return initialParams(function (args, callback) {
+        var timedOut = false;
+        var timer;
+
+        function timeoutCallback() {
+            var name = asyncFn.name || 'anonymous';
+            var error  = new Error('Callback function "' + name + '" timed out.');
+            error.code = 'ETIMEDOUT';
+            if (info) {
+                error.info = info;
+            }
+            timedOut = true;
+            callback(error);
+        }
+
+        args.push(function () {
+            if (!timedOut) {
+                callback.apply(null, arguments);
+                clearTimeout(timer);
+            }
+        });
+
+        // setup timer and call original function
+        timer = setTimeout(timeoutCallback, milliseconds);
+        fn.apply(null, args);
+    });
+}
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeCeil = Math.ceil;
+var nativeMax = Math.max;
+
+/**
+ * The base implementation of `_.range` and `_.rangeRight` which doesn't
+ * coerce arguments.
+ *
+ * @private
+ * @param {number} start The start of the range.
+ * @param {number} end The end of the range.
+ * @param {number} step The value to increment or decrement by.
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {Array} Returns the range of numbers.
+ */
+function baseRange(start, end, step, fromRight) {
+  var index = -1,
+      length = nativeMax(nativeCeil((end - start) / (step || 1)), 0),
+      result = Array(length);
+
+  while (length--) {
+    result[fromRight ? length : ++index] = start;
+    start += step;
+  }
+  return result;
+}
+
+/**
+ * The same as [times]{@link module:ControlFlow.times} but runs a maximum of `limit` async operations at a
+ * time.
+ *
+ * @name timesLimit
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.times]{@link module:ControlFlow.times}
+ * @category Control Flow
+ * @param {number} count - The number of times to run the function.
+ * @param {number} limit - The maximum number of async operations at a time.
+ * @param {AsyncFunction} iteratee - The async function to call `n` times.
+ * Invoked with the iteration index and a callback: (n, next).
+ * @param {Function} callback - see [async.map]{@link module:Collections.map}.
+ */
+function timeLimit(count, limit, iteratee, callback) {
+    var _iteratee = wrapAsync(iteratee);
+    mapLimit(baseRange(0, count, 1), limit, _iteratee, callback);
+}
+
+/**
+ * Calls the `iteratee` function `n` times, and accumulates results in the same
+ * manner you would use with [map]{@link module:Collections.map}.
+ *
+ * @name times
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.map]{@link module:Collections.map}
+ * @category Control Flow
+ * @param {number} n - The number of times to run the function.
+ * @param {AsyncFunction} iteratee - The async function to call `n` times.
+ * Invoked with the iteration index and a callback: (n, next).
+ * @param {Function} callback - see {@link module:Collections.map}.
+ * @example
+ *
+ * // Pretend this is some complicated async factory
+ * var createUser = function(id, callback) {
+ *     callback(null, {
+ *         id: 'user' + id
+ *     });
+ * };
+ *
+ * // generate 5 users
+ * async.times(5, function(n, next) {
+ *     createUser(n, function(err, user) {
+ *         next(err, user);
+ *     });
+ * }, function(err, users) {
+ *     // we should now have 5 users
+ * });
+ */
+var times = doLimit(timeLimit, Infinity);
+
+/**
+ * The same as [times]{@link module:ControlFlow.times} but runs only a single async operation at a time.
+ *
+ * @name timesSeries
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.times]{@link module:ControlFlow.times}
+ * @category Control Flow
+ * @param {number} n - The number of times to run the function.
+ * @param {AsyncFunction} iteratee - The async function to call `n` times.
+ * Invoked with the iteration index and a callback: (n, next).
+ * @param {Function} callback - see {@link module:Collections.map}.
+ */
+var timesSeries = doLimit(timeLimit, 1);
+
+/**
+ * A relative of `reduce`.  Takes an Object or Array, and iterates over each
+ * element in series, each step potentially mutating an `accumulator` value.
+ * The type of the accumulator defaults to the type of collection passed in.
+ *
+ * @name transform
+ * @static
+ * @memberOf module:Collections
+ * @method
+ * @category Collection
+ * @param {Array|Iterable|Object} coll - A collection to iterate over.
+ * @param {*} [accumulator] - The initial state of the transform.  If omitted,
+ * it will default to an empty Object or Array, depending on the type of `coll`
+ * @param {AsyncFunction} iteratee - A function applied to each item in the
+ * collection that potentially modifies the accumulator.
+ * Invoked with (accumulator, item, key, callback).
+ * @param {Function} [callback] - A callback which is called after all the
+ * `iteratee` functions have finished. Result is the transformed accumulator.
+ * Invoked with (err, result).
+ * @example
+ *
+ * async.transform([1,2,3], function(acc, item, index, callback) {
+ *     // pointless async:
+ *     process.nextTick(function() {
+ *         acc.push(item * 2)
+ *         callback(null)
+ *     });
+ * }, function(err, result) {
+ *     // result is now equal to [2, 4, 6]
+ * });
+ *
+ * @example
+ *
+ * async.transform({a: 1, b: 2, c: 3}, function (obj, val, key, callback) {
+ *     setImmediate(function () {
+ *         obj[key] = val * 2;
+ *         callback();
+ *     })
+ * }, function (err, result) {
+ *     // result is equal to {a: 2, b: 4, c: 6}
+ * })
+ */
+function transform (coll, accumulator, iteratee, callback) {
+    if (arguments.length <= 3) {
+        callback = iteratee;
+        iteratee = accumulator;
+        accumulator = isArray(coll) ? [] : {};
+    }
+    callback = once(callback || noop);
+    var _iteratee = wrapAsync(iteratee);
+
+    eachOf(coll, function(v, k, cb) {
+        _iteratee(accumulator, v, k, cb);
+    }, function(err) {
+        callback(err, accumulator);
+    });
+}
+
+/**
+ * It runs each task in series but stops whenever any of the functions were
+ * successful. If one of the tasks were successful, the `callback` will be
+ * passed the result of the successful task. If all tasks fail, the callback
+ * will be passed the error and result (if any) of the final attempt.
+ *
+ * @name tryEach
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Array|Iterable|Object} tasks - A collection containing functions to
+ * run, each function is passed a `callback(err, result)` it must call on
+ * completion with an error `err` (which can be `null`) and an optional `result`
+ * value.
+ * @param {Function} [callback] - An optional callback which is called when one
+ * of the tasks has succeeded, or all have failed. It receives the `err` and
+ * `result` arguments of the last attempt at completing the `task`. Invoked with
+ * (err, results).
+ * @example
+ * async.tryEach([
+ *     function getDataFromFirstWebsite(callback) {
+ *         // Try getting the data from the first website
+ *         callback(err, data);
+ *     },
+ *     function getDataFromSecondWebsite(callback) {
+ *         // First website failed,
+ *         // Try getting the data from the backup website
+ *         callback(err, data);
+ *     }
+ * ],
+ * // optional callback
+ * function(err, results) {
+ *     Now do something with the data.
+ * });
+ *
+ */
+function tryEach(tasks, callback) {
+    var error = null;
+    var result;
+    callback = callback || noop;
+    eachSeries(tasks, function(task, callback) {
+        wrapAsync(task)(function (err, res/*, ...args*/) {
+            if (arguments.length > 2) {
+                result = slice(arguments, 1);
+            } else {
+                result = res;
+            }
+            error = err;
+            callback(!err);
+        });
+    }, function () {
+        callback(error, result);
+    });
+}
+
+/**
+ * Undoes a [memoize]{@link module:Utils.memoize}d function, reverting it to the original,
+ * unmemoized form. Handy for testing.
+ *
+ * @name unmemoize
+ * @static
+ * @memberOf module:Utils
+ * @method
+ * @see [async.memoize]{@link module:Utils.memoize}
+ * @category Util
+ * @param {AsyncFunction} fn - the memoized function
+ * @returns {AsyncFunction} a function that calls the original unmemoized function
+ */
+function unmemoize(fn) {
+    return function () {
+        return (fn.unmemoized || fn).apply(null, arguments);
+    };
+}
+
+/**
+ * Repeatedly call `iteratee`, while `test` returns `true`. Calls `callback` when
+ * stopped, or an error occurs.
+ *
+ * @name whilst
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Function} test - synchronous truth test to perform before each
+ * execution of `iteratee`. Invoked with ().
+ * @param {AsyncFunction} iteratee - An async function which is called each time
+ * `test` passes. Invoked with (callback).
+ * @param {Function} [callback] - A callback which is called after the test
+ * function has failed and repeated execution of `iteratee` has stopped. `callback`
+ * will be passed an error and any arguments passed to the final `iteratee`'s
+ * callback. Invoked with (err, [results]);
+ * @returns undefined
+ * @example
+ *
+ * var count = 0;
+ * async.whilst(
+ *     function() { return count < 5; },
+ *     function(callback) {
+ *         count++;
+ *         setTimeout(function() {
+ *             callback(null, count);
+ *         }, 1000);
+ *     },
+ *     function (err, n) {
+ *         // 5 seconds have passed, n = 5
+ *     }
+ * );
+ */
+function whilst(test, iteratee, callback) {
+    callback = onlyOnce(callback || noop);
+    var _iteratee = wrapAsync(iteratee);
+    if (!test()) return callback(null);
+    var next = function(err/*, ...args*/) {
+        if (err) return callback(err);
+        if (test()) return _iteratee(next);
+        var args = slice(arguments, 1);
+        callback.apply(null, [null].concat(args));
+    };
+    _iteratee(next);
+}
+
+/**
+ * Repeatedly call `iteratee` until `test` returns `true`. Calls `callback` when
+ * stopped, or an error occurs. `callback` will be passed an error and any
+ * arguments passed to the final `iteratee`'s callback.
+ *
+ * The inverse of [whilst]{@link module:ControlFlow.whilst}.
+ *
+ * @name until
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @see [async.whilst]{@link module:ControlFlow.whilst}
+ * @category Control Flow
+ * @param {Function} test - synchronous truth test to perform before each
+ * execution of `iteratee`. Invoked with ().
+ * @param {AsyncFunction} iteratee - An async function which is called each time
+ * `test` fails. Invoked with (callback).
+ * @param {Function} [callback] - A callback which is called after the test
+ * function has passed and repeated execution of `iteratee` has stopped. `callback`
+ * will be passed an error and any arguments passed to the final `iteratee`'s
+ * callback. Invoked with (err, [results]);
+ */
+function until(test, iteratee, callback) {
+    whilst(function() {
+        return !test.apply(this, arguments);
+    }, iteratee, callback);
+}
+
+/**
+ * Runs the `tasks` array of functions in series, each passing their results to
+ * the next in the array. However, if any of the `tasks` pass an error to their
+ * own callback, the next function is not executed, and the main `callback` is
+ * immediately called with the error.
+ *
+ * @name waterfall
+ * @static
+ * @memberOf module:ControlFlow
+ * @method
+ * @category Control Flow
+ * @param {Array} tasks - An array of [async functions]{@link AsyncFunction}
+ * to run.
+ * Each function should complete with any number of `result` values.
+ * The `result` values will be passed as arguments, in order, to the next task.
+ * @param {Function} [callback] - An optional callback to run once all the
+ * functions have completed. This will be passed the results of the last task's
+ * callback. Invoked with (err, [results]).
+ * @returns undefined
+ * @example
+ *
+ * async.waterfall([
+ *     function(callback) {
+ *         callback(null, 'one', 'two');
+ *     },
+ *     function(arg1, arg2, callback) {
+ *         // arg1 now equals 'one' and arg2 now equals 'two'
+ *         callback(null, 'three');
+ *     },
+ *     function(arg1, callback) {
+ *         // arg1 now equals 'three'
+ *         callback(null, 'done');
+ *     }
+ * ], function (err, result) {
+ *     // result now equals 'done'
+ * });
+ *
+ * // Or, with named functions:
+ * async.waterfall([
+ *     myFirstFunction,
+ *     mySecondFunction,
+ *     myLastFunction,
+ * ], function (err, result) {
+ *     // result now equals 'done'
+ * });
+ * function myFirstFunction(callback) {
+ *     callback(null, 'one', 'two');
+ * }
+ * function mySecondFunction(arg1, arg2, callback) {
+ *     // arg1 now equals 'one' and arg2 now equals 'two'
+ *     callback(null, 'three');
+ * }
+ * function myLastFunction(arg1, callback) {
+ *     // arg1 now equals 'three'
+ *     callback(null, 'done');
+ * }
+ */
+var waterfall = function(tasks, callback) {
+    callback = once(callback || noop);
+    if (!isArray(tasks)) return callback(new Error('First argument to waterfall must be an array of functions'));
+    if (!tasks.length) return callback();
+    var taskIndex = 0;
+
+    function nextTask(args) {
+        var task = wrapAsync(tasks[taskIndex++]);
+        args.push(onlyOnce(next));
+        task.apply(null, args);
+    }
+
+    function next(err/*, ...args*/) {
+        if (err || taskIndex === tasks.length) {
+            return callback.apply(null, arguments);
+        }
+        nextTask(slice(arguments, 1));
+    }
+
+    nextTask([]);
+};
+
+/**
+ * An "async function" in the context of Async is an asynchronous function with
+ * a variable number of parameters, with the final parameter being a callback.
+ * (`function (arg1, arg2, ..., callback) {}`)
+ * The final callback is of the form `callback(err, results...)`, which must be
+ * called once the function is completed.  The callback should be called with a
+ * Error as its first argument to signal that an error occurred.
+ * Otherwise, if no error occurred, it should be called with `null` as the first
+ * argument, and any additional `result` arguments that may apply, to signal
+ * successful completion.
+ * The callback must be called exactly once, ideally on a later tick of the
+ * JavaScript event loop.
+ *
+ * This type of function is also referred to as a "Node-style async function",
+ * or a "continuation passing-style function" (CPS). Most of the methods of this
+ * library are themselves CPS/Node-style async functions, or functions that
+ * return CPS/Node-style async functions.
+ *
+ * Wherever we accept a Node-style async function, we also directly accept an
+ * [ES2017 `async` function]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function}.
+ * In this case, the `async` function will not be passed a final callback
+ * argument, and any thrown error will be used as the `err` argument of the
+ * implicit callback, and the return value will be used as the `result` value.
+ * (i.e. a `rejected` of the returned Promise becomes the `err` callback
+ * argument, and a `resolved` value becomes the `result`.)
+ *
+ * Note, due to JavaScript limitations, we can only detect native `async`
+ * functions and not transpilied implementations.
+ * Your environment must have `async`/`await` support for this to work.
+ * (e.g. Node > v7.6, or a recent version of a modern browser).
+ * If you are using `async` functions through a transpiler (e.g. Babel), you
+ * must still wrap the function with [asyncify]{@link module:Utils.asyncify},
+ * because the `async function` will be compiled to an ordinary function that
+ * returns a promise.
+ *
+ * @typedef {Function} AsyncFunction
+ * @static
+ */
+
+/**
+ * Async is a utility module which provides straight-forward, powerful functions
+ * for working with asynchronous JavaScript. Although originally designed for
+ * use with [Node.js](http://nodejs.org) and installable via
+ * `npm install --save async`, it can also be used directly in the browser.
+ * @module async
+ * @see AsyncFunction
+ */
+
+
+/**
+ * A collection of `async` functions for manipulating collections, such as
+ * arrays and objects.
+ * @module Collections
+ */
+
+/**
+ * A collection of `async` functions for controlling the flow through a script.
+ * @module ControlFlow
+ */
+
+/**
+ * A collection of `async` utility functions.
+ * @module Utils
+ */
+
+var index = {
+    apply: apply,
+    applyEach: applyEach,
+    applyEachSeries: applyEachSeries,
+    asyncify: asyncify,
+    auto: auto,
+    autoInject: autoInject,
+    cargo: cargo,
+    compose: compose,
+    concat: concat,
+    concatLimit: concatLimit,
+    concatSeries: concatSeries,
+    constant: constant,
+    detect: detect,
+    detectLimit: detectLimit,
+    detectSeries: detectSeries,
+    dir: dir,
+    doDuring: doDuring,
+    doUntil: doUntil,
+    doWhilst: doWhilst,
+    during: during,
+    each: eachLimit,
+    eachLimit: eachLimit$1,
+    eachOf: eachOf,
+    eachOfLimit: eachOfLimit,
+    eachOfSeries: eachOfSeries,
+    eachSeries: eachSeries,
+    ensureAsync: ensureAsync,
+    every: every,
+    everyLimit: everyLimit,
+    everySeries: everySeries,
+    filter: filter,
+    filterLimit: filterLimit,
+    filterSeries: filterSeries,
+    forever: forever,
+    groupBy: groupBy,
+    groupByLimit: groupByLimit,
+    groupBySeries: groupBySeries,
+    log: log,
+    map: map,
+    mapLimit: mapLimit,
+    mapSeries: mapSeries,
+    mapValues: mapValues,
+    mapValuesLimit: mapValuesLimit,
+    mapValuesSeries: mapValuesSeries,
+    memoize: memoize,
+    nextTick: nextTick,
+    parallel: parallelLimit,
+    parallelLimit: parallelLimit$1,
+    priorityQueue: priorityQueue,
+    queue: queue$1,
+    race: race,
+    reduce: reduce,
+    reduceRight: reduceRight,
+    reflect: reflect,
+    reflectAll: reflectAll,
+    reject: reject,
+    rejectLimit: rejectLimit,
+    rejectSeries: rejectSeries,
+    retry: retry,
+    retryable: retryable,
+    seq: seq,
+    series: series,
+    setImmediate: setImmediate$1,
+    some: some,
+    someLimit: someLimit,
+    someSeries: someSeries,
+    sortBy: sortBy,
+    timeout: timeout,
+    times: times,
+    timesLimit: timeLimit,
+    timesSeries: timesSeries,
+    transform: transform,
+    tryEach: tryEach,
+    unmemoize: unmemoize,
+    until: until,
+    waterfall: waterfall,
+    whilst: whilst,
+
+    // aliases
+    all: every,
+    allLimit: everyLimit,
+    allSeries: everySeries,
+    any: some,
+    anyLimit: someLimit,
+    anySeries: someSeries,
+    find: detect,
+    findLimit: detectLimit,
+    findSeries: detectSeries,
+    forEach: eachLimit,
+    forEachSeries: eachSeries,
+    forEachLimit: eachLimit$1,
+    forEachOf: eachOf,
+    forEachOfSeries: eachOfSeries,
+    forEachOfLimit: eachOfLimit,
+    inject: reduce,
+    foldl: reduce,
+    foldr: reduceRight,
+    select: filter,
+    selectLimit: filterLimit,
+    selectSeries: filterSeries,
+    wrapSync: asyncify
+};
+
+exports['default'] = index;
+exports.apply = apply;
+exports.applyEach = applyEach;
+exports.applyEachSeries = applyEachSeries;
+exports.asyncify = asyncify;
+exports.auto = auto;
+exports.autoInject = autoInject;
+exports.cargo = cargo;
+exports.compose = compose;
+exports.concat = concat;
+exports.concatLimit = concatLimit;
+exports.concatSeries = concatSeries;
+exports.constant = constant;
+exports.detect = detect;
+exports.detectLimit = detectLimit;
+exports.detectSeries = detectSeries;
+exports.dir = dir;
+exports.doDuring = doDuring;
+exports.doUntil = doUntil;
+exports.doWhilst = doWhilst;
+exports.during = during;
+exports.each = eachLimit;
+exports.eachLimit = eachLimit$1;
+exports.eachOf = eachOf;
+exports.eachOfLimit = eachOfLimit;
+exports.eachOfSeries = eachOfSeries;
+exports.eachSeries = eachSeries;
+exports.ensureAsync = ensureAsync;
+exports.every = every;
+exports.everyLimit = everyLimit;
+exports.everySeries = everySeries;
+exports.filter = filter;
+exports.filterLimit = filterLimit;
+exports.filterSeries = filterSeries;
+exports.forever = forever;
+exports.groupBy = groupBy;
+exports.groupByLimit = groupByLimit;
+exports.groupBySeries = groupBySeries;
+exports.log = log;
+exports.map = map;
+exports.mapLimit = mapLimit;
+exports.mapSeries = mapSeries;
+exports.mapValues = mapValues;
+exports.mapValuesLimit = mapValuesLimit;
+exports.mapValuesSeries = mapValuesSeries;
+exports.memoize = memoize;
+exports.nextTick = nextTick;
+exports.parallel = parallelLimit;
+exports.parallelLimit = parallelLimit$1;
+exports.priorityQueue = priorityQueue;
+exports.queue = queue$1;
+exports.race = race;
+exports.reduce = reduce;
+exports.reduceRight = reduceRight;
+exports.reflect = reflect;
+exports.reflectAll = reflectAll;
+exports.reject = reject;
+exports.rejectLimit = rejectLimit;
+exports.rejectSeries = rejectSeries;
+exports.retry = retry;
+exports.retryable = retryable;
+exports.seq = seq;
+exports.series = series;
+exports.setImmediate = setImmediate$1;
+exports.some = some;
+exports.someLimit = someLimit;
+exports.someSeries = someSeries;
+exports.sortBy = sortBy;
+exports.timeout = timeout;
+exports.times = times;
+exports.timesLimit = timeLimit;
+exports.timesSeries = timesSeries;
+exports.transform = transform;
+exports.tryEach = tryEach;
+exports.unmemoize = unmemoize;
+exports.until = until;
+exports.waterfall = waterfall;
+exports.whilst = whilst;
+exports.all = every;
+exports.allLimit = everyLimit;
+exports.allSeries = everySeries;
+exports.any = some;
+exports.anyLimit = someLimit;
+exports.anySeries = someSeries;
+exports.find = detect;
+exports.findLimit = detectLimit;
+exports.findSeries = detectSeries;
+exports.forEach = eachLimit;
+exports.forEachSeries = eachSeries;
+exports.forEachLimit = eachLimit$1;
+exports.forEachOf = eachOf;
+exports.forEachOfSeries = eachOfSeries;
+exports.forEachOfLimit = eachOfLimit;
+exports.inject = reduce;
+exports.foldl = reduce;
+exports.foldr = reduceRight;
+exports.select = filter;
+exports.selectLimit = filterLimit;
+exports.selectSeries = filterSeries;
+exports.wrapSync = asyncify;
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+})));
+
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(5)(module)))
 
 /***/ }),
 /* 1 */
 /***/ (function(module, exports) {
 
-eval("module.exports = require(\"fs\");\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly8vZXh0ZXJuYWwgXCJmc1wiPzJlMDkiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEiLCJmaWxlIjoiMS5qcyIsInNvdXJjZXNDb250ZW50IjpbIm1vZHVsZS5leHBvcnRzID0gcmVxdWlyZShcImZzXCIpO1xuXG5cbi8vLy8vLy8vLy8vLy8vLy8vL1xuLy8gV0VCUEFDSyBGT09URVJcbi8vIGV4dGVybmFsIFwiZnNcIlxuLy8gbW9kdWxlIGlkID0gMVxuLy8gbW9kdWxlIGNodW5rcyA9IDAiXSwic291cmNlUm9vdCI6IiJ9\n//# sourceURL=webpack-internal:///1\n");
+module.exports = require("fs");
 
 /***/ }),
 /* 2 */
 /***/ (function(module, exports) {
 
-eval("module.exports = require(\"path\");\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly8vZXh0ZXJuYWwgXCJwYXRoXCI/NWIyYSJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSIsImZpbGUiOiIyLmpzIiwic291cmNlc0NvbnRlbnQiOlsibW9kdWxlLmV4cG9ydHMgPSByZXF1aXJlKFwicGF0aFwiKTtcblxuXG4vLy8vLy8vLy8vLy8vLy8vLy9cbi8vIFdFQlBBQ0sgRk9PVEVSXG4vLyBleHRlcm5hbCBcInBhdGhcIlxuLy8gbW9kdWxlIGlkID0gMlxuLy8gbW9kdWxlIGNodW5rcyA9IDAiXSwic291cmNlUm9vdCI6IiJ9\n//# sourceURL=webpack-internal:///2\n");
+module.exports = require("path");
 
 /***/ }),
 /* 3 */
 /***/ (function(module, exports) {
 
-eval("module.exports = require(\"readline\");\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly8vZXh0ZXJuYWwgXCJyZWFkbGluZVwiPzUyNjgiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEiLCJmaWxlIjoiMy5qcyIsInNvdXJjZXNDb250ZW50IjpbIm1vZHVsZS5leHBvcnRzID0gcmVxdWlyZShcInJlYWRsaW5lXCIpO1xuXG5cbi8vLy8vLy8vLy8vLy8vLy8vL1xuLy8gV0VCUEFDSyBGT09URVJcbi8vIGV4dGVybmFsIFwicmVhZGxpbmVcIlxuLy8gbW9kdWxlIGlkID0gM1xuLy8gbW9kdWxlIGNodW5rcyA9IDAiXSwic291cmNlUm9vdCI6IiJ9\n//# sourceURL=webpack-internal:///3\n");
+module.exports = require("readline");
 
 /***/ }),
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-eval("\n\nglobal.fs = __webpack_require__(1);\nglobal.path = __webpack_require__(2);\nglobal.readline = __webpack_require__(3);\n\nglobal.async = __webpack_require__(0);\n\nif (false) {\n  global.__non_webpack_require__ = require;\n}\n\nprocess.on(\"message\", function (msg) {\n  process.send(true);\n});\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly8vLi9hcHAvc3JjL3NlY3Rpb25zL2ZvcmtKcy5qcz9jMWNjIl0sIm5hbWVzIjpbImdsb2JhbCIsImZzIiwicmVxdWlyZSIsInBhdGgiLCJyZWFkbGluZSIsImFzeW5jIiwiX19ub25fd2VicGFja19yZXF1aXJlX18iLCJwcm9jZXNzIiwib24iLCJtc2ciLCJzZW5kIl0sIm1hcHBpbmdzIjoiOztBQUNBQSxPQUFPQyxFQUFQLEdBQVlDLG1CQUFPQSxDQUFDLENBQVIsQ0FBWjtBQUNBRixPQUFPRyxJQUFQLEdBQWNELG1CQUFPQSxDQUFDLENBQVIsQ0FBZDtBQUNBRixPQUFPSSxRQUFQLEdBQWtCRixtQkFBT0EsQ0FBQyxDQUFSLENBQWxCOztBQUVBRixPQUFPSyxLQUFQLEdBQWVILG1CQUFPQSxDQUFDLENBQVIsQ0FBZjs7QUFFQSxJQUFJLEtBQUosRUFDQTtBQUNFRixTQUFPTSx1QkFBUCxHQUFpQ0osT0FBakM7QUFDRDs7QUFHREssUUFBUUMsRUFBUixDQUFXLFNBQVgsRUFBc0IsVUFBVUMsR0FBVixFQUN0QjtBQUNJRixVQUFRRyxJQUFSLENBQWEsSUFBYjtBQUNILENBSEQiLCJmaWxlIjoiNC5qcyIsInNvdXJjZXNDb250ZW50IjpbIlxyXG5nbG9iYWwuZnMgPSByZXF1aXJlKCdmcycpO1xyXG5nbG9iYWwucGF0aCA9IHJlcXVpcmUoJ3BhdGgnKTtcclxuZ2xvYmFsLnJlYWRsaW5lID0gcmVxdWlyZSgncmVhZGxpbmUnKTtcclxuXHJcbmdsb2JhbC5hc3luYyA9IHJlcXVpcmUoJ2FzeW5jJyk7XHJcblxyXG5pZiAodHlwZW9mIF9fREVGSU5FX05BVElWRV9SRVFVSVJFX18gPT09ICd1bmRlZmluZWQnKVxyXG57XHJcbiAgZ2xvYmFsLl9fbm9uX3dlYnBhY2tfcmVxdWlyZV9fID0gcmVxdWlyZTtcclxufVxyXG5cclxuXHJcbnByb2Nlc3Mub24oXCJtZXNzYWdlXCIsIGZ1bmN0aW9uIChtc2cpXHJcbntcclxuICAgIHByb2Nlc3Muc2VuZCh0cnVlKTtcclxufSk7XHJcblxyXG5cblxuXG4vLyBXRUJQQUNLIEZPT1RFUiAvL1xuLy8gLi9hcHAvc3JjL3NlY3Rpb25zL2ZvcmtKcy5qcyJdLCJzb3VyY2VSb290IjoiIn0=\n//# sourceURL=webpack-internal:///4\n");
+
+
+global.fs = __webpack_require__(1);
+global.path = __webpack_require__(2);
+global.readline = __webpack_require__(3);
+
+global.async = __webpack_require__(0);
+
+if (false) {
+  global.__non_webpack_require__ = require;
+}
+
+process.on("message", function (msg) {
+  process.send(true);
+});
 
 /***/ }),
 /* 5 */
 /***/ (function(module, exports) {
 
-eval("module.exports = function(module) {\r\n\tif(!module.webpackPolyfill) {\r\n\t\tmodule.deprecate = function() {};\r\n\t\tmodule.paths = [];\r\n\t\t// module.parent = undefined by default\r\n\t\tif(!module.children) module.children = [];\r\n\t\tObject.defineProperty(module, \"loaded\", {\r\n\t\t\tenumerable: true,\r\n\t\t\tget: function() {\r\n\t\t\t\treturn module.l;\r\n\t\t\t}\r\n\t\t});\r\n\t\tObject.defineProperty(module, \"id\", {\r\n\t\t\tenumerable: true,\r\n\t\t\tget: function() {\r\n\t\t\t\treturn module.i;\r\n\t\t\t}\r\n\t\t});\r\n\t\tmodule.webpackPolyfill = 1;\r\n\t}\r\n\treturn module;\r\n};\r\n\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly8vKHdlYnBhY2spL2J1aWxkaW4vbW9kdWxlLmpzP2MzYzIiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBLEdBQUc7QUFDSDtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EsR0FBRztBQUNIO0FBQ0E7QUFDQTtBQUNBIiwiZmlsZSI6IjUuanMiLCJzb3VyY2VzQ29udGVudCI6WyJtb2R1bGUuZXhwb3J0cyA9IGZ1bmN0aW9uKG1vZHVsZSkge1xyXG5cdGlmKCFtb2R1bGUud2VicGFja1BvbHlmaWxsKSB7XHJcblx0XHRtb2R1bGUuZGVwcmVjYXRlID0gZnVuY3Rpb24oKSB7fTtcclxuXHRcdG1vZHVsZS5wYXRocyA9IFtdO1xyXG5cdFx0Ly8gbW9kdWxlLnBhcmVudCA9IHVuZGVmaW5lZCBieSBkZWZhdWx0XHJcblx0XHRpZighbW9kdWxlLmNoaWxkcmVuKSBtb2R1bGUuY2hpbGRyZW4gPSBbXTtcclxuXHRcdE9iamVjdC5kZWZpbmVQcm9wZXJ0eShtb2R1bGUsIFwibG9hZGVkXCIsIHtcclxuXHRcdFx0ZW51bWVyYWJsZTogdHJ1ZSxcclxuXHRcdFx0Z2V0OiBmdW5jdGlvbigpIHtcclxuXHRcdFx0XHRyZXR1cm4gbW9kdWxlLmw7XHJcblx0XHRcdH1cclxuXHRcdH0pO1xyXG5cdFx0T2JqZWN0LmRlZmluZVByb3BlcnR5KG1vZHVsZSwgXCJpZFwiLCB7XHJcblx0XHRcdGVudW1lcmFibGU6IHRydWUsXHJcblx0XHRcdGdldDogZnVuY3Rpb24oKSB7XHJcblx0XHRcdFx0cmV0dXJuIG1vZHVsZS5pO1xyXG5cdFx0XHR9XHJcblx0XHR9KTtcclxuXHRcdG1vZHVsZS53ZWJwYWNrUG9seWZpbGwgPSAxO1xyXG5cdH1cclxuXHRyZXR1cm4gbW9kdWxlO1xyXG59O1xyXG5cblxuXG4vLy8vLy8vLy8vLy8vLy8vLy9cbi8vIFdFQlBBQ0sgRk9PVEVSXG4vLyAod2VicGFjaykvYnVpbGRpbi9tb2R1bGUuanNcbi8vIG1vZHVsZSBpZCA9IDVcbi8vIG1vZHVsZSBjaHVua3MgPSAwIl0sInNvdXJjZVJvb3QiOiIifQ==\n//# sourceURL=webpack-internal:///5\n");
+module.exports = function(module) {
+	if(!module.webpackPolyfill) {
+		module.deprecate = function() {};
+		module.paths = [];
+		// module.parent = undefined by default
+		if(!module.children) module.children = [];
+		Object.defineProperty(module, "loaded", {
+			enumerable: true,
+			get: function() {
+				return module.l;
+			}
+		});
+		Object.defineProperty(module, "id", {
+			enumerable: true,
+			get: function() {
+				return module.i;
+			}
+		});
+		module.webpackPolyfill = 1;
+	}
+	return module;
+};
+
 
 /***/ })
 /******/ ]);
