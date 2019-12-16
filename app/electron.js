@@ -102,6 +102,17 @@ function createWindow() {
         app.quit();
         return;
     }
+    // mac端监听伪协议打开应用
+    app.on('open-url', (e, path) => {
+      // && !mainWindow.isVisible()
+      console.log('open-url', path, currentUID);
+      if (mainWindow) {
+        getIdByProtocol(path, () => {
+          mainWindow.webContents.send('windows-focus', currentUID); // mac下防止有些场景程序自动获取焦点 导致跳转到对话框为旧到
+        }); // 对第二个实例伪协议打开的处理
+        showWindow();
+      }
+    });
 
   mainWindow = new BrowserWindow({
     minHeight: 700,
@@ -416,16 +427,6 @@ app.on('open-file', (e, path) => {
   // dialog.showErrorBox('openFile', path);
 });
 
-// mac端监听伪协议打开应用
-app.on('open-url', (e, path) => {
-  // && !mainWindow.isVisible()
-  console.log('open-url', path);
-  if (mainWindow) {
-    getIdByProtocol(path); // 对第二个实例伪协议打开的处理
-    showWindow();
-  }
-});
-
 app.once('ready', createWindow);
 
 app.on('window-all-closed', function () {
@@ -465,8 +466,10 @@ app.on('browser-window-focus', (event, window) => {
   //if(!isMacOS)
   if (window == mainWindow) {
     stopBlinkTray();
+    console.log('browser-window-focus1');
     window.webContents.executeJavaScript('window.messenger.onAppVisible()');
     if (currentUID) {
+      console.log('browser-window-focus2', currentUID);
       window.webContents.send('windows-focus', currentUID);
     }
     // if(!clearChatWhenBlured) {
@@ -567,13 +570,15 @@ function stopBlinkTray() {
 }
 
 // 通过协议自动标记当前聊天对象id
-function getIdByProtocol(protocol) {
+function getIdByProtocol(protocol, callback) {
   if(/^flychat:\/\/(\w+)\/(\d+)$/.test(protocol)) {
     const type = RegExp.$1; // 处理类型
     const UID = RegExp.$2; // 处理用户id
-    console.log('getIdByProtocol', type, UID);
+    console.log('getIdByProtocol', type, UID, currentUID);
     if (type === 'chat' && UID) {
       currentUID = 'u' + UID;
+      callback && callback();
+      console.log('currentUID', currentUID);
     }
   }
 }
@@ -727,6 +732,7 @@ ipcMain.on('dialog-switch', function (event, arg) {
   var info = arg.dialogInfo;
   if (info) {
     var currentDialog = (info.members ? 'g' : 'u') + info.id;
+    console.log(currentDialog, 'get currentDialog');
     currentUID = currentDialog;
     var currentType = info.members ? 'group' : 'user';
     var currentAvatar = info.avatar;
