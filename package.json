@@ -42,7 +42,7 @@
     "node-sass": "^4.1.1",
     "sass-loader": "^4.1.0",
     "style-loader": "^0.13.1",
-    "tree-kill": "^1.1.0",
+    "tree-kill": "^1.2.2",
     "url-loader": "^0.5.7",
     "vue": "^2.1.6",
     "vue-devtools": "^2.3.1-beta1",
