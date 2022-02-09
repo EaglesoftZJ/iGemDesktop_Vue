@@ -39,7 +39,7 @@
     "iconv-lite": "^0.4.19",
     "innosetup-compiler": "^5.5.9",
     "json-loader": "^0.5.4",
-    "node-sass": "^4.1.1",
+    "node-sass": "^7.0.0",
     "sass-loader": "^4.1.0",
     "style-loader": "^0.13.1",
     "tree-kill": "^1.1.0",
