@@ -19,7 +19,7 @@
     "jquery": "^3.2.1",
     "linq": "^3.0.9",
     "qs": "^6.5.1",
-    "soap": "^0.23.0"
+    "soap": "^0.45.0"
   },
   "devDependencies": {
     "async": "^2.1.4",
@@ -32,7 +32,7 @@
     "css-loader": "^0.26.1",
     "devtron": "^1.4.0",
     "electron": "^1.4.13",
-    "electron-packager": "^8.4.0",
+    "electron-packager": "^16.0.0",
     "extract-text-webpack-plugin": "^2.0.0-beta.4",
     "file-loader": "^0.9.0",
     "html-webpack-plugin": "^2.24.1",
